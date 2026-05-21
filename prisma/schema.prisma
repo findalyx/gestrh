@@ -1,0 +1,506 @@
+// ============================================================
+//  SIRH Université St Christopher — Schéma de base de données
+//  Base : PostgreSQL (multi-utilisateurs, accès concurrents)
+//  ORM  : Prisma
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+//  ÉNUMÉRATIONS
+// ============================================================
+
+/// Profils utilisateurs (§4 des spécifications)
+enum Role {
+  DIRECTION // Direction Générale — accès complet, vue stratégique
+  DRH       // DRH / Responsable RH — accès complet RH
+  MANAGER   // Responsable de service — accès limité à son équipe
+  AGENT     // Agent PER ou PATS — accès à son propre dossier
+}
+
+/// Catégorie de personnel (§3)
+enum StaffCategory {
+  PER  // Personnel Enseignant et Recherche
+  PATS // Personnel Administratif, Technique et de Service
+}
+
+/// Sous-catégorie de personnel
+enum StaffSubCategory {
+  PER_ENSEIGNEMENT
+  PER_RECHERCHE
+  PATS_ADMINISTRATIF
+  PATS_TECHNIQUE
+}
+
+enum Gender {
+  HOMME
+  FEMME
+}
+
+enum AgentStatus {
+  ACTIF
+  SUSPENDU
+  RETRAITE
+  INACTIF
+}
+
+enum ContractType {
+  CDI
+  CDD
+  VACATAIRE
+  STAGE
+}
+
+enum ContractStatus {
+  ACTIF
+  EXPIRE
+  RENOUVELE
+  RESILIE
+}
+
+enum LeaveType {
+  ANNUEL
+  MALADIE
+  MATERNITE
+  PATERNITE
+  EXCEPTIONNEL
+  SANS_SOLDE
+}
+
+/// Workflow de validation : Manager -> DRH
+enum LeaveStatus {
+  BROUILLON
+  EN_ATTENTE_MANAGER
+  EN_ATTENTE_DRH
+  APPROUVE
+  REFUSE
+  ANNULE
+}
+
+enum EvaluationStatus {
+  PLANIFIEE
+  EN_COURS
+  TERMINEE
+  EN_RETARD
+}
+
+enum TrainingStatus {
+  PLANIFIEE
+  OUVERTE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum EnrollmentStatus {
+  INSCRIT
+  CONFIRME
+  REALISE
+  ABANDONNE
+}
+
+enum JobStatus {
+  OUVERT
+  EN_COURS
+  POURVU
+  FERME
+}
+
+/// Étapes du pipeline de recrutement (§5.5)
+enum ApplicationStage {
+  CANDIDATURE
+  PRESELECTION
+  ENTRETIEN
+  FINALISTE
+  RECRUTE
+  REJETE
+}
+
+enum PayrollStatus {
+  BROUILLON
+  VALIDE
+  PAYE
+}
+
+enum DocumentType {
+  CONTRAT
+  DIPLOME
+  CERTIFICATION
+  BULLETIN_PAIE
+  JUSTIFICATIF
+  AUTRE
+}
+
+enum NotificationType {
+  ALERTE
+  INFO
+  RAPPEL
+  VALIDATION
+}
+
+// ============================================================
+//  AUTHENTIFICATION & SÉCURITÉ
+// ============================================================
+
+/// Compte de connexion. Lié optionnellement à une fiche Agent.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(AGENT)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  agent         Agent?         @relation(fields: [agentId], references: [id])
+  agentId       String?        @unique
+  notifications Notification[]
+  announcements Announcement[]
+  auditLogs     AuditLog[]
+}
+
+/// Journal d'audit — traçabilité de toutes les actions RH (§5.9, §8.3)
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // ex: "CREATE_AGENT", "APPROVE_LEAVE"
+  entity    String   // ex: "Agent", "LeaveRequest"
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String?
+
+  @@index([entity, entityId])
+}
+
+// ============================================================
+//  ORGANISATION
+// ============================================================
+
+/// Service / département de l'université
+model Service {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  code        String  @unique
+  description String?
+
+  agents     Agent[] @relation("ServiceMembers")
+  manager    Agent?  @relation("ServiceManager", fields: [managerId], references: [id])
+  managerId  String? @unique
+
+  jobPostings JobPosting[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// ============================================================
+//  MODULE 5.2 — GESTION DU PERSONNEL
+// ============================================================
+
+/// Fiche individuelle d'un agent (PER ou PATS)
+model Agent {
+  id             String           @id @default(cuid())
+  matricule      String           @unique
+  firstName      String
+  lastName       String
+  email          String           @unique
+  phone          String?
+  birthDate      DateTime?
+  gender         Gender
+  address        String?
+  category       StaffCategory
+  subCategory    StaffSubCategory
+  jobTitle       String
+  status         AgentStatus      @default(ACTIF)
+  hireDate       DateTime
+  photoUrl       String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  service   Service @relation("ServiceMembers", fields: [serviceId], references: [id])
+  serviceId String
+
+  managedService Service? @relation("ServiceManager")
+  user           User?
+
+  contracts          Contract[]
+  leaveRequests      LeaveRequest[]      @relation("LeaveRequester")
+  leaveApprovals     LeaveRequest[]      @relation("LeaveApprover")
+  leaveBalances      LeaveBalance[]
+  evaluationsReceived Evaluation[]       @relation("Evaluee")
+  evaluationsGiven   Evaluation[]        @relation("Evaluator")
+  enrollments        TrainingEnrollment[]
+  payrollRecords     PayrollRecord[]
+  documents          Document[]
+  careerEntries      CareerEntry[]
+
+  @@index([category])
+  @@index([serviceId])
+}
+
+/// Historique de carrière et postes occupés (§5.2)
+model CareerEntry {
+  id        String   @id @default(cuid())
+  jobTitle  String
+  startDate DateTime
+  endDate   DateTime?
+  notes     String?
+
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String
+}
+
+/// Contrat de travail
+model Contract {
+  id          String         @id @default(cuid())
+  reference   String         @unique
+  type        ContractType
+  status      ContractStatus @default(ACTIF)
+  startDate   DateTime
+  endDate     DateTime?
+  grade       String?        // échelon / grille salariale
+  baseSalary  Int            // salaire de base en FCFA
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String
+
+  @@index([status])
+  @@index([endDate])
+}
+
+// ============================================================
+//  MODULE 5.3 — PAIE & AVANTAGES SOCIAUX
+// ============================================================
+
+/// Bulletin de paie mensuel d'un agent
+model PayrollRecord {
+  id          String        @id @default(cuid())
+  period      String        // ex: "2025-05"
+  baseSalary  Int           // FCFA
+  bonuses     Int           @default(0) // primes & indemnités
+  allowances  Int           @default(0) // allocations
+  deductions  Int           @default(0) // cotisations CSS / IPRES / IPM
+  netSalary   Int
+  status      PayrollStatus @default(BROUILLON)
+  pdfUrl      String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String
+
+  @@unique([agentId, period])
+  @@index([period])
+}
+
+// ============================================================
+//  MODULE 5.4 — CONGÉS & ABSENCES
+// ============================================================
+
+/// Demande de congé soumise à validation hiérarchique
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  type      LeaveType
+  status    LeaveStatus @default(BROUILLON)
+  startDate DateTime
+  endDate   DateTime
+  days      Float
+  reason    String?
+  justifUrl String?     // certificat médical, etc.
+  decidedAt DateTime?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  agent     Agent  @relation("LeaveRequester", fields: [agentId], references: [id], onDelete: Cascade)
+  agentId   String
+  approver  Agent? @relation("LeaveApprover", fields: [approverId], references: [id])
+  approverId String?
+
+  @@index([status])
+}
+
+/// Solde de congés d'un agent par type et par année
+model LeaveBalance {
+  id         String    @id @default(cuid())
+  year       Int
+  type       LeaveType
+  totalDays  Float
+  usedDays   Float     @default(0)
+
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String
+
+  @@unique([agentId, year, type])
+}
+
+// ============================================================
+//  MODULE 5.5 — RECRUTEMENT & INTÉGRATION
+// ============================================================
+
+/// Offre d'emploi publiée
+model JobPosting {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  category    StaffCategory
+  status      JobStatus @default(OUVERT)
+  openings    Int       @default(1)
+  publishedAt DateTime  @default(now())
+  closesAt    DateTime?
+
+  service   Service? @relation(fields: [serviceId], references: [id])
+  serviceId String?
+
+  applications Application[]
+}
+
+/// Candidature à une offre — porte l'étape du pipeline
+model Application {
+  id            String           @id @default(cuid())
+  candidateName String
+  candidateEmail String
+  candidatePhone String?
+  cvUrl         String?
+  stage         ApplicationStage @default(CANDIDATURE)
+  interviewAt   DateTime?
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  jobPostingId String
+
+  @@index([stage])
+}
+
+// ============================================================
+//  MODULE 5.6 — FORMATION & DÉVELOPPEMENT
+// ============================================================
+
+/// Formation du catalogue (interne ou externe)
+model TrainingCourse {
+  id          String  @id @default(cuid())
+  title       String
+  category    String  // ex: "Pédagogie", "Numérique"
+  description String?
+  isInternal  Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  sessions TrainingSession[]
+}
+
+/// Session planifiée d'une formation
+model TrainingSession {
+  id        String         @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  location  String?
+  capacity  Int            @default(20)
+  status    TrainingStatus @default(PLANIFIEE)
+
+  course   TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId String
+
+  enrollments TrainingEnrollment[]
+}
+
+/// Inscription d'un agent à une session de formation
+model TrainingEnrollment {
+  id        String           @id @default(cuid())
+  status    EnrollmentStatus @default(INSCRIT)
+  score     Float?
+  createdAt DateTime         @default(now())
+
+  agent     Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId   String
+  session   TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId String
+
+  @@unique([agentId, sessionId])
+}
+
+// ============================================================
+//  MODULE 5.7 — ÉVALUATION & PERFORMANCE
+// ============================================================
+
+/// Campagne d'évaluation annuelle d'un agent
+model Evaluation {
+  id           String           @id @default(cuid())
+  period       String           // ex: "2025"
+  status       EvaluationStatus @default(PLANIFIEE)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  overallScore Float?           // note globale / 100
+  objectives   String?
+  comments     String?
+  highPotential Boolean         @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  agent       Agent  @relation("Evaluee", fields: [agentId], references: [id], onDelete: Cascade)
+  agentId     String
+  evaluator   Agent? @relation("Evaluator", fields: [evaluatorId], references: [id])
+  evaluatorId String?
+
+  @@index([status])
+}
+
+// ============================================================
+//  MODULE 5.8 — COMMUNICATION INTERNE
+// ============================================================
+
+/// Notification automatisée destinée à un utilisateur
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@index([userId, isRead])
+}
+
+/// Annonce de la direction
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  publishedAt DateTime @default(now())
+
+  author   User   @relation(fields: [authorId], references: [id])
+  authorId String
+}
+
+// ============================================================
+//  MODULE 5.9 — CONFORMITÉ & ARCHIVES
+// ============================================================
+
+/// Document RH archivé (contrat, diplôme, justificatif…)
+model Document {
+  id        String       @id @default(cuid())
+  type      DocumentType
+  title     String
+  fileUrl   String
+  createdAt DateTime     @default(now())
+
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agentId String?
+
+  @@index([type])
+}

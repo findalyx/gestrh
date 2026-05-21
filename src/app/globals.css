@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* ============================================================
+   THÈME ST CHRISTOPHER
+   Palette officielle des spécifications (§6.1)
+   ============================================================ */
+@theme {
+  --color-sc-blue: #3359a4;
+  --color-sc-blue-dark: #244280;
+  --color-sc-blue-darker: #1a3066;
+  --color-sc-blue-light: #e8eef8;
+  --color-sc-blue-bg: #f4f7fc;
+
+  --color-sc-purple: #554596;
+  --color-sc-purple-dark: #423679;
+  --color-sc-purple-light: #edeaf5;
+
+  --color-sc-green: #7ab929;
+  --color-sc-green-dark: #5e8f1f;
+  --color-sc-green-light: #ecf6dc;
+
+  --color-sc-teal: #28b5be;
+  --color-sc-teal-dark: #1f8f96;
+  --color-sc-teal-light: #dcf4f6;
+
+  --color-sc-warning: #e6a817;
+  --color-sc-warning-light: #fdf4d9;
+  --color-sc-danger: #d9534f;
+  --color-sc-danger-light: #fce5e4;
+
+  --color-sc-ink: #1a2332;
+  --color-sc-bg: #f0f2f7;
+  --color-sc-border: #e2e8f0;
+
+  --font-sans: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-sc-bg);
+  color: var(--color-sc-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
