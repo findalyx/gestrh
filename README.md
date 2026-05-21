@@ -27,27 +27,42 @@ backend. PostgreSQL est choisi pour sa robustesse en accès concurrents
 ## Prérequis
 
 - Node.js 20+
-- PostgreSQL 14+
+- Docker (pour la base de données) — ou une instance PostgreSQL 14+
 
 ## Installation
 
 ```bash
-# 1. Installer les dépendances
+# 1. Cloner le dépôt
+git clone https://github.com/segnoogo/gestRH.git
+cd gestRH
+
+# 2. Installer les dépendances
 npm install
 
-# 2. Configurer la base de données
-cp .env.example .env
-#    puis renseigner DATABASE_URL dans .env
+# 3. Démarrer la base de données PostgreSQL
+docker compose up -d
 
-# 3. Créer le schéma et charger les données de démonstration
+# 4. Configurer l'environnement
+cp .env.example .env
+
+# 5. Créer le schéma et charger les données de démonstration
 npm run db:migrate
 npm run db:seed
 
-# 4. Lancer le serveur de développement
+# 6. Lancer le serveur de développement
 npm run dev
 ```
 
 L'application est disponible sur http://localhost:3000
+
+> Sans Docker : installer PostgreSQL, créer une base, puis renseigner
+> `DATABASE_URL` dans `.env` avant l'étape 5.
+
+### Aperçus visuels
+
+`npm run screenshot` génère des captures PNG des pages dans le dossier
+`screenshots/` (le serveur de dev doit tourner). Nécessite le navigateur
+Playwright : `npx playwright install chromium`.
 
 ## Comptes de démonstration
 
