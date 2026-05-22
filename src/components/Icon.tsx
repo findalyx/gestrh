@@ -15,7 +15,8 @@ export type IconName =
   | "bell"
   | "export"
   | "alert"
-  | "info";
+  | "info"
+  | "logout";
 
 // Tracés SVG (style Feather, viewBox 0 0 24 24) repris de la maquette.
 const PATHS: Record<IconName, React.ReactNode> = {
@@ -98,6 +99,13 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <circle cx="12" cy="12" r="10" />
       <path d="M12 16v-4M12 8h.01" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
     </>
   ),
 };

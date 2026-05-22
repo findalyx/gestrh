@@ -40,6 +40,9 @@ yarn-error.log*
 # captures d'écran générées
 /screenshots
 
+# fichiers uploadés (CV des candidats, etc.)
+/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

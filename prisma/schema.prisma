@@ -160,11 +160,41 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  agent         Agent?         @relation(fields: [agentId], references: [id])
-  agentId       String?        @unique
-  notifications Notification[]
-  announcements Announcement[]
-  auditLogs     AuditLog[]
+  agent            Agent?            @relation(fields: [agentId], references: [id])
+  agentId          String?           @unique
+  notifications    Notification[]
+  announcements    Announcement[]
+  auditLogs        AuditLog[]
+  applicationNotes ApplicationNote[]
+}
+
+/// Paramètres applicatifs (clé / valeur). Pour stocker des compteurs ou
+/// états globaux : dernier calcul de solde, version active, etc.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+/// Identité de l'organisation (singleton). Sert pour l'en-tête de l'app,
+/// le logo, les bulletins de paie, les exports, etc.
+model Organization {
+  id           String   @id @default(cuid())
+  name         String   // ex: "Université St Christopher"
+  shortName    String?  // ex: "USC" (pour les pastilles)
+  tagline      String?  // ex: "SIRH · Université"
+  address      String?
+  city         String?
+  country      String   @default("Sénégal")
+  ninea        String?  // n° fiscal
+  rccm         String?  // registre du commerce
+  phone        String?
+  email        String?
+  website      String?
+  // Logo uploadé ; chemin = ./uploads/branding/{logoFilename}
+  logoFilename String?
+  logoMimeType String?
+  updatedAt    DateTime @updatedAt
 }
 
 /// Journal d'audit — traçabilité de toutes les actions RH (§5.9, §8.3)
@@ -215,6 +245,9 @@ model Agent {
   email          String           @unique
   phone          String?
   birthDate      DateTime?
+  birthPlace     String?
+  nationality    String?
+  maritalStatus  String?
   gender         Gender
   address        String?
   category       StaffCategory
@@ -269,8 +302,15 @@ model Contract {
   endDate     DateTime?
   grade       String?        // échelon / grille salariale
   baseSalary  Int            // salaire de base en FCFA
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  // PDF du contrat (auto-généré ou scan signé) — chemin = ./uploads/contracts/{id}/{pdfFilename}
+  pdfFilename  String?
+  pdfMimeType  String?
+  pdfSize      Int?
+  // true = PDF auto-généré par le système (peut être ré-écrasé en bulk)
+  // false = scan signé téléversé manuellement (à ne pas écraser)
+  pdfGenerated Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
   agentId String
@@ -371,7 +411,10 @@ model Application {
   candidateName String
   candidateEmail String
   candidatePhone String?
-  cvUrl         String?
+  cvUrl         String?          // lien externe (LinkedIn, drive…)
+  cvFilename    String?          // nom du fichier uploadé ; chemin = ./uploads/cvs/{id}/{cvFilename}
+  cvMimeType    String?          // ex: "application/pdf"
+  cvSize        Int?             // octets
   stage         ApplicationStage @default(CANDIDATURE)
   interviewAt   DateTime?
   notes         String?
@@ -381,7 +424,25 @@ model Application {
   jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
   jobPostingId String
 
+  applicationNotes ApplicationNote[]
+
   @@index([stage])
+}
+
+/// Note datée d'un évaluateur sur une candidature, à une étape donnée.
+/// Permet de suivre l'historique des appréciations à chaque palier du pipeline.
+model ApplicationNote {
+  id            String           @id @default(cuid())
+  body          String
+  stage         ApplicationStage // étape au moment de la rédaction
+  createdAt     DateTime         @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+  author        User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorId      String?
+
+  @@index([applicationId, createdAt])
 }
 
 // ============================================================
@@ -390,14 +451,32 @@ model Application {
 
 /// Formation du catalogue (interne ou externe)
 model TrainingCourse {
-  id          String  @id @default(cuid())
-  title       String
-  category    String  // ex: "Pédagogie", "Numérique"
-  description String?
-  isInternal  Boolean @default(true)
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  title         String
+  category      String   // ex: "Pédagogie", "Numérique"
+  description   String?
+  isInternal    Boolean  @default(true)
+  instructor    String?  // nom du formateur (ou intervenant)
+  objectives    String?  // objectifs pédagogiques (texte libre)
+  durationHours Int?     // durée totale en heures
+  createdAt     DateTime @default(now())
 
   sessions TrainingSession[]
+  modules  CourseModule[]
+}
+
+/// Module pédagogique d'un cours (sous-partie du programme)
+model CourseModule {
+  id            String  @id @default(cuid())
+  title         String
+  description   String?
+  durationHours Int?
+  order         Int     @default(0)
+
+  course   TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId String
+
+  @@index([courseId, order])
 }
 
 /// Session planifiée d'une formation
@@ -478,13 +557,30 @@ model Notification {
 
 /// Annonce de la direction
 model Announcement {
-  id        String   @id @default(cuid())
-  title     String
-  body      String
+  id          String   @id @default(cuid())
+  title       String
+  body        String
   publishedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  author   User   @relation(fields: [authorId], references: [id])
-  authorId String
+  author      User   @relation(fields: [authorId], references: [id])
+  authorId    String
+  attachments AnnouncementAttachment[]
+}
+
+/// Pièce jointe d'une annonce (image ou fichier).
+/// Chemin sur disque : `./uploads/announcements/{announcementId}/{filename}`
+model AnnouncementAttachment {
+  id        String   @id @default(cuid())
+  filename  String
+  mimeType  String
+  size      Int
+  createdAt DateTime @default(now())
+
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  announcementId String
+
+  @@index([announcementId])
 }
 
 // ============================================================

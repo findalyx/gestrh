@@ -3,36 +3,63 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
-import { NAV_SECTIONS } from "@/lib/navigation";
+import type { NavSection } from "@/lib/navigation";
 
 type SidebarProps = {
+  sections: NavSection[];
   /** Compteurs affichés en pastille, indexés par href */
   badges?: Record<string, number>;
+  organization: {
+    name: string;
+    shortName: string | null;
+    tagline: string | null;
+    logoUrl: string | null;
+  };
 };
 
-export function Sidebar({ badges = {} }: SidebarProps) {
+export function Sidebar({ sections, badges = {}, organization }: SidebarProps) {
   const pathname = usePathname();
+  const initials =
+    organization.shortName?.toUpperCase() ||
+    organization.name
+      .split(/\s+/)
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
 
   return (
     <aside className="sticky top-0 flex h-screen flex-col overflow-y-auto bg-gradient-to-b from-sc-blue-darker to-sc-blue-dark text-white">
       {/* Marque */}
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-6">
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sc-teal to-sc-green font-serif text-lg font-bold">
-          SC
-        </div>
-        <div>
+        {organization.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={organization.logoUrl}
+            alt={organization.name}
+            className="h-11 w-11 flex-shrink-0 rounded-xl bg-white/95 object-contain p-1"
+          />
+        ) : (
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sc-teal to-sc-green font-serif text-lg font-bold">
+            {initials || "?"}
+          </div>
+        )}
+        <div className="min-w-0">
           <h1 className="font-serif text-[17px] font-semibold leading-tight">
-            St Christopher
+            {organization.name}
           </h1>
-          <p className="text-[11px] uppercase tracking-wider text-white/60">
-            SIRH · Université
-          </p>
+          {organization.tagline && (
+            <p className="text-[11px] uppercase tracking-wider text-white/60">
+              {organization.tagline}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Sections de navigation */}
       <nav className="py-2">
-        {NAV_SECTIONS.map((section) => (
+        {sections.map((section) => (
           <div key={section.label} className="py-3">
             <div className="px-5 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">
               {section.label}

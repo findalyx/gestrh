@@ -1,0 +1,121 @@
+name: Nightly Backup
+
+# ============================================================
+#  BACKUP NOCTURNE — Base Supabase + fichiers uploadés
+#
+#  Lance pg_dump contre la BD Supabase, chiffre le dump avec gpg,
+#  uploade sur Cloudflare R2, garde 90 jours, supprime les plus anciens.
+#  Notifie sur Slack/email en cas d'échec (optionnel).
+#
+#  À configurer une fois dans Settings → Secrets and variables → Actions :
+#    SUPABASE_DB_URL    = postgresql://postgres:[password]@db.xxxx.supabase.co:5432/postgres
+#    BACKUP_PASSPHRASE  = un mot de passe long pour chiffrer (ne JAMAIS le perdre)
+#    R2_ACCOUNT_ID      = ton account ID Cloudflare
+#    R2_ACCESS_KEY_ID   = token R2 (Cloudflare → R2 → Manage API Tokens)
+#    R2_SECRET_KEY      = secret du token
+#    R2_BUCKET          = nom du bucket (ex: "sirh-backups")
+# ============================================================
+
+on:
+  schedule:
+    # Tous les jours à 02h00 UTC (= 02h00 à Dakar, fuseau UTC+0)
+    - cron: "0 2 * * *"
+  workflow_dispatch: # permet de lancer manuellement depuis l'UI GitHub
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install PostgreSQL client + rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-16 gnupg
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Dump database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          STAMP=$(date -u +%Y-%m-%d_%H-%M-%S)
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # --no-owner / --no-acl pour éviter les soucis lors d'un restore sur autre instance
+          pg_dump --no-owner --no-acl --format=custom --file="sirh_${STAMP}.dump" "$DB_URL"
+          ls -lh "sirh_${STAMP}.dump"
+
+      - name: Encrypt dump
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          # Chiffrement symétrique AES-256. Sans la passphrase, le fichier est illisible.
+          gpg --batch --yes --passphrase "$PASSPHRASE" \
+              --symmetric --cipher-algo AES256 \
+              --output "sirh_${STAMP}.dump.gpg" \
+              "sirh_${STAMP}.dump"
+          rm -f "sirh_${STAMP}.dump"
+          ls -lh "sirh_${STAMP}.dump.gpg"
+
+      - name: Configure rclone for Cloudflare R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = $R2_ACCESS_KEY_ID
+          secret_access_key = $R2_SECRET_KEY
+          endpoint = https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com
+          acl = private
+          EOF
+
+      - name: Upload to R2
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          rclone copy "sirh_${STAMP}.dump.gpg" "r2:$R2_BUCKET/db/"
+          echo "✓ Uploaded sirh_${STAMP}.dump.gpg to r2:$R2_BUCKET/db/"
+
+      # ----------------------------------------------------------
+      # Backup des fichiers (contrats PDF, logo, etc.) depuis
+      # Supabase Storage. À activer une fois que tu auras migré
+      # les uploads vers Supabase Storage (cf. note plus bas).
+      # ----------------------------------------------------------
+      # - name: Sync Supabase Storage to R2
+      #   env:
+      #     SB_S3_KEY: ${{ secrets.SUPABASE_S3_ACCESS_KEY }}
+      #     SB_S3_SECRET: ${{ secrets.SUPABASE_S3_SECRET_KEY }}
+      #     SB_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      #     R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      #   run: |
+      #     cat >> ~/.config/rclone/rclone.conf <<EOF
+      #     [supabase]
+      #     type = s3
+      #     provider = Other
+      #     access_key_id = $SB_S3_KEY
+      #     secret_access_key = $SB_S3_SECRET
+      #     endpoint = https://$SB_PROJECT_REF.supabase.co/storage/v1/s3
+      #     EOF
+      #     rclone sync supabase:contracts "r2:$R2_BUCKET/storage/contracts/"
+      #     rclone sync supabase:branding  "r2:$R2_BUCKET/storage/branding/"
+
+      - name: Retention — delete backups older than 90 days
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          rclone delete "r2:$R2_BUCKET/db/" --min-age 90d --rmdirs
+          echo "✓ Retention nettoyée (>90 jours supprimés)"
+
+      - name: Summary
+        run: |
+          echo "### Backup OK" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Fichier : \`sirh_${STAMP}.dump.gpg\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Destination : \`r2://${{ secrets.R2_BUCKET }}/db/\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Rétention : 90 jours" >> "$GITHUB_STEP_SUMMARY"

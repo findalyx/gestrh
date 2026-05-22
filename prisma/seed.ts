@@ -20,7 +20,6 @@ import {
   JobStatus,
   ApplicationStage,
   PayrollStatus,
-  NotificationType,
   Role,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -85,15 +84,15 @@ const SALAIRES: Record<StaffSubCategory, [number, number]> = {
   PATS_TECHNIQUE: [160_000, 350_000],
 };
 
-// --- Répartition des agents par service (total = 245) ---------
+// --- Répartition des agents par service (total = 41, jeu de test réduit) ---------
 const SERVICES = [
-  { code: "MED", name: "Médecine", sub: "PER_ENSEIGNEMENT", count: 24 },
-  { code: "CHI", name: "Chirurgie", sub: "PER_ENSEIGNEMENT", count: 18 },
-  { code: "PHA", name: "Pharmacie", sub: "PER_ENSEIGNEMENT", count: 12 },
-  { code: "SIO", name: "Sciences infirmières", sub: "PER_ENSEIGNEMENT", count: 11 },
-  { code: "REC", name: "Recherche", sub: "PER_RECHERCHE", count: 33 },
-  { code: "ADM", name: "Administration", sub: "PATS_ADMINISTRATIF", count: 92 },
-  { code: "TEC", name: "Technique", sub: "PATS_TECHNIQUE", count: 55 },
+  { code: "MED", name: "Médecine", sub: "PER_ENSEIGNEMENT", count: 8 },
+  { code: "CHI", name: "Chirurgie", sub: "PER_ENSEIGNEMENT", count: 5 },
+  { code: "PHA", name: "Pharmacie", sub: "PER_ENSEIGNEMENT", count: 3 },
+  { code: "SIO", name: "Sciences infirmières", sub: "PER_ENSEIGNEMENT", count: 3 },
+  { code: "REC", name: "Recherche", sub: "PER_RECHERCHE", count: 6 },
+  { code: "ADM", name: "Administration", sub: "PATS_ADMINISTRATIF", count: 10 },
+  { code: "TEC", name: "Technique", sub: "PATS_TECHNIQUE", count: 6 },
 ] as const;
 
 async function main() {
@@ -118,6 +117,24 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.agent.deleteMany();
   await prisma.service.deleteMany();
+  await prisma.organization.deleteMany();
+
+  // --- Organisation (singleton) ------------------------------
+  console.log("🏢  Création de l'organisation par défaut…");
+  await prisma.organization.create({
+    data: {
+      name: "Université St Christopher",
+      shortName: "SC",
+      tagline: "SIRH · Université",
+      address: "Route de Ouakam",
+      city: "Dakar",
+      country: "Sénégal",
+      ninea: "—",
+      phone: "+221 33 800 00 00",
+      email: "contact@st-christopher.sn",
+      website: "https://st-christopher.sn",
+    },
+  });
 
   // --- Services ----------------------------------------------
   console.log("🏛️   Création des 7 services…");
@@ -130,7 +147,7 @@ async function main() {
   }
 
   // --- Agents + contrats -------------------------------------
-  console.log("👥  Création des 245 agents et de leurs contrats…");
+  console.log(`👥  Création des ${SERVICES.reduce((s, x) => s + x.count, 0)} agents et de leurs contrats…`);
   let matNum = 0;
   const agentIds: string[] = [];
   const agentsByService = new Map<string, string[]>();
@@ -216,7 +233,10 @@ async function main() {
   const pwd = await bcrypt.hash("sirh2026", 10);
   const drhAgentId = agentsByService.get("ADM")![0];
   const managerAgentId = managerIds.get("MED")!;
-  const agentAgentId = agentsByService.get("MED")![5];
+  const agentAgentId = agentsByService.get("MED")![3];
+  // Pour ne pas pré-inscrire automatiquement les comptes de démo aux formations
+  // (l'utilisateur veut pouvoir tester l'inscription).
+  const demoAgentIds = new Set([drhAgentId, managerAgentId, agentAgentId]);
 
   const adminUser = await prisma.user.create({
     data: { email: "direction@st-christopher.sn", passwordHash: pwd, role: Role.DIRECTION },
@@ -260,17 +280,52 @@ async function main() {
     });
   }
 
-  // 18 demandes en attente de validation (badge du tableau de bord)
-  const leaveStatuses: LeaveStatus[] = [
+  // Demandes de congé variées : passées, en cours, à venir
+  // → permet à la heatmap de présence de montrer des variations dans la
+  //   fenêtre des 20 derniers jours ouvrés.
+  const NOW = new Date();
+  const DAY_MS = 24 * 3600 * 1000;
+  const addDays = (base: Date, n: number) => new Date(base.getTime() + n * DAY_MS);
+
+  // 12 congés approuvés répartis sur la fenêtre récente (passés + en cours)
+  // pour rendre la heatmap parlante.
+  for (let i = 0; i < 12; i++) {
+    const agentId = pick(agentIds);
+    const duration = randInt(2, 7);
+    // décalage entre -25 et +3 jours par rapport à aujourd'hui
+    const startOffset = randInt(-25, 3);
+    const startDate = addDays(NOW, startOffset);
+    const endDate = addDays(startDate, duration - 1);
+    await prisma.leaveRequest.create({
+      data: {
+        agentId,
+        type: pick([
+          LeaveType.ANNUEL,
+          LeaveType.MALADIE,
+          LeaveType.EXCEPTIONNEL,
+        ]),
+        status: LeaveStatus.APPROUVE,
+        startDate,
+        endDate,
+        days: duration,
+        reason: "Congé planifié",
+        decidedAt: addDays(startDate, -7),
+      },
+    });
+  }
+
+  // 18 demandes en attente de validation (futures) + quelques refusées
+  const pendingStatuses: LeaveStatus[] = [
     ...Array(10).fill(LeaveStatus.EN_ATTENTE_MANAGER),
     ...Array(8).fill(LeaveStatus.EN_ATTENTE_DRH),
-    ...Array(22).fill(LeaveStatus.APPROUVE),
     ...Array(6).fill(LeaveStatus.REFUSE),
   ];
-  for (const status of leaveStatuses) {
+  for (const status of pendingStatuses) {
     const agentId = pick(agentIds);
-    const startMonth = randInt(5, 11);
     const duration = randInt(2, 14);
+    const startOffset = randInt(7, 90); // dans les 3 prochains mois
+    const startDate = addDays(NOW, startOffset);
+    const endDate = addDays(startDate, duration - 1);
     await prisma.leaveRequest.create({
       data: {
         agentId,
@@ -280,8 +335,8 @@ async function main() {
           LeaveType.EXCEPTIONNEL,
         ]),
         status,
-        startDate: new Date(2026, startMonth, randInt(1, 15)),
-        endDate: new Date(2026, startMonth, randInt(16, 28)),
+        startDate,
+        endDate,
         days: duration,
         reason: "Demande de congé",
       },
@@ -332,15 +387,19 @@ async function main() {
         startDate: new Date(2026, randInt(1, 9), randInt(1, 20)),
         endDate: new Date(2026, randInt(1, 9), randInt(21, 28)),
         location: "Campus St Christopher — Dakar",
-        capacity: 25,
-        status: pick([TrainingStatus.OUVERTE, TrainingStatus.TERMINEE, TrainingStatus.EN_COURS]),
+        capacity: 50,
+        // Sessions OUVERTES par défaut pour permettre aux comptes de démo
+        // de tester l'inscription.
+        status: TrainingStatus.OUVERTE,
       },
     });
-    const nb = randInt(10, 16);
+    // Quelques pré-inscriptions (3-5) pour rendre la session vivante, en
+    // évitant les comptes de démo (qui doivent pouvoir s'inscrire eux-mêmes).
+    const nb = randInt(3, 5);
     const used = new Set<string>();
     for (let i = 0; i < nb; i++) {
       const agentId = pick(agentIds);
-      if (used.has(agentId)) continue;
+      if (used.has(agentId) || demoAgentIds.has(agentId)) continue;
       used.add(agentId);
       await prisma.trainingEnrollment.create({
         data: {
@@ -349,7 +408,6 @@ async function main() {
           status: pick([
             EnrollmentStatus.INSCRIT,
             EnrollmentStatus.CONFIRME,
-            EnrollmentStatus.REALISE,
           ]),
         },
       });
@@ -382,13 +440,13 @@ async function main() {
     });
     jobIds.push(job.id);
   }
-  // Pipeline : 74 / 40 / 16 / 7 / 5  = 142 candidatures
+  // Pipeline : 14 / 8 / 4 / 2 / 1  = 29 candidatures (jeu de test réduit)
   const pipeline: ApplicationStage[] = [
-    ...Array(74).fill(ApplicationStage.CANDIDATURE),
-    ...Array(40).fill(ApplicationStage.PRESELECTION),
-    ...Array(16).fill(ApplicationStage.ENTRETIEN),
-    ...Array(7).fill(ApplicationStage.FINALISTE),
-    ...Array(5).fill(ApplicationStage.RECRUTE),
+    ...Array(14).fill(ApplicationStage.CANDIDATURE),
+    ...Array(8).fill(ApplicationStage.PRESELECTION),
+    ...Array(4).fill(ApplicationStage.ENTRETIEN),
+    ...Array(2).fill(ApplicationStage.FINALISTE),
+    ...Array(1).fill(ApplicationStage.RECRUTE),
   ];
   for (const stage of pipeline) {
     const gender = rand() < 0.5 ? Gender.HOMME : Gender.FEMME;
@@ -434,7 +492,10 @@ async function main() {
   }
 
   // --- Communication interne ---------------------------------
-  console.log("📣  Création des annonces et notifications…");
+  // Note : les "alertes RH" du topbar sont désormais calculées en temps réel
+  // depuis l'état de la base (cf. src/lib/alerts.ts). Pas besoin de seeder
+  // des notifications statiques qui se désynchronisent vite des chiffres réels.
+  console.log("📣  Création de l'annonce de lancement…");
   await prisma.announcement.create({
     data: {
       title: "Lancement de la campagne d'évaluation 2025-2026",
@@ -442,31 +503,11 @@ async function main() {
       authorId: adminUser.id,
     },
   });
-  const notifs = [
-    {
-      type: NotificationType.ALERTE,
-      title: "2 contrats expirent sous 30 jours",
-      message: "Des contrats CDD arrivent à échéance. Vérifiez les renouvellements.",
-    },
-    {
-      type: NotificationType.RAPPEL,
-      title: "3 évaluations en retard",
-      message: "Département de chirurgie · échéance dépassée.",
-    },
-    {
-      type: NotificationType.VALIDATION,
-      title: "18 demandes de congés à valider",
-      message: "Validation hiérarchique en attente.",
-    },
-  ];
-  for (const n of notifs) {
-    await prisma.notification.create({ data: { ...n, userId: adminUser.id } });
-  }
 
   console.log("\n✅  Données de démonstration créées :");
   console.log(`    · ${agentIds.length} agents · 7 services`);
   console.log(`    · ${contracts.length} contrats · ${enrollmentCount} inscriptions formation`);
-  console.log(`    · 142 candidatures · 4 comptes utilisateurs`);
+  console.log(`    · ${pipeline.length} candidatures · 4 comptes utilisateurs`);
   console.log("\n    Comptes de démo (mot de passe : sirh2026) :");
   console.log("    · direction@st-christopher.sn   (Direction Générale)");
   console.log("    · drh@st-christopher.sn         (DRH)");
