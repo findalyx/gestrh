@@ -10,9 +10,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   experimental: {
     // Permet d'uploader des CV jusqu'à 5 MB via Server Actions.
     serverActions: {
