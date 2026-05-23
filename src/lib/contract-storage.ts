@@ -1,10 +1,11 @@
 import "server-only";
 
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import path from "node:path";
-
-const ROOT = path.join(process.cwd(), "uploads", "contracts");
+import {
+  getObject,
+  putObject,
+  removePrefix,
+  sanitizeFilename,
+} from "./supabase-storage";
 
 const ACCEPTED_MIME = new Set([
   "application/pdf",
@@ -14,14 +15,8 @@ const ACCEPTED_MIME = new Set([
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB (contrat scanné parfois lourd)
 
-function sanitize(name: string): string {
-  return (
-    name
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-zA-Z0-9._-]/g, "_")
-      .slice(0, 80) || "contrat.pdf"
-  );
+function pathFor(contractId: string, filename: string): string {
+  return `contracts/${contractId}/${sanitizeFilename(filename)}`;
 }
 
 export type ContractPdfResult =
@@ -49,15 +44,18 @@ export async function saveContractPdf(args: {
     };
   }
 
-  // Nettoie l'éventuel ancien PDF (un seul PDF par contrat)
+  // Un seul PDF par contrat → on nettoie l'ancien dossier d'abord.
   await deleteContractFolder(contractId);
 
-  const filename = sanitize(file.name);
-  const dir = path.join(ROOT, contractId);
-  await mkdir(dir, { recursive: true });
-  const dest = path.join(dir, filename);
+  const filename = sanitizeFilename(file.name);
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(dest, buffer);
+  const put = await putObject({
+    path: pathFor(contractId, filename),
+    buffer,
+    contentType: file.type || "application/octet-stream",
+    upsert: true,
+  });
+  if (!put.ok) return { ok: false, error: put.error };
 
   return {
     ok: true,
@@ -67,20 +65,39 @@ export async function saveContractPdf(args: {
   };
 }
 
+/**
+ * Variante directe pour les PDF auto-générés par `generateContractPdf`
+ * (déjà un Buffer en mémoire, pas de File).
+ */
+export async function saveContractPdfBuffer(args: {
+  contractId: string;
+  filename: string;
+  buffer: Buffer;
+}): Promise<ContractPdfResult> {
+  const filename = sanitizeFilename(args.filename);
+  await deleteContractFolder(args.contractId);
+  const put = await putObject({
+    path: pathFor(args.contractId, filename),
+    buffer: args.buffer,
+    contentType: "application/pdf",
+    upsert: true,
+  });
+  if (!put.ok) return { ok: false, error: put.error };
+  return {
+    ok: true,
+    filename,
+    mimeType: "application/pdf",
+    size: args.buffer.length,
+  };
+}
+
 export async function readContractPdf(args: {
   contractId: string;
   filename: string;
 }): Promise<Buffer | null> {
-  const dest = path.join(ROOT, args.contractId, sanitize(args.filename));
-  if (!existsSync(dest)) return null;
-  const resolved = path.resolve(dest);
-  if (!resolved.startsWith(path.resolve(ROOT))) return null;
-  return readFile(resolved);
+  return getObject(pathFor(args.contractId, args.filename));
 }
 
 export async function deleteContractFolder(contractId: string): Promise<void> {
-  const dir = path.join(ROOT, contractId);
-  if (existsSync(dir)) {
-    await rm(dir, { recursive: true, force: true });
-  }
+  await removePrefix(`contracts/${contractId}`);
 }

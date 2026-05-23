@@ -1,12 +1,15 @@
 import "server-only";
 
 import { cache } from "react";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import path from "node:path";
 import { prisma } from "@/lib/prisma";
+import {
+  getObject,
+  putObject,
+  removePrefix,
+  sanitizeFilename,
+} from "@/lib/supabase-storage";
 
-const BRANDING_DIR = path.join(process.cwd(), "uploads", "branding");
+const BRANDING_PREFIX = "branding";
 
 const DEFAULTS = {
   name: "Université St Christopher",
@@ -47,17 +50,13 @@ const ACCEPTED_LOGO_MIME = new Set([
 ]);
 const MAX_LOGO_BYTES = 2 * 1024 * 1024; // 2 MB
 
-function sanitize(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .slice(0, 64);
-}
-
 export type LogoUploadResult =
   | { ok: true; filename: string; mimeType: string }
   | { ok: false; error: string };
+
+function pathFor(filename: string): string {
+  return `${BRANDING_PREFIX}/${sanitizeFilename(filename)}`;
+}
 
 export async function saveLogoFile(file: File): Promise<LogoUploadResult> {
   if (!file || file.size === 0) {
@@ -77,11 +76,16 @@ export async function saveLogoFile(file: File): Promise<LogoUploadResult> {
   // l'accumulation de fichiers orphelins.
   await clearLogoFiles();
 
-  const filename = sanitize(file.name) || `logo${extOf(file.type)}`;
-  await mkdir(BRANDING_DIR, { recursive: true });
-  const dest = path.join(BRANDING_DIR, filename);
+  const filename =
+    sanitizeFilename(file.name) || `logo${extOf(file.type)}` || "logo";
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(dest, buffer);
+  const put = await putObject({
+    path: pathFor(filename),
+    buffer,
+    contentType: file.type || "application/octet-stream",
+    upsert: true,
+  });
+  if (!put.ok) return { ok: false, error: put.error };
 
   return {
     ok: true,
@@ -91,17 +95,11 @@ export async function saveLogoFile(file: File): Promise<LogoUploadResult> {
 }
 
 export async function readLogoFile(filename: string): Promise<Buffer | null> {
-  const dest = path.join(BRANDING_DIR, sanitize(filename));
-  if (!existsSync(dest)) return null;
-  const resolved = path.resolve(dest);
-  if (!resolved.startsWith(path.resolve(BRANDING_DIR))) return null;
-  return readFile(resolved);
+  return getObject(pathFor(filename));
 }
 
 export async function clearLogoFiles(): Promise<void> {
-  if (existsSync(BRANDING_DIR)) {
-    await rm(BRANDING_DIR, { recursive: true, force: true });
-  }
+  await removePrefix(BRANDING_PREFIX);
 }
 
 function extOf(mimeType: string): string {

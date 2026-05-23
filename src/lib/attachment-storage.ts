@@ -1,10 +1,13 @@
 import "server-only";
 
-import { mkdir, readFile, rm, writeFile, unlink } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import path from "node:path";
-
-const ROOT = path.join(process.cwd(), "uploads", "announcements");
+import {
+  getObject,
+  listPrefix,
+  putObject,
+  removeObject,
+  removePrefix,
+  sanitizeFilename as supaSanitize,
+} from "./supabase-storage";
 
 const ACCEPTED_MIME = new Set([
   "application/pdf",
@@ -22,14 +25,11 @@ const ACCEPTED_MIME = new Set([
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB par fichier
 
 export function sanitizeFilename(name: string): string {
-  return (
-    name
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-zA-Z0-9._-]/g, "_")
-      .replace(/_+/g, "_")
-      .slice(0, 80) || "fichier"
-  );
+  return supaSanitize(name);
+}
+
+function pathFor(announcementId: string, filename: string): string {
+  return `announcements/${announcementId}/${sanitizeFilename(filename)}`;
 }
 
 export type AttachmentSaveResult =
@@ -57,22 +57,28 @@ export async function saveAnnouncementAttachment(args: {
     };
   }
 
-  // Sanitize + déduplicate
+  // Déduplique le nom si un fichier homonyme existe déjà sous le préfixe
   let filename = sanitizeFilename(file.name);
-  const dir = path.join(ROOT, announcementId);
-  await mkdir(dir, { recursive: true });
-  let dest = path.join(dir, filename);
+  const existing = new Set(await listPrefix(`announcements/${announcementId}`));
+  let candidate = filename;
   let i = 1;
-  while (existsSync(dest)) {
+  while (existing.has(candidate)) {
     const dot = filename.lastIndexOf(".");
     const base = dot > 0 ? filename.slice(0, dot) : filename;
     const ext = dot > 0 ? filename.slice(dot) : "";
-    filename = `${base}-${i}${ext}`;
-    dest = path.join(dir, filename);
+    candidate = `${base}-${i}${ext}`;
     i++;
   }
+  filename = candidate;
+
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(dest, buffer);
+  const put = await putObject({
+    path: pathFor(announcementId, filename),
+    buffer,
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (!put.ok) return { ok: false, error: put.error };
 
   return {
     ok: true,
@@ -86,36 +92,18 @@ export async function readAnnouncementAttachment(args: {
   announcementId: string;
   filename: string;
 }): Promise<Buffer | null> {
-  const dest = path.join(
-    ROOT,
-    args.announcementId,
-    sanitizeFilename(args.filename),
-  );
-  if (!existsSync(dest)) return null;
-  const resolved = path.resolve(dest);
-  if (!resolved.startsWith(path.resolve(ROOT))) return null;
-  return readFile(resolved);
+  return getObject(pathFor(args.announcementId, args.filename));
 }
 
 export async function deleteAnnouncementAttachmentFile(args: {
   announcementId: string;
   filename: string;
 }): Promise<void> {
-  const dest = path.join(
-    ROOT,
-    args.announcementId,
-    sanitizeFilename(args.filename),
-  );
-  if (existsSync(dest)) {
-    await unlink(dest);
-  }
+  await removeObject(pathFor(args.announcementId, args.filename));
 }
 
 export async function deleteAnnouncementFolder(
   announcementId: string,
 ): Promise<void> {
-  const dir = path.join(ROOT, announcementId);
-  if (existsSync(dir)) {
-    await rm(dir, { recursive: true, force: true });
-  }
+  await removePrefix(`announcements/${announcementId}`);
 }

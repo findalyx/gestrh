@@ -1,7 +1,5 @@
 "use server";
 
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ContractStatus, ContractType, Role } from "@prisma/client";
@@ -11,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import {
   deleteContractFolder,
   saveContractPdf,
+  saveContractPdfBuffer,
 } from "@/lib/contract-storage";
 import { generateContractPdf } from "@/lib/contract-pdf";
 import { getOrganization } from "@/lib/organization";
@@ -279,7 +278,6 @@ export async function uploadContractPdf(
 //  HELPER : génère et persiste un PDF auto pour un contrat
 //  Renvoie { ok: true } ou { ok: false, error }
 // ============================================================
-const CONTRACT_PDF_ROOT = path.join(process.cwd(), "uploads", "contracts");
 
 type ContractWithAgent = NonNullable<
   Awaited<ReturnType<typeof loadContractForPdf>>
@@ -349,14 +347,19 @@ async function renderAndPersistContractPdf(
   });
 
   const filename = `${c.reference}.pdf`;
-  const dir = path.join(CONTRACT_PDF_ROOT, c.id);
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, filename), buffer);
+  const saved = await saveContractPdfBuffer({
+    contractId: c.id,
+    filename,
+    buffer,
+  });
+  if (!saved.ok) {
+    throw new Error(saved.error);
+  }
 
   await prisma.contract.update({
     where: { id: c.id },
     data: {
-      pdfFilename: filename,
+      pdfFilename: saved.filename,
       pdfMimeType: "application/pdf",
       pdfSize: buffer.length,
       pdfGenerated: true,
