@@ -84,7 +84,19 @@ export default async function PersonnelListPage({
     <div className="space-y-5">
       {/* Barre d'actions */}
       {canEdit && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href="/personnel/statistiques"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+          >
+            <Icon name="dashboard" size={14} /> Statistiques
+          </Link>
+          <Link
+            href="/personnel/clauses"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+          >
+            <Icon name="compliance" size={14} /> Clauses
+          </Link>
           <Link
             href="/personnel/nouveau"
             className="inline-flex items-center gap-2 rounded-lg bg-sc-blue px-4 py-2 text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark"

@@ -93,6 +93,26 @@ export default async function AgentDetailPage({
         </span>
       </div>
 
+      {/* Accès rapide aux sous-sections workflow contrats */}
+      <nav className="flex flex-wrap gap-1 rounded-lg border border-sc-border bg-white p-1.5">
+        {[
+          { seg: "avenants", label: "Avenants" },
+          { seg: "renouvellement", label: "Renouvellement" },
+          { seg: "documents", label: "Documents" },
+          { seg: "notifications", label: "Notifications" },
+          { seg: "demission", label: "Démission" },
+          { seg: "conformite", label: "Conformité" },
+        ].map((s) => (
+          <Link
+            key={s.seg}
+            href={`/personnel/${id}/${s.seg}`}
+            className="rounded-md px-3 py-1.5 text-[12px] font-semibold text-sc-blue-darker transition hover:bg-sc-blue-light"
+          >
+            {s.label}
+          </Link>
+        ))}
+      </nav>
+
       {/* En-tête fiche */}
       <div className="flex flex-wrap items-start gap-5 rounded-xl border border-sc-border bg-white p-6 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
         <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sc-purple to-sc-blue text-2xl font-semibold text-white">
