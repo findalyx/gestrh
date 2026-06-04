@@ -13,6 +13,11 @@ import {
   AgentStatus,
 } from "@prisma/client";
 import { KpiCard, KPI_ICON_STYLE, type KpiColor } from "./KpiCard";
+import {
+  CddAlertsCard,
+  RetirementCard,
+} from "@/components/dashboard/ContractAlertsCards";
+import { listCddAlerts, listRetirementAlerts } from "@/lib/contract-alerts";
 import { CategoryDonut } from "./charts/CategoryDonut";
 import { ServiceBarChart } from "./charts/ServiceBarChart";
 import { AgePyramidChart } from "./charts/AgePyramidChart";
@@ -194,6 +199,12 @@ export async function DirectionDashboard() {
   // Compteur pour le module Communication (annonces actives)
   const announcementCount = await prisma.announcement.count();
 
+  // Alertes contractuelles : échéances CDD + départs retraite à anticiper
+  const [cddAlerts, retirementAlerts] = await Promise.all([
+    listCddAlerts(today),
+    listRetirementAlerts(today),
+  ]);
+
   const presenceRate =
     totalAgents > 0
       ? Math.round(((totalAgents - onLeaveToday) / totalAgents) * 100)
@@ -323,6 +334,12 @@ export async function DirectionDashboard() {
           value={String(recruitedThisYear)}
           hint={`vs ${departuresThisYear} départ${departuresThisYear > 1 ? "s" : ""}`}
         />
+      </div>
+
+      {/* Alertes contractuelles — échéances CDD & départs retraite */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <CddAlertsCard alerts={cddAlerts} />
+        <RetirementCard alerts={retirementAlerts} />
       </div>
 
       {/* Première ligne de graphiques : répartition + services */}
