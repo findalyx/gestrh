@@ -27,6 +27,8 @@ const STATUS_LABEL: Record<ContractStatus, string> = {
   EXPIRE: "Expiré",
   RENOUVELE: "Renouvelé",
   RESILIE: "Résilié",
+  EN_ATTENTE_SIGNATURE: "En attente de signature",
+  ROMPU: "Rompu",
 };
 
 type ContractDefaults = {

@@ -63,6 +63,44 @@ enum ContractStatus {
   EXPIRE
   RENOUVELE
   RESILIE
+  EN_ATTENTE_SIGNATURE
+  ROMPU
+}
+
+// --- Workflow contrats (transposé depuis segnoogo/gestRH) ---
+
+enum AmendmentType {
+  SALAIRE
+  GRADE
+  FONCTION
+  HORAIRES
+  MUTATION
+  AUTRE
+}
+
+enum RenewalDecision {
+  EN_COURS
+  RENOUVELE
+  CONVERTI_CDI
+  NON_RENOUVELE
+}
+
+enum ResignationStatus {
+  SOUMISE
+  ACCUSEE
+  ACCEPTEE
+  REJETEE
+  EN_PREAVIS
+  EFFECTIVE
+  ANNULEE
+}
+
+enum ContractNotificationKind {
+  RENOUVELLEMENT
+  NON_RENOUVELLEMENT
+  FIN_PERIODE_ESSAI
+  RUPTURE_ANTICIPEE
+  CONFIRMATION_PERIODE_ESSAI
 }
 
 enum LeaveType {
@@ -131,10 +169,21 @@ enum PayrollStatus {
 
 enum DocumentType {
   CONTRAT
+  CONTRAT_SIGNE
+  AVENANT
+  AVENANT_SIGNE
+  DEMISSION
+  NOTIFICATION_CONTRAT
   DIPLOME
   CERTIFICATION
   BULLETIN_PAIE
   JUSTIFICATIF
+  CNI
+  CASIER_JUDICIAIRE
+  RIB
+  PHOTO
+  CERTIFICAT_MEDICAL
+  CV
   AUTRE
 }
 
@@ -166,6 +215,12 @@ model User {
   announcements    Announcement[]
   auditLogs        AuditLog[]
   applicationNotes ApplicationNote[]
+
+  // Workflow contrats (transposé depuis segnoogo/gestRH)
+  uploadedDocuments     Document[]             @relation("DocumentUploader")
+  renewalDecisions      ContractRenewal[]      @relation("RenewalDecider")
+  resignationDecisions  Resignation[]          @relation("ResignationDecider")
+  contractNotifications ContractNotification[] @relation("NotificationSender")
 }
 
 /// Paramètres applicatifs (clé / valeur). Pour stocker des compteurs ou
@@ -309,14 +364,126 @@ model Contract {
   // true = PDF auto-généré par le système (peut être ré-écrasé en bulk)
   // false = scan signé téléversé manuellement (à ne pas écraser)
   pdfGenerated Boolean        @default(false)
+
+  // --- Workflow contrats (transposé depuis segnoogo/gestRH) ---
+  probationEndDate DateTime? // fin de période d'essai
+  noticePeriodDays Int? // durée du préavis en jours
+  workingHours     Int? // heures hebdomadaires
+  clauses          String? // clauses spécifiques libres
+  // Contrat signé téléversé dans le cadre du workflow (Supabase :
+  // contracts/{id}/signed/{filename}). Distinct du pdf* auto-généré ci-dessus.
+  signedFileName   String?
+  signedMimeType   String?
+  signedSize       Int?
+  signedAt         DateTime?
+
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
   agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
   agentId String
 
+  documents     Document[]
+  amendments    ContractAmendment[]
+  renewal       ContractRenewal?
+  resignation   Resignation?
+  notifications ContractNotification[]
+
   @@index([status])
   @@index([endDate])
+}
+
+// ============================================================
+//  WORKFLOW CONTRATS — avenants, renouvellement, démission,
+//  notifications (transposé depuis segnoogo/gestRH, stockage Supabase)
+// ============================================================
+
+/// Avenant à un contrat (modification de salaire, fonction, grade, etc.)
+/// Fichier signé sur Supabase : amendments/{id}/signed/{filename}
+model ContractAmendment {
+  id             String        @id @default(cuid())
+  reference      String        @unique
+  type           AmendmentType
+  effectiveDate  DateTime
+  description    String
+  oldValue       String?
+  newValue       String?
+  signedFileName String?
+  signedMimeType String?
+  signedSize     Int?
+  signedAt       DateTime?
+  createdAt      DateTime      @default(now())
+
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contractId String
+
+  @@index([contractId])
+}
+
+/// Décision DRH sur le renouvellement d'un CDD à échéance
+model ContractRenewal {
+  id            String          @id @default(cuid())
+  decision      RenewalDecision @default(EN_COURS)
+  decidedAt     DateTime?
+  reason        String?
+  newEndDate    DateTime? // si renouvelé : nouvelle fin
+  newContractId String? // si converti CDI : id du nouveau contrat
+  notifiedAt    DateTime? // notification envoyée à l'agent
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contractId  String   @unique
+  decidedBy   User?    @relation("RenewalDecider", fields: [decidedById], references: [id])
+  decidedById String?
+
+  @@index([decision])
+}
+
+/// Démission soumise par un agent (CDI ou CDD)
+/// Lettre signée sur Supabase : resignations/{id}/signed/{filename}
+model Resignation {
+  id              String            @id @default(cuid())
+  submittedAt     DateTime          @default(now())
+  effectiveDate   DateTime // date de départ souhaitée
+  noticeStartDate DateTime?
+  status          ResignationStatus @default(SOUMISE)
+  reason          String?
+  hrComment       String?
+  decidedAt       DateTime?
+  signedFileName  String?
+  signedMimeType  String?
+  signedSize      Int?
+
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contractId  String   @unique
+  decidedBy   User?    @relation("ResignationDecider", fields: [decidedById], references: [id])
+  decidedById String?
+
+  @@index([status])
+}
+
+/// Notification formelle envoyée par la Direction/DRH à un agent
+/// concernant son contrat (renouvellement, non-renouvellement, fin essai…)
+/// Lettre générée sur Supabase : contract-notifications/{id}/{filename}
+model ContractNotification {
+  id             String                   @id @default(cuid())
+  kind           ContractNotificationKind
+  subject        String
+  body           String
+  sentAt         DateTime                 @default(now())
+  acknowledgedAt DateTime?
+  fileName       String?
+  mimeType       String?
+  size           Int?
+
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contractId String
+  sentBy     User?    @relation("NotificationSender", fields: [sentById], references: [id])
+  sentById   String?
+
+  @@index([contractId])
+  @@index([kind])
 }
 
 // ============================================================
@@ -587,16 +754,28 @@ model AnnouncementAttachment {
 //  MODULE 5.9 — CONFORMITÉ & ARCHIVES
 // ============================================================
 
-/// Document RH archivé (contrat, diplôme, justificatif…)
+/// Document RH archivé (CNI, diplôme, casier, RIB, certificat médical, etc.)
+/// Fichier stocké sur Supabase : documents/{id}/{fileName}. Les pièces
+/// directement liées à un contrat (PDF signé, avenant, lettre de
+/// notification) sont portées par leurs entités respectives.
 model Document {
   id        String       @id @default(cuid())
   type      DocumentType
   title     String
-  fileUrl   String
+  fileName  String
+  mimeType  String
+  size      Int
   createdAt DateTime     @default(now())
 
-  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  agentId String?
+  agent      Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId    String?
+  contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  contractId String?
+
+  uploadedBy   User?   @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  uploadedById String?
 
   @@index([type])
+  @@index([agentId])
+  @@index([contractId])
 }
