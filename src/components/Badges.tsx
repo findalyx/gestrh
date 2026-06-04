@@ -43,6 +43,8 @@ const CONTRACT_STATUS_STYLE: Record<ContractStatus, string> = {
   EXPIRE: "bg-gray-100 text-gray-600",
   RENOUVELE: "bg-sc-blue-light text-sc-blue",
   RESILIE: "bg-sc-danger-light text-sc-danger",
+  EN_ATTENTE_SIGNATURE: "bg-sc-warning-light text-sc-warning-dark",
+  ROMPU: "bg-sc-danger-light text-sc-danger",
 };
 
 const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
@@ -50,6 +52,8 @@ const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
   EXPIRE: "Expiré",
   RENOUVELE: "Renouvelé",
   RESILIE: "Résilié",
+  EN_ATTENTE_SIGNATURE: "En attente de signature",
+  ROMPU: "Rompu",
 };
 
 export function ContractStatusBadge({ value }: { value: ContractStatus }) {

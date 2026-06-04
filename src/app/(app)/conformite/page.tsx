@@ -373,7 +373,7 @@ export default async function ConformitePage({
                     </td>
                     <td className="px-4 py-2 text-right">
                       <a
-                        href={d.fileUrl}
+                        href={`/api/documents/${d.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-[11.5px] font-medium text-sc-blue hover:underline"
