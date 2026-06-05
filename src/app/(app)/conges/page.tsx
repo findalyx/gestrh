@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LeaveStatus, Role } from "@prisma/client";
+import { LeaveStatus, Role, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
 import {
@@ -84,6 +84,42 @@ export default async function CongesPage() {
 
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
 
+  // Soldes de congés annuels de tout le périmètre (admins / managers / doyens…)
+  const showBalances = scope === "ALL" || scope === "TEAM";
+  const agentBalanceFilter: Prisma.AgentWhereInput | undefined =
+    scope === "ALL"
+      ? undefined
+      : me.agent
+        ? {
+            OR: [
+              { id: me.agent.id },
+              { service: { managerId: me.agent.id } },
+            ],
+          }
+        : { id: "__none__" };
+  const agentBalances = showBalances
+    ? await prisma.leaveBalance.findMany({
+        where: {
+          year: currentYear,
+          type: "ANNUEL",
+          agent: agentBalanceFilter,
+        },
+        include: {
+          agent: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              matricule: true,
+              service: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: [{ agent: { lastName: "asc" } }],
+        take: 500,
+      })
+    : [];
+
   return (
     <div className="space-y-6">
       {/* Bandeau d'en-tête : action + solde rapide */}
@@ -113,6 +149,65 @@ export default async function CongesPage() {
           </Link>
         )}
       </div>
+
+      {/* Soldes de congés des agents (vue admin / manager) */}
+      {showBalances && agentBalances.length > 0 && (
+        <section>
+          <h3 className="mb-3 flex items-center gap-2.5 font-serif text-base font-semibold text-sc-blue-darker">
+            <span className="h-[18px] w-1 rounded bg-sc-green" />
+            Soldes de congés {currentYear} ({agentBalances.length})
+          </h3>
+          <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+            <table className="w-full min-w-[640px] text-[13px]">
+              <thead className="bg-sc-blue-bg text-left">
+                <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
+                  <th className="px-4 py-3">Agent</th>
+                  <th className="px-4 py-3">Service</th>
+                  <th className="px-4 py-3 text-right">Acquis</th>
+                  <th className="px-4 py-3 text-right">Pris</th>
+                  <th className="px-4 py-3 text-right">Restant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agentBalances.map((b) => {
+                  const remaining = b.totalDays - b.usedDays;
+                  return (
+                    <tr key={b.id} className="border-t border-sc-border">
+                      <td className="px-4 py-2.5">
+                        <Link
+                          href={`/personnel/${b.agent.id}`}
+                          className="font-medium text-sc-blue-darker hover:underline"
+                        >
+                          {b.agent.lastName.toUpperCase()} {b.agent.firstName}
+                        </Link>
+                        <span className="ml-1 font-mono text-[10.5px] text-gray-400">
+                          {b.agent.matricule}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-700">
+                        {b.agent.service.name}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">
+                        {b.totalDays}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">
+                        {b.usedDays}
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 text-right font-mono font-semibold ${
+                          remaining <= 0 ? "text-sc-danger" : "text-sc-green-dark"
+                        }`}
+                      >
+                        {remaining}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* À valider */}
       {canApprove && (

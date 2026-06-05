@@ -118,11 +118,11 @@ for a in data["agents"]:
     )
 
 lines.append("")
-lines.append('-- Évaluations (note /20 → /100)')
+lines.append('-- Évaluations (note conservée sur /20)')
 for a in data["agents"]:
     if a.get("note") is None or a["matricule"] not in agt_id:
         continue
-    score = round(a["note"] * 5 * 10) / 10
+    score = a["note"]
     lines.append(
         'INSERT INTO "Evaluation" (id,"agentId",period,status,"overallScore",'
         '"highPotential","completedAt","createdAt","updatedAt") VALUES ('

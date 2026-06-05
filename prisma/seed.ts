@@ -173,14 +173,14 @@ async function main() {
       balances++;
     }
 
-    // Évaluation (note /20 → /100)
+    // Évaluation (note conservée sur /20, comme dans la source)
     if (a.note != null) {
       await prisma.evaluation.create({
         data: {
           agentId: agent.id,
           period: "2026",
           status: EvaluationStatus.TERMINEE,
-          overallScore: Math.round(a.note * 5 * 10) / 10,
+          overallScore: a.note,
           completedAt: now,
         },
       });

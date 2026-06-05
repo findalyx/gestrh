@@ -213,7 +213,7 @@ export async function finalizeEvaluation(
     action: "FINALIZE_EVALUATION",
     entity: "Evaluation",
     entityId: evaluationId,
-    details: `${evaluation.agent.firstName} ${evaluation.agent.lastName} · note=${parsed.data.overallScore}/100`,
+    details: `${evaluation.agent.firstName} ${evaluation.agent.lastName} · note=${parsed.data.overallScore}/20`,
   });
 
   revalidatePath("/evaluation");

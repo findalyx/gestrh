@@ -10,7 +10,7 @@ export const EvaluationDraftSchema = z.object({
   overallScore: z
     .preprocess(
       (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
-      z.number().min(0).max(100).nullable(),
+      z.number().min(0).max(20).nullable(),
     )
     .optional(),
   highPotential: z.preprocess((v) => v === "on" || v === true, z.boolean()).optional(),
@@ -21,7 +21,7 @@ export const EvaluationFinalSchema = EvaluationDraftSchema.extend({
     (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
     z.number({ message: "La note globale est obligatoire pour finaliser" })
       .min(0)
-      .max(100),
+      .max(20),
   ),
 });
 

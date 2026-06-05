@@ -102,17 +102,17 @@ export function EvaluationForm({ evaluationId, initialValues }: Props) {
             htmlFor="overallScore"
             className="text-[12px] font-medium text-sc-blue-darker"
           >
-            Note globale <span className="text-gray-400">/ 100</span>
+            Note globale <span className="text-gray-400">/ 20</span>
           </label>
           <input
             id="overallScore"
             name="overallScore"
             type="number"
             min={0}
-            max={100}
-            step={1}
+            max={20}
+            step={0.1}
             defaultValue={initialValues.overallScore ?? ""}
-            placeholder="ex : 78"
+            placeholder="ex : 16"
             className={inputCls}
           />
           {err(state, "overallScore") && (

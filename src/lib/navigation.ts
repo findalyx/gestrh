@@ -46,11 +46,11 @@ export const NAV_SECTIONS: NavSection[] = [
         roles: ALL,
       },
       {
-        label: "Personnel (PER/PATS)",
+        label: "Personnel",
         href: "/personnel",
         icon: "users",
         title: "Gestion du personnel",
-        subtitle: "Dossiers individuels · PER et PATS",
+        subtitle: "Dossiers individuels · PER, PATS et prestataires",
         roles: STAFF,
       },
       {

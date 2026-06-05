@@ -140,7 +140,7 @@ export default async function EvaluationDetailPage({
             label="Note globale"
             value={
               evaluation.overallScore !== null
-                ? `${evaluation.overallScore} / 100`
+                ? `${evaluation.overallScore} / 20`
                 : "—"
             }
           />

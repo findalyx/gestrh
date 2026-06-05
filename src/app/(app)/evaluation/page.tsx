@@ -301,7 +301,7 @@ export default async function EvaluationListPage({
                       {e.overallScore !== null ? (
                         <>
                           {e.overallScore}
-                          <span className="text-[11px] text-gray-400">/100</span>
+                          <span className="text-[11px] text-gray-400">/20</span>
                         </>
                       ) : (
                         <span className="text-gray-400">—</span>
