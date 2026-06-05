@@ -11,6 +11,7 @@ import {
   MarkPeriodPaidBatchButton,
   ValidatePeriodBatchButton,
 } from "./_components/PayrollActions";
+import { ImportPayslipsForm } from "./_components/ImportPayslipsForm";
 
 // Manager n'a pas accès (cf. matrice) ; AGENT, DRH, DIRECTION oui.
 export const dynamic = "force-dynamic";
@@ -237,10 +238,11 @@ export default async function PaiePage({
             </a>
           )}
         </div>
+        {isAdmin && <ImportPayslipsForm />}
         {isAdmin && (
           <details className="rounded-xl border border-sc-border bg-white p-4">
-            <summary className="cursor-pointer text-[12.5px] font-semibold text-sc-blue-darker">
-              + Générer une période
+            <summary className="cursor-pointer text-[12.5px] font-semibold text-gray-500">
+              Autre méthode : générer une période automatiquement
             </summary>
             <div className="mt-3">
               <GeneratePayrollForm defaultPeriod={defaultPeriod} />

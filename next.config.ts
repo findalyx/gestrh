@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // pdfkit charge ses polices (.afm) via fs.readFile au runtime ; il faut
-  // l'exclure du bundle Turbopack pour qu'il accède aux fichiers via node_modules.
-  serverExternalPackages: ["pdfkit"],
+  // pdf-parse / pdfjs-dist accèdent à des ressources via fs au runtime :
+  // on les exclut du bundle pour qu'ils fonctionnent côté serveur.
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
   // Pour la démo : on n'arrête pas le build sur des erreurs de type ou de lint.
   // Le bundle Next.js compile correctement même sans le check TS.
   // À retirer pour la vraie prod si on veut un build strict.
@@ -11,9 +11,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    // Permet d'uploader des CV jusqu'à 5 MB via Server Actions.
+    // Uploads via Server Actions (CV, bulletins de paie PDF mensuels…).
     serverActions: {
-      bodySizeLimit: "5mb",
+      bodySizeLimit: "30mb",
     },
   },
 };
