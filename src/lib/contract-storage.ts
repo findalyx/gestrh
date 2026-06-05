@@ -65,32 +65,6 @@ export async function saveContractPdf(args: {
   };
 }
 
-/**
- * Variante directe pour les PDF auto-générés par `generateContractPdf`
- * (déjà un Buffer en mémoire, pas de File).
- */
-export async function saveContractPdfBuffer(args: {
-  contractId: string;
-  filename: string;
-  buffer: Buffer;
-}): Promise<ContractPdfResult> {
-  const filename = sanitizeFilename(args.filename);
-  await deleteContractFolder(args.contractId);
-  const put = await putObject({
-    path: pathFor(args.contractId, filename),
-    buffer: args.buffer,
-    contentType: "application/pdf",
-    upsert: true,
-  });
-  if (!put.ok) return { ok: false, error: put.error };
-  return {
-    ok: true,
-    filename,
-    mimeType: "application/pdf",
-    size: args.buffer.length,
-  };
-}
-
 export async function readContractPdf(args: {
   contractId: string;
   filename: string;

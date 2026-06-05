@@ -13,7 +13,6 @@ import { Icon } from "@/components/Icon";
 import { Role, type Gender, type StaffSubCategory } from "@prisma/client";
 import {
   DeleteContractPdfButton,
-  GenerateContractPdfButton,
   NewContractForm,
   UploadContractPdfForm,
 } from "../_components/ContractForm";
@@ -240,29 +239,16 @@ export default async function AgentDetailPage({
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 rounded-lg bg-sc-blue px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-sc-blue-dark"
                         >
-                          📄 Voir le PDF
+                          📄 Voir le document signé
                         </a>
-                        <span
-                          className={
-                            c.pdfGenerated
-                              ? "text-[10.5px] text-gray-500"
-                              : "text-[10.5px] font-medium text-sc-green-dark"
-                          }
-                        >
-                          {c.pdfGenerated
-                            ? "Auto-généré · à signer"
-                            : "✓ Scan signé téléversé"}
+                        <span className="text-[10.5px] font-medium text-sc-green-dark">
+                          ✓ Document signé archivé
                         </span>
                         {canEdit && (
                           <div className="flex items-center gap-2">
-                            <GenerateContractPdfButton
-                              contractId={c.id}
-                              hasPdf
-                              isSignedScan={!c.pdfGenerated}
-                            />
                             <details className="text-right">
                               <summary className="cursor-pointer text-[10.5px] text-sc-blue hover:underline">
-                                Téléverser scan signé
+                                Remplacer
                               </summary>
                               <div className="mt-1">
                                 <UploadContractPdfForm contractId={c.id} />
@@ -273,24 +259,17 @@ export default async function AgentDetailPage({
                         )}
                       </>
                     ) : canEdit ? (
-                      <div className="flex flex-col items-end gap-1.5">
-                        <GenerateContractPdfButton
-                          contractId={c.id}
-                          hasPdf={false}
-                          isSignedScan={false}
-                        />
-                        <details>
-                          <summary className="cursor-pointer text-[10.5px] text-sc-blue hover:underline">
-                            …ou téléverser un scan signé
-                          </summary>
-                          <div className="mt-1">
-                            <UploadContractPdfForm contractId={c.id} />
-                          </div>
-                        </details>
-                      </div>
+                      <details>
+                        <summary className="cursor-pointer text-[10.5px] text-sc-blue hover:underline">
+                          Téléverser le document signé
+                        </summary>
+                        <div className="mt-1">
+                          <UploadContractPdfForm contractId={c.id} />
+                        </div>
+                      </details>
                     ) : (
                       <span className="text-[11px] text-gray-400">
-                        Aucun PDF joint
+                        Aucun document signé
                       </span>
                     )}
                   </div>

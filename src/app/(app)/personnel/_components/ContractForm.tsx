@@ -7,7 +7,6 @@ import {
   updateContract,
   uploadContractPdf,
   deleteContractPdf,
-  generateOneContractPdf,
   type ContractActionState,
   type ContractFormState,
 } from "../_lib/contract-actions";
@@ -272,66 +271,6 @@ export function UploadContractPdfForm({ contractId }: { contractId: string }) {
       {state?.ok && <span className="text-[11px] text-sc-green-dark">✓ OK</span>}
       {state && !state.ok && (
         <span className="text-[11px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
-  );
-}
-
-// ============================================================
-//  Bouton « Générer le PDF auto » — sur la fiche agent, pour un contrat donné.
-//  Si le contrat a déjà un PDF auto-généré, le label devient « Régénérer ».
-//  Si le PDF est un scan signé (alreadySigned), on demande confirmation.
-// ============================================================
-export function GenerateContractPdfButton({
-  contractId,
-  hasPdf,
-  isSignedScan,
-}: {
-  contractId: string;
-  hasPdf: boolean;
-  isSignedScan: boolean;
-}) {
-  const action = generateOneContractPdf.bind(null, contractId);
-  const [state, formAction, pending] = useActionState<ContractActionState, FormData>(
-    action,
-    undefined,
-  );
-
-  const label = !hasPdf
-    ? "⚙ Générer le PDF"
-    : isSignedScan
-      ? "⚠ Écraser par PDF auto"
-      : "↻ Régénérer";
-
-  // En mode "écrasement d'un scan signé", on impose une confirmation
-  // via un attribut HTML simple.
-  const onSubmit = isSignedScan
-    ? (e: React.FormEvent<HTMLFormElement>) => {
-        if (
-          !window.confirm(
-            "Ce contrat a un scan signé téléversé. Voulez-vous vraiment l'écraser par un PDF auto-généré ?",
-          )
-        ) {
-          e.preventDefault();
-        }
-      }
-    : undefined;
-
-  return (
-    <form action={formAction} onSubmit={onSubmit} className="inline">
-      <button
-        type="submit"
-        disabled={pending}
-        className={
-          hasPdf
-            ? "rounded-lg border border-sc-border bg-white px-2 py-0.5 text-[10.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg disabled:opacity-60"
-            : "inline-flex items-center gap-1.5 rounded-lg border border-sc-blue/30 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg disabled:opacity-60"
-        }
-      >
-        {pending ? "…" : label}
-      </button>
-      {state && !state.ok && (
-        <span className="ml-1 text-[10.5px] text-sc-danger">{state.error}</span>
       )}
     </form>
   );

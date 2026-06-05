@@ -6,13 +6,7 @@ import { ContractStatus, ContractType, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import {
-  deleteContractFolder,
-  saveContractPdf,
-  saveContractPdfBuffer,
-} from "@/lib/contract-storage";
-import { generateContractPdf } from "@/lib/contract-pdf";
-import { getOrganization } from "@/lib/organization";
+import { deleteContractFolder, saveContractPdf } from "@/lib/contract-storage";
 
 const dateString = z
   .string()
@@ -129,7 +123,7 @@ export async function createContract(
     select: { id: true },
   });
 
-  // PDF joint (optionnel) — considéré comme un scan signé téléversé manuellement.
+  // Scan signé joint (optionnel) — téléversé manuellement.
   const pdfFile = formData.get("pdf");
   let pdfWarning: string | null = null;
   if (pdfFile instanceof File && pdfFile.size > 0) {
@@ -171,7 +165,7 @@ export async function createContract(
 
 // ============================================================
 //  MODIFIER UN CONTRAT — DRH + DIRECTION
-//  Modifie type/statut/dates/grade/salaire (pas la référence ni le PDF).
+//  Modifie type/statut/dates/grade/salaire (pas la référence ni le document).
 // ============================================================
 export async function updateContract(
   contractId: string,
@@ -228,7 +222,7 @@ export async function updateContract(
 }
 
 // ============================================================
-//  UPLOADER / REMPLACER LE PDF D'UN CONTRAT — DRH + DIRECTION
+//  UPLOADER / REMPLACER LE DOCUMENT SIGNÉ D'UN CONTRAT — DRH + DIRECTION
 // ============================================================
 export async function uploadContractPdf(
   contractId: string,
@@ -257,319 +251,25 @@ export async function uploadContractPdf(
       pdfFilename: result.filename,
       pdfMimeType: result.mimeType,
       pdfSize: result.size,
-      // Upload manuel = scan signé. À NE PAS écraser par les régénérations bulk.
+      // Toujours un document signé téléversé manuellement.
       pdfGenerated: false,
     },
   });
 
   await logAudit({
     userId: me.id,
-    action: "UPLOAD_CONTRACT_PDF",
+    action: "UPLOAD_CONTRACT_DOCUMENT",
     entity: "Contract",
     entityId: contractId,
     details: `${contract.reference} · ${result.filename}`,
   });
 
   revalidatePath(`/personnel/${contract.agentId}`);
-  return { ok: true, message: "PDF du contrat mis à jour." };
+  return { ok: true, message: "Document signé mis à jour." };
 }
 
 // ============================================================
-//  HELPER : génère et persiste un PDF auto pour un contrat
-//  Renvoie { ok: true } ou { ok: false, error }
-// ============================================================
-
-type ContractWithAgent = NonNullable<
-  Awaited<ReturnType<typeof loadContractForPdf>>
->;
-
-async function loadContractForPdf(contractId: string) {
-  return prisma.contract.findUnique({
-    where: { id: contractId },
-    include: {
-      agent: {
-        select: {
-          firstName: true,
-          lastName: true,
-          matricule: true,
-          jobTitle: true,
-          address: true,
-          birthDate: true,
-          birthPlace: true,
-          nationality: true,
-          maritalStatus: true,
-          service: { select: { name: true } },
-        },
-      },
-    },
-  });
-}
-
-async function renderAndPersistContractPdf(
-  c: ContractWithAgent,
-  org: Awaited<ReturnType<typeof getOrganization>>,
-): Promise<void> {
-  const buffer = await generateContractPdf({
-    organization: {
-      name: org.name,
-      shortName: org.shortName,
-      address: org.address,
-      city: org.city,
-      country: org.country,
-      ninea: org.ninea,
-      rccm: org.rccm,
-      phone: org.phone,
-      bp: org.bp,
-      capital: org.capital,
-      legalRepName: org.legalRepName,
-      legalRepTitle: org.legalRepTitle,
-    },
-    agent: {
-      firstName: c.agent.firstName,
-      lastName: c.agent.lastName,
-      matricule: c.agent.matricule,
-      jobTitle: c.agent.jobTitle,
-      address: c.agent.address,
-      birthDate: c.agent.birthDate,
-      birthPlace: c.agent.birthPlace,
-      nationality: c.agent.nationality,
-      maritalStatus: c.agent.maritalStatus,
-      serviceName: c.agent.service.name,
-    },
-    contract: {
-      reference: c.reference,
-      type: c.type,
-      startDate: c.startDate,
-      endDate: c.endDate,
-      grade: c.grade,
-      baseSalary: c.baseSalary,
-    },
-  });
-
-  const filename = `${c.reference}.pdf`;
-  const saved = await saveContractPdfBuffer({
-    contractId: c.id,
-    filename,
-    buffer,
-  });
-  if (!saved.ok) {
-    throw new Error(saved.error);
-  }
-
-  await prisma.contract.update({
-    where: { id: c.id },
-    data: {
-      pdfFilename: saved.filename,
-      pdfMimeType: "application/pdf",
-      pdfSize: buffer.length,
-      pdfGenerated: true,
-    },
-  });
-}
-
-// ============================================================
-//  GÉNÉRER LES PDF DES CONTRATS QUI N'EN ONT PAS — DRH + DIRECTION
-//  Ne touche pas aux contrats déjà munis d'un PDF (généré ou scan signé).
-// ============================================================
-export async function generateMissingContractPdfs(
-  _prev: ContractActionState,
-  _formData: FormData,
-): Promise<ContractActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
-
-  const org = await getOrganization();
-  const contracts = await prisma.contract.findMany({
-    where: { pdfFilename: null },
-    include: {
-      agent: {
-        select: {
-          firstName: true,
-          lastName: true,
-          matricule: true,
-          jobTitle: true,
-          address: true,
-          birthDate: true,
-          birthPlace: true,
-          nationality: true,
-          maritalStatus: true,
-          service: { select: { name: true } },
-        },
-      },
-    },
-  });
-
-  if (contracts.length === 0) {
-    return { ok: false, error: "Tous les contrats ont déjà un PDF joint." };
-  }
-
-  let generated = 0;
-  const firstErrors: string[] = [];
-  for (const c of contracts) {
-    try {
-      await renderAndPersistContractPdf(c, org);
-      generated++;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(
-        `[generateMissingContractPdfs] échec sur ${c.reference} :`,
-        e,
-      );
-      if (firstErrors.length < 3) firstErrors.push(`${c.reference} : ${msg}`);
-    }
-  }
-
-  await logAudit({
-    userId: me.id,
-    action: "GENERATE_CONTRACT_PDFS_BATCH",
-    entity: "Contract",
-    details: `${generated} PDF(s) générés sur ${contracts.length} contrat(s) sans PDF`,
-  });
-
-  revalidatePath("/personnel");
-  revalidatePath("/parametres");
-
-  if (generated === 0) {
-    return {
-      ok: false,
-      error: `Aucun PDF généré. Détail des erreurs : ${firstErrors.join(" | ")}`,
-    };
-  }
-
-  return {
-    ok: true,
-    message: `${generated} PDF de contrat généré(s)${firstErrors.length > 0 ? ` (${firstErrors.length}+ échecs : ${firstErrors[0]})` : ""}.`,
-  };
-}
-
-// ============================================================
-//  RÉ-GÉNÉRER TOUS LES PDF AUTO-GÉNÉRÉS — DRH + DIRECTION
-//  Écrase les PDF marqués pdfGenerated=true et génère ceux qui manquent.
-//  ÉPARGNE les scans signés (pdfGenerated=false sur un contrat avec PDF).
-// ============================================================
-export async function regenerateAllContractPdfs(
-  _prev: ContractActionState,
-  _formData: FormData,
-): Promise<ContractActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
-
-  const org = await getOrganization();
-  // On régénère : (PDF manquant) OU (PDF présent ET auto-généré)
-  // On épargne : (PDF présent ET pdfGenerated=false) = scan signé
-  const contracts = await prisma.contract.findMany({
-    where: {
-      OR: [{ pdfFilename: null }, { pdfGenerated: true }],
-    },
-    include: {
-      agent: {
-        select: {
-          firstName: true,
-          lastName: true,
-          matricule: true,
-          jobTitle: true,
-          address: true,
-          birthDate: true,
-          birthPlace: true,
-          nationality: true,
-          maritalStatus: true,
-          service: { select: { name: true } },
-        },
-      },
-    },
-  });
-
-  const totalContracts = await prisma.contract.count();
-  const preservedCount = totalContracts - contracts.length;
-
-  if (contracts.length === 0) {
-    return {
-      ok: false,
-      error: `Aucun contrat à régénérer (${preservedCount} scans signés préservés).`,
-    };
-  }
-
-  let regenerated = 0;
-  const firstErrors: string[] = [];
-  for (const c of contracts) {
-    try {
-      await renderAndPersistContractPdf(c, org);
-      regenerated++;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(
-        `[regenerateAllContractPdfs] échec sur ${c.reference} :`,
-        e,
-      );
-      if (firstErrors.length < 3) firstErrors.push(`${c.reference} : ${msg}`);
-    }
-  }
-
-  await logAudit({
-    userId: me.id,
-    action: "REGENERATE_CONTRACT_PDFS_BATCH",
-    entity: "Contract",
-    details: `${regenerated}/${contracts.length} PDF(s) régénérés · ${preservedCount} scan(s) signé(s) préservé(s)`,
-  });
-
-  revalidatePath("/personnel");
-  revalidatePath("/parametres");
-
-  if (regenerated === 0) {
-    return {
-      ok: false,
-      error: `Aucun PDF généré. Erreurs : ${firstErrors.join(" | ")}`,
-    };
-  }
-
-  return {
-    ok: true,
-    message:
-      `${regenerated} PDF régénéré(s)` +
-      (preservedCount > 0
-        ? ` · ${preservedCount} scan(s) signé(s) préservé(s)`
-        : "") +
-      (firstErrors.length > 0 ? ` · ${firstErrors.length} échec(s)` : "") +
-      ".",
-  };
-}
-
-// ============================================================
-//  GÉNÉRER / RÉGÉNÉRER LE PDF D'UN SEUL CONTRAT — DRH + DIRECTION
-//  Utilisé depuis la fiche agent. Écrase systématiquement et marque
-//  pdfGenerated=true.
-// ============================================================
-export async function generateOneContractPdf(
-  contractId: string,
-  _prev: ContractActionState,
-  _formData: FormData,
-): Promise<ContractActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
-
-  const c = await loadContractForPdf(contractId);
-  if (!c) return { ok: false, error: "Contrat introuvable." };
-
-  const org = await getOrganization();
-  try {
-    await renderAndPersistContractPdf(c, org);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`[generateOneContractPdf] échec sur ${c.reference} :`, e);
-    return { ok: false, error: `Échec de la génération : ${msg}` };
-  }
-
-  await logAudit({
-    userId: me.id,
-    action: "GENERATE_CONTRACT_PDF",
-    entity: "Contract",
-    entityId: c.id,
-    details: c.reference,
-  });
-
-  revalidatePath(`/personnel/${c.agentId}`);
-  return { ok: true, message: "PDF du contrat généré." };
-}
-
-// ============================================================
-//  SUPPRIMER LE PDF D'UN CONTRAT
+//  SUPPRIMER LE DOCUMENT SIGNÉ D'UN CONTRAT
 // ============================================================
 export async function deleteContractPdf(
   contractId: string,
@@ -584,7 +284,7 @@ export async function deleteContractPdf(
   });
   if (!contract) return { ok: false, error: "Contrat introuvable." };
   if (!contract.pdfFilename) {
-    return { ok: false, error: "Aucun PDF à supprimer." };
+    return { ok: false, error: "Aucun document à supprimer." };
   }
 
   await deleteContractFolder(contractId);
@@ -600,12 +300,12 @@ export async function deleteContractPdf(
 
   await logAudit({
     userId: me.id,
-    action: "DELETE_CONTRACT_PDF",
+    action: "DELETE_CONTRACT_DOCUMENT",
     entity: "Contract",
     entityId: contractId,
     details: contract.reference,
   });
 
   revalidatePath(`/personnel/${contract.agentId}`);
-  return { ok: true, message: "PDF supprimé." };
+  return { ok: true, message: "Document supprimé." };
 }

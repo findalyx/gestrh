@@ -12,7 +12,6 @@ import { ServiceManagerForm } from "./_components/ServiceManagerForm";
 import { CreateUserForm } from "./_components/CreateUserForm";
 import { LeaveBalanceAdmin } from "./_components/LeaveBalanceAdmin";
 import { OrganizationForm } from "./_components/OrganizationForm";
-import { GenerateContractsButton } from "./_components/GenerateContractsButton";
 import { CollapsibleSection } from "./_components/CollapsibleSection";
 
 export const dynamic = "force-dynamic";
@@ -95,21 +94,6 @@ export default async function ParametresPage() {
     getOrganization(),
   ]);
 
-  // Comptes pour les boutons de génération / régénération bulk
-  const [
-    contractsWithoutPdf,
-    contractsWithGeneratedPdf,
-    contractsWithSignedScan,
-  ] = await Promise.all([
-    prisma.contract.count({ where: { pdfFilename: null } }),
-    prisma.contract.count({
-      where: { pdfFilename: { not: null }, pdfGenerated: true },
-    }),
-    prisma.contract.count({
-      where: { pdfFilename: { not: null }, pdfGenerated: false },
-    }),
-  ]);
-
   const now = new Date();
   const currentYYMM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   // Le logo est servi via /api/branding/logo ; on ajoute un cache-buster pour
@@ -117,9 +101,6 @@ export default async function ParametresPage() {
   const logoUrl = organization.logoFilename
     ? `/api/branding/logo?v=${encodeURIComponent(organization.updatedAt.toISOString())}`
     : null;
-
-  const totalContracts =
-    contractsWithoutPdf + contractsWithGeneratedPdf + contractsWithSignedScan;
 
   return (
     <div className="space-y-3">
@@ -164,24 +145,6 @@ export default async function ParametresPage() {
         <LeaveBalanceAdmin
           lastAccrual={lastAccrual}
           currentYYMM={currentYYMM}
-        />
-      </CollapsibleSection>
-
-      {/* Section — Documents contractuels */}
-      <CollapsibleSection
-        accent="bg-sc-purple"
-        title="Documents contractuels"
-        subtitle="Génération et régénération des PDF de contrats au format sénégalais standard."
-        badge={
-          totalContracts > 0
-            ? `${contractsWithoutPdf} sans PDF · ${contractsWithGeneratedPdf} auto · ${contractsWithSignedScan} signé(s)`
-            : undefined
-        }
-      >
-        <GenerateContractsButton
-          contractsWithoutPdf={contractsWithoutPdf}
-          contractsWithGeneratedPdf={contractsWithGeneratedPdf}
-          contractsWithSignedScan={contractsWithSignedScan}
         />
       </CollapsibleSection>
 
