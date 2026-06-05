@@ -37,7 +37,10 @@ export default async function PersonnelListPage({
   const { where: scopeWhere, scope } = await getAgentScopeWhere();
 
   const q = sp.q?.trim() ?? "";
-  const cat = sp.cat === "PER" || sp.cat === "PATS" ? (sp.cat as StaffCategory) : undefined;
+  const cat =
+    sp.cat === "PER" || sp.cat === "PATS" || sp.cat === "PRESTATAIRE"
+      ? (sp.cat as StaffCategory)
+      : undefined;
   const statut = isAgentStatus(sp.statut) ? sp.statut : undefined;
   const serviceId = sp.service?.trim() || undefined;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
@@ -194,6 +197,7 @@ export default async function PersonnelListPage({
             <option value="">Toutes</option>
             <option value="PER">PER</option>
             <option value="PATS">PATS</option>
+            <option value="PRESTATAIRE">Prestataires</option>
           </select>
         </div>
 

@@ -3,17 +3,29 @@
 import { Doughnut } from "react-chartjs-2";
 import { COMMON_FONT_FAMILY, SC_COLORS } from "./chart-setup";
 
-export function CategoryDonut({ per, pats }: { per: number; pats: number }) {
-  const total = per + pats;
+export function CategoryDonut({
+  per,
+  pats,
+  prestataire = 0,
+}: {
+  per: number;
+  pats: number;
+  prestataire?: number;
+}) {
+  const total = per + pats + prestataire;
   return (
     <div className="relative h-[220px]">
       <Doughnut
         data={{
-          labels: ["PER", "PATS"],
+          labels: ["PER", "PATS", "Prestataires"],
           datasets: [
             {
-              data: [per, pats],
-              backgroundColor: [SC_COLORS.blue, SC_COLORS.green],
+              data: [per, pats, prestataire],
+              backgroundColor: [
+                SC_COLORS.blue,
+                SC_COLORS.purple,
+                SC_COLORS.warning,
+              ],
               borderColor: "#ffffff",
               borderWidth: 3,
               hoverOffset: 8,

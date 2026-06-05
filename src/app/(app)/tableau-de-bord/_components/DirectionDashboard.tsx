@@ -77,6 +77,7 @@ export async function DirectionDashboard() {
     totalAgents,
     perCount,
     patsCount,
+    prestataireCount,
     onLeaveToday,
     cdiCount,
     cddCount,
@@ -99,6 +100,7 @@ export async function DirectionDashboard() {
     prisma.agent.count(),
     prisma.agent.count({ where: { category: StaffCategory.PER } }),
     prisma.agent.count({ where: { category: StaffCategory.PATS } }),
+    prisma.agent.count({ where: { category: StaffCategory.PRESTATAIRE } }),
     prisma.leaveRequest.count({
       where: {
         status: LeaveStatus.AUTORISE,
@@ -328,10 +330,14 @@ export async function DirectionDashboard() {
       {/* Première ligne de graphiques : répartition + services */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard
-          title="Répartition PER / PATS"
-          subtitle="Catégories de personnel"
+          title="Répartition du personnel"
+          subtitle="PER · PATS · Prestataires"
         >
-          <CategoryDonut per={perCount} pats={patsCount} />
+          <CategoryDonut
+            per={perCount}
+            pats={patsCount}
+            prestataire={prestataireCount}
+          />
         </ChartCard>
 
         <div className="lg:col-span-2">

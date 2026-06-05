@@ -193,8 +193,8 @@ export default async function StatistiquesPage() {
           </div>
         </Card>
 
-        <Card title="Catégorie PER / PATS">
-          <div className="grid grid-cols-2 gap-4">
+        <Card title="Catégorie de personnel (PER / PATS / Prestataires)">
+          <div className="grid grid-cols-3 gap-3">
             <div className="rounded-md bg-sc-blue-light p-4 text-center">
               <div className="text-[28px] font-bold leading-none text-sc-blue">
                 {byCategory.PER}
@@ -204,7 +204,6 @@ export default async function StatistiquesPage() {
               </div>
               <div className="mt-2 text-[11px] text-gray-600">
                 {total > 0 ? Math.round((byCategory.PER / total) * 100) : 0} %
-                de l&apos;effectif actif
               </div>
             </div>
             <div className="rounded-md bg-sc-purple-light p-4 text-center">
@@ -216,7 +215,20 @@ export default async function StatistiquesPage() {
               </div>
               <div className="mt-2 text-[11px] text-gray-600">
                 {total > 0 ? Math.round((byCategory.PATS / total) * 100) : 0} %
-                de l&apos;effectif actif
+              </div>
+            </div>
+            <div className="rounded-md bg-sc-warning-light p-4 text-center">
+              <div className="text-[28px] font-bold leading-none text-[#854f0b]">
+                {byCategory.PRESTATAIRE}
+              </div>
+              <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[#854f0b]">
+                Prestataires
+              </div>
+              <div className="mt-2 text-[11px] text-gray-600">
+                {total > 0
+                  ? Math.round((byCategory.PRESTATAIRE / total) * 100)
+                  : 0}{" "}
+                %
               </div>
             </div>
           </div>

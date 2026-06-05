@@ -8,12 +8,24 @@ import type {
 const BASE =
   "inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[10.5px] font-semibold uppercase tracking-wider";
 
+const CATEGORY_STYLE: Record<StaffCategory, string> = {
+  PER: "bg-sc-blue-light text-sc-blue",
+  PATS: "bg-sc-purple-light text-sc-purple",
+  PRESTATAIRE: "bg-sc-warning-light text-[#854f0b]",
+};
+
+const CATEGORY_LABEL: Record<StaffCategory, string> = {
+  PER: "PER",
+  PATS: "PATS",
+  PRESTATAIRE: "Prestataire",
+};
+
 export function CategoryBadge({ value }: { value: StaffCategory }) {
-  const style =
-    value === "PER"
-      ? "bg-sc-blue-light text-sc-blue"
-      : "bg-sc-green-light text-sc-green-dark";
-  return <span className={`${BASE} ${style}`}>{value}</span>;
+  return (
+    <span className={`${BASE} ${CATEGORY_STYLE[value]}`}>
+      {CATEGORY_LABEL[value]}
+    </span>
+  );
 }
 
 const AGENT_STATUS_STYLE: Record<AgentStatus, string> = {

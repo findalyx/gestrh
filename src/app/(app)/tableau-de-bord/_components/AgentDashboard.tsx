@@ -9,6 +9,12 @@ import {
 } from "@prisma/client";
 import { CategoryBadge, AgentStatusBadge } from "@/components/Badges";
 import { Icon, type IconName } from "@/components/Icon";
+import {
+  formatScore,
+  perfCategory,
+  PERF_LABEL,
+  PERF_STYLE,
+} from "@/lib/performance";
 import { KpiCard } from "./KpiCard";
 
 type Props = {
@@ -441,9 +447,19 @@ export async function AgentDashboard({ agentId, firstName }: Props) {
                   </span>
                 </div>
                 {e.overallScore !== null && (
-                  <p className="mt-1 font-serif text-lg font-semibold text-sc-blue-darker">
-                    {e.overallScore} <span className="text-[11px] text-gray-500">/100</span>
-                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="font-serif text-lg font-semibold text-sc-blue-darker">
+                      {formatScore(e.overallScore)}{" "}
+                      <span className="text-[11px] text-gray-500">/20</span>
+                    </p>
+                    <span
+                      className={`inline-flex rounded-md px-2 py-0.5 text-[10.5px] font-semibold ${
+                        PERF_STYLE[perfCategory(e.overallScore)]
+                      }`}
+                    >
+                      {PERF_LABEL[perfCategory(e.overallScore)]}
+                    </span>
+                  </div>
                 )}
                 {e.dueDate && (
                   <p className="mt-0.5 text-[11px] text-gray-500">

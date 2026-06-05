@@ -7,6 +7,12 @@ import {
   canEditEvaluation,
   getEvaluationScopeWhere,
 } from "@/lib/evaluation-access";
+import {
+  formatScore,
+  perfCategory,
+  PERF_LABEL,
+  PERF_STYLE,
+} from "@/lib/performance";
 import { EvaluationStatusBadge } from "../_components/EvaluationBadge";
 import { EvaluationForm } from "../_components/EvaluationForm";
 import { ReopenButton } from "../_components/ReopenButton";
@@ -136,14 +142,27 @@ export default async function EvaluationDetailPage({
             label="Échéance"
             value={formatDate(evaluation.dueDate)}
           />
-          <InfoCol
-            label="Note globale"
-            value={
-              evaluation.overallScore !== null
-                ? `${evaluation.overallScore} / 20`
-                : "—"
-            }
-          />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+              Note globale
+            </p>
+            {evaluation.overallScore !== null ? (
+              <div className="mt-0.5 flex items-center gap-2">
+                <span className="text-gray-700">
+                  {formatScore(evaluation.overallScore)} / 20
+                </span>
+                <span
+                  className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                    PERF_STYLE[perfCategory(evaluation.overallScore)]
+                  }`}
+                >
+                  {PERF_LABEL[perfCategory(evaluation.overallScore)]}
+                </span>
+              </div>
+            ) : (
+              <p className="mt-0.5 text-gray-700">—</p>
+            )}
+          </div>
           <InfoCol
             label="Finalisée le"
             value={formatDate(evaluation.completedAt)}
