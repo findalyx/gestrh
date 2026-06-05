@@ -367,12 +367,24 @@ export default async function PaiePage({
                       <PayrollStatusBadge value={r.status} />
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <Link
-                        href={`/paie/${r.id}`}
-                        className="text-[12px] font-medium text-sc-blue hover:underline"
-                      >
-                        Voir →
-                      </Link>
+                      <div className="flex items-center justify-end gap-3">
+                        {r.pdfUrl && (
+                          <a
+                            href={`/api/paie/${r.id}/bulletin`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[12px] font-medium text-sc-blue hover:underline"
+                          >
+                            📄 Bulletin
+                          </a>
+                        )}
+                        <Link
+                          href={`/paie/${r.id}`}
+                          className="text-[12px] font-medium text-sc-blue hover:underline"
+                        >
+                          Voir →
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 );

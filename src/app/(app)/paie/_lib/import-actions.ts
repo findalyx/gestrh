@@ -5,6 +5,7 @@ import { PayrollStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
+import { PDFDocument } from "pdf-lib";
 import { putObject, sanitizeFilename } from "@/lib/supabase-storage";
 import { parsePayslips } from "@/lib/payslip-parse";
 
@@ -57,13 +58,48 @@ export async function importPayslips(
   const dominantPeriod =
     [...periodCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-  // Archive le PDF source sur Supabase
+  // Archive le PDF source complet sur Supabase
   await putObject({
-    path: `payslips/${dominantPeriod ?? "import"}/${sanitizeFilename(file.name)}`,
+    path: `payslips/${dominantPeriod ?? "import"}/_source_${sanitizeFilename(file.name)}`,
     buffer,
     contentType: "application/pdf",
     upsert: true,
   });
+
+  // Document source pour découper chaque bulletin individuel.
+  let srcDoc: PDFDocument | null = null;
+  try {
+    srcDoc = await PDFDocument.load(buffer);
+  } catch (e) {
+    console.error("[importPayslips] pdf-lib load error:", e);
+  }
+
+  // Découpe la page d'un bulletin en un PDF individuel et l'archive pour
+  // l'agent (accessible dans son espace). Renvoie le chemin Supabase ou null.
+  async function saveIndividualBulletin(
+    pageNum: number,
+    period: string,
+    agentId: string,
+  ): Promise<string | null> {
+    if (!srcDoc) return null;
+    try {
+      const out = await PDFDocument.create();
+      const [page] = await out.copyPages(srcDoc, [pageNum - 1]);
+      out.addPage(page);
+      const bytes = await out.save();
+      const path = `payslips/${period}/${agentId}.pdf`;
+      const put = await putObject({
+        path,
+        buffer: Buffer.from(bytes),
+        contentType: "application/pdf",
+        upsert: true,
+      });
+      return put.ok ? path : null;
+    } catch (e) {
+      console.error("[importPayslips] split error page", pageNum, e);
+      return null;
+    }
+  }
 
   let imported = 0;
   let updated = 0;
@@ -85,6 +121,7 @@ export async function importPayslips(
     }
     const brut = p.brut ?? p.net;
     const deductions = Math.max(0, brut - p.net);
+    const pdfUrl = await saveIndividualBulletin(p.page, p.period, agent.id);
 
     const existing = await prisma.payrollRecord.findUnique({
       where: { agentId_period: { agentId: agent.id, period: p.period } },
@@ -99,12 +136,14 @@ export async function importPayslips(
         deductions,
         netSalary: p.net,
         status: PayrollStatus.PAYE,
+        pdfUrl,
       },
       update: {
         baseSalary: brut,
         deductions,
         netSalary: p.net,
         status: PayrollStatus.PAYE,
+        ...(pdfUrl ? { pdfUrl } : {}),
       },
     });
     if (existing) updated++;
