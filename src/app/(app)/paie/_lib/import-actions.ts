@@ -5,7 +5,6 @@ import { PayrollStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import { PDFDocument } from "pdf-lib";
 import { putObject, sanitizeFilename } from "@/lib/supabase-storage";
 import { parsePayslips } from "@/lib/payslip-parse";
 
@@ -66,8 +65,11 @@ export async function importPayslips(
     upsert: true,
   });
 
+  // Import dynamique de pdf-lib (pas au rendu de la page, seulement à l'usage).
+  const { PDFDocument } = await import("pdf-lib");
+
   // Document source pour découper chaque bulletin individuel.
-  let srcDoc: PDFDocument | null = null;
+  let srcDoc: Awaited<ReturnType<typeof PDFDocument.load>> | null = null;
   try {
     srcDoc = await PDFDocument.load(buffer);
   } catch (e) {

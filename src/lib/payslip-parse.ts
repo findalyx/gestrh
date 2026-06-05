@@ -1,7 +1,5 @@
 import "server-only";
 
-import { PDFParse } from "pdf-parse";
-
 /**
  * Extraction des données d'un PDF de bulletins de paie (1 page = 1 bulletin).
  * Format SCIMD / Saint Christopher's Iba Mar Diop (texte sélectionnable).
@@ -67,6 +65,9 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
 }
 
 export async function parsePayslips(buffer: Buffer): Promise<ParsedPayslip[]> {
+  // Import dynamique : pdfjs ne doit pas être chargé au rendu de la page
+  // (sinon il fait planter le runtime serverless), seulement à l'usage.
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data: new Uint8Array(buffer) });
   try {
     const result = await parser.getText();
