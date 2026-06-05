@@ -15,6 +15,7 @@ const TYPE_LABEL: Record<ContractType, string> = {
   CDD: "CDD",
   STAGE: "Stage",
   VACATAIRE: "Vacation",
+  PRESTATION: "Prestation",
 };
 
 const TYPE_COLOR: Record<ContractType, string> = {
@@ -22,6 +23,7 @@ const TYPE_COLOR: Record<ContractType, string> = {
   CDD: "bg-sc-purple",
   STAGE: "bg-sc-teal",
   VACATAIRE: "bg-sc-green",
+  PRESTATION: "bg-sc-warning",
 };
 
 function Card({
@@ -98,6 +100,7 @@ export default async function StatistiquesPage() {
     CDD: 0,
     STAGE: 0,
     VACATAIRE: 0,
+    PRESTATION: 0,
   };
   // Masse par type
   const massByType: Record<ContractType, number> = {
@@ -105,9 +108,14 @@ export default async function StatistiquesPage() {
     CDD: 0,
     STAGE: 0,
     VACATAIRE: 0,
+    PRESTATION: 0,
   };
   // Répartition par catégorie
-  const byCategory: Record<StaffCategory, number> = { PER: 0, PATS: 0 };
+  const byCategory: Record<StaffCategory, number> = {
+    PER: 0,
+    PATS: 0,
+    PRESTATAIRE: 0,
+  };
   // Par service
   const byService = new Map<string, { name: string; count: number; mass: number }>();
 

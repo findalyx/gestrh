@@ -48,6 +48,7 @@ const SUB_LABEL: Record<StaffSubCategory, string> = {
   PER_RECHERCHE: "Recherche",
   PATS_ADMINISTRATIF: "Administratif",
   PATS_TECHNIQUE: "Technique",
+  PRESTATAIRE_SERVICE: "Prestataire",
 };
 
 const STATUS_LABEL: Record<AgentStatus, string> = {

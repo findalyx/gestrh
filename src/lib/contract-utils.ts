@@ -14,6 +14,7 @@ import {
 export const RETIREMENT_AGE: Record<StaffCategory, number> = {
   PER: 65,
   PATS: 60,
+  PRESTATAIRE: 60,
 };
 
 /** Seuils d'alerte pour les fins de CDD, en jours. */
@@ -90,6 +91,7 @@ export const CONTRACT_TYPE_LABEL: Record<ContractType, string> = {
   CDD: "CDD",
   VACATAIRE: "Vacation",
   STAGE: "Stage",
+  PRESTATION: "Prestation",
 };
 
 export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {

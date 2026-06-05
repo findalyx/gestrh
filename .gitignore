@@ -52,3 +52,6 @@ gestrh-src/
 
 # Données réelles (PII) — ne pas committer
 SIRH_UNIVERSITE_ST_CHRISTOPHER_.xlsx
+
+# Seed généré depuis les données réelles (PII)
+prisma/seed-data.json

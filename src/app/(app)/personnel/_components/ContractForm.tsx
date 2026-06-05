@@ -19,6 +19,7 @@ const TYPE_LABEL: Record<ContractType, string> = {
   CDD: "CDD",
   VACATAIRE: "Vacataire",
   STAGE: "Stage",
+  PRESTATION: "Prestation",
 };
 
 const STATUS_LABEL: Record<ContractStatus, string> = {

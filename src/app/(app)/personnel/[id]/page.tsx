@@ -24,6 +24,7 @@ const SUB_CATEGORY_LABEL: Record<StaffSubCategory, string> = {
   PER_RECHERCHE: "Recherche",
   PATS_ADMINISTRATIF: "Administratif",
   PATS_TECHNIQUE: "Technique",
+  PRESTATAIRE_SERVICE: "Prestataire",
 };
 
 const GENDER_LABEL: Record<Gender, string> = {

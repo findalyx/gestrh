@@ -26,6 +26,7 @@ const CDD_MAX_RENEWALS = 2;
 const PROBATION_MAX_DAYS: Record<StaffCategory, number> = {
   PER: 180, // 6 mois
   PATS: 90, // 3 mois
+  PRESTATAIRE: 90,
 };
 
 export function runChecks(agent: AgentDetail): ComplianceCheck[] {

@@ -69,6 +69,7 @@ const CONTRACT_TYPE_LABEL: Record<ContractType, string> = {
   CDD: "CDD",
   VACATAIRE: "Vacataire",
   STAGE: "Stage",
+  PRESTATION: "Prestation",
 };
 
 export function ContractTypeLabel({ value }: { value: ContractType }) {

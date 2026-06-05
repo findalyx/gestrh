@@ -141,28 +141,54 @@ export async function createLeaveRequest(
   };
   const status = initialStatus(ctx);
 
-  const created = await prisma.leaveRequest.create({
-    data: {
-      agentId: me.agent.id,
-      type: data.type as LeaveType,
-      status,
-      startDate: start,
-      endDate: end,
-      days,
-      reason: data.reason || null,
-    },
-    select: { id: true },
+  const agentId = me.agent.id;
+  const autoAuthorized = status === LeaveStatus.AUTORISE;
+  const year = start.getFullYear();
+
+  const created = await prisma.$transaction(async (tx) => {
+    const c = await tx.leaveRequest.create({
+      data: {
+        agentId,
+        type: data.type as LeaveType,
+        status,
+        startDate: start,
+        endDate: end,
+        days,
+        reason: data.reason || null,
+      },
+      select: { id: true },
+    });
+    // Auto-autorisée (DG / Recteur) → décompte immédiat du solde.
+    if (autoAuthorized) {
+      await tx.leaveBalance.upsert({
+        where: {
+          agentId_year_type: { agentId, year, type: data.type as LeaveType },
+        },
+        create: {
+          agentId,
+          year,
+          type: data.type as LeaveType,
+          totalDays: 0,
+          usedDays: days,
+        },
+        update: { usedDays: { increment: days } },
+      });
+    }
+    return c;
   });
 
-  await notify(
-    await recipientUserIdsForStatus(status, ctx.serviceManagerId),
-    {
-      type: NotificationType.VALIDATION,
-      title: "Nouvelle demande de congé à valider",
-      message: `${me.agent.firstName} ${me.agent.lastName} · ${data.type} · ${days}j`,
-      link: "/conges",
-    },
-  );
+  // Sinon : on notifie le premier valideur de la chaîne.
+  if (!autoAuthorized) {
+    await notify(
+      await recipientUserIdsForStatus(status, ctx.serviceManagerId),
+      {
+        type: NotificationType.VALIDATION,
+        title: "Nouvelle demande de congé à valider",
+        message: `${me.agent.firstName} ${me.agent.lastName} · ${data.type} · ${days}j`,
+        link: "/conges",
+      },
+    );
+  }
 
   await logAudit({
     userId: me.id,

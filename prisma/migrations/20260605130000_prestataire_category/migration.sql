@@ -1,0 +1,4 @@
+-- Catégorie Prestataire + contrat de prestation
+ALTER TYPE "StaffCategory" ADD VALUE IF NOT EXISTS 'PRESTATAIRE';
+ALTER TYPE "StaffSubCategory" ADD VALUE IF NOT EXISTS 'PRESTATAIRE_SERVICE';
+ALTER TYPE "ContractType" ADD VALUE IF NOT EXISTS 'PRESTATION';

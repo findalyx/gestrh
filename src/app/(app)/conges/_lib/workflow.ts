@@ -43,7 +43,11 @@ export function applicableLevels(ctx: LeaveContext): LeaveApprovalLevel[] {
       ];
   return base.filter((lvl) => {
     if (lvl === LeaveApprovalLevel.CHEF)
-      return ctx.requester.agentId !== ctx.serviceManagerId;
+      // Sauté si le service n'a pas de chef, ou si le demandeur EST le chef.
+      return (
+        ctx.serviceManagerId != null &&
+        ctx.requester.agentId !== ctx.serviceManagerId
+      );
     if (lvl === LeaveApprovalLevel.DOYEN)
       return ctx.requester.role !== Role.DOYEN;
     return true; // DG_RECTEUR toujours conservé
@@ -52,6 +56,14 @@ export function applicableLevels(ctx: LeaveContext): LeaveApprovalLevel[] {
 
 /** Statut initial d'une demande à la création. */
 export function initialStatus(ctx: LeaveContext): LeaveStatus {
+  // Le DG (DIRECTION) et le Recteur n'ont besoin d'aucune validation :
+  // leur propre congé est autorisé directement.
+  if (
+    ctx.requester.role === Role.DIRECTION ||
+    ctx.requester.role === Role.RECTEUR
+  ) {
+    return LeaveStatus.AUTORISE;
+  }
   return LEVEL_STATUS[applicableLevels(ctx)[0]];
 }
 

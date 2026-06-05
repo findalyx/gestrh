@@ -12,6 +12,7 @@ const SUB_BY_CATEGORY: Record<StaffCategory, StaffSubCategory[]> = {
     StaffSubCategory.PATS_ADMINISTRATIF,
     StaffSubCategory.PATS_TECHNIQUE,
   ],
+  PRESTATAIRE: [StaffSubCategory.PRESTATAIRE_SERVICE],
 };
 
 export const SUB_CATEGORIES_BY_CATEGORY = SUB_BY_CATEGORY;

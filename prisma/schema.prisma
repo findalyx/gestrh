@@ -29,8 +29,9 @@ enum Role {
 
 /// Catégorie de personnel (§3)
 enum StaffCategory {
-  PER  // Personnel Enseignant et Recherche
-  PATS // Personnel Administratif, Technique et de Service
+  PER         // Personnel Enseignant et Recherche
+  PATS        // Personnel Administratif, Technique et de Service
+  PRESTATAIRE // Prestataire de services — permanent, contrat de prestation
 }
 
 /// Sous-catégorie de personnel
@@ -39,6 +40,7 @@ enum StaffSubCategory {
   PER_RECHERCHE
   PATS_ADMINISTRATIF
   PATS_TECHNIQUE
+  PRESTATAIRE_SERVICE
 }
 
 enum Gender {
@@ -58,6 +60,7 @@ enum ContractType {
   CDD
   VACATAIRE
   STAGE
+  PRESTATION // Contrat de prestation de services (prestataires permanents)
 }
 
 enum ContractStatus {
