@@ -25,7 +25,7 @@ function formatDate(d: Date | null): string {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(d);
 }
 
-type SearchParams = { period?: string };
+type SearchParams = { period?: string; perf?: string };
 
 export default async function EvaluationListPage({
   searchParams,
@@ -120,6 +120,18 @@ export default async function EvaluationListPage({
         scored.length
       : 0;
 
+  // Filtre par catégorie de performance (appliqué au tableau, pas aux stats)
+  const perfFilter = PERF_ORDER.includes(sp.perf as PerfCategory)
+    ? (sp.perf as PerfCategory)
+    : undefined;
+  const displayed = perfFilter
+    ? all.filter(
+        (e) =>
+          e.overallScore !== null &&
+          perfCategory(e.overallScore) === perfFilter,
+      )
+    : all;
+
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
   const now = new Date();
   const defaultYear = String(now.getFullYear());
@@ -147,6 +159,27 @@ export default async function EvaluationListPage({
                   {periods.map((p) => (
                     <option key={p.period} value={p.period}>
                       Campagne {p.period}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="perf"
+                  className="text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                >
+                  Performance
+                </label>
+                <select
+                  id="perf"
+                  name="perf"
+                  defaultValue={perfFilter ?? ""}
+                  className="rounded-lg border border-sc-border bg-gray-50 px-3 py-[8px] text-[13px] outline-none focus:border-sc-blue focus:bg-white"
+                >
+                  <option value="">Toutes</option>
+                  {PERF_ORDER.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {PERF_LABEL[cat]}
                     </option>
                   ))}
                 </select>
@@ -312,16 +345,26 @@ export default async function EvaluationListPage({
             : scope === "TEAM"
               ? "Évaluations de l'équipe"
               : "Toutes les évaluations"}{" "}
-          ({all.length})
+          ({displayed.length}
+          {perfFilter ? ` / ${all.length}` : ""})
+          {perfFilter && (
+            <span
+              className={`ml-1 inline-flex rounded-md px-2 py-0.5 text-[11px] font-semibold ${PERF_STYLE[perfFilter]}`}
+            >
+              {PERF_LABEL[perfFilter]}
+            </span>
+          )}
         </h3>
 
-        {all.length === 0 ? (
+        {displayed.length === 0 ? (
           <div className="rounded-xl border border-dashed border-sc-border bg-white p-8 text-center">
             <Icon name="evaluation" size={20} className="mx-auto text-gray-300" />
             <p className="mt-2 text-[13px] text-gray-500">
-              Aucune évaluation pour cette période.
+              {perfFilter
+                ? `Aucune évaluation « ${PERF_LABEL[perfFilter]} » pour cette période.`
+                : "Aucune évaluation pour cette période."}
             </p>
-            {isAdmin && (
+            {isAdmin && !perfFilter && (
               <p className="mt-2 text-[12px] text-gray-500">
                 Lancez une campagne via le bouton « + Lancer une campagne » ci-dessus.
               </p>
@@ -343,7 +386,7 @@ export default async function EvaluationListPage({
                 </tr>
               </thead>
               <tbody>
-                {all.map((e) => (
+                {displayed.map((e) => (
                   <tr key={e.id} className="border-t border-sc-border">
                     {scope !== "SELF" && (
                       <td className="px-4 py-2.5">

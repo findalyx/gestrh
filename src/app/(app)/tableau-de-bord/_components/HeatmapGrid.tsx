@@ -97,11 +97,11 @@ export function HeatmapGrid({
   }
 
   return (
-    <div ref={containerRef} className="relative overflow-x-auto">
+    <div ref={containerRef} className="relative">
       <div
-        className="grid w-max items-center gap-x-1 gap-y-1.5"
+        className="grid w-full items-center gap-x-1 gap-y-1.5"
         style={{
-          gridTemplateColumns: `max-content repeat(${daysISO.length}, 1.25rem)`,
+          gridTemplateColumns: `max-content repeat(${daysISO.length}, minmax(0, 1fr))`,
         }}
       >
         {rows.map((row, ri) => (
@@ -116,7 +116,7 @@ export function HeatmapGrid({
                   key={ci}
                   onMouseEnter={(e) => onCellEnter(e, c, row.service)}
                   onMouseLeave={() => setHovered(null)}
-                  className={`h-5 w-5 cursor-pointer rounded transition-transform duration-150 ease-out hover:scale-[1.6] hover:shadow-md ${cls}`}
+                  className={`aspect-square w-full cursor-pointer rounded-[3px] transition-transform duration-150 ease-out hover:scale-[1.4] hover:shadow-md ${cls}`}
                 />
               );
             })}

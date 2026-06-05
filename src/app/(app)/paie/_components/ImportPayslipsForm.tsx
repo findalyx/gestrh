@@ -10,12 +10,8 @@ export function ImportPayslipsForm() {
   );
 
   return (
-    <div className="rounded-xl border border-sc-border bg-white p-5 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-      <h3 className="flex items-center gap-2 font-serif text-[14px] font-semibold text-sc-blue-darker">
-        <span className="h-[16px] w-1 rounded bg-sc-teal" />
-        Importer des bulletins de paie (PDF)
-      </h3>
-      <p className="mt-1 text-[12px] text-gray-600">
+    <div>
+      <p className="text-[12px] text-gray-600">
         Téléversez le PDF mensuel des bulletins. Le système lit chaque bulletin
         (période, matricule, brut, net) et met à jour la paie automatiquement.
       </p>

@@ -238,18 +238,60 @@ export default async function PaiePage({
             </a>
           )}
         </div>
-        {isAdmin && <ImportPayslipsForm />}
-        {isAdmin && (
-          <details className="rounded-xl border border-sc-border bg-white p-4">
-            <summary className="cursor-pointer text-[12.5px] font-semibold text-gray-500">
-              Autre méthode : générer une période automatiquement
+      </div>
+
+      {/* Outils admin : import PDF & génération — cartes compactes dépliables */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <details className="group rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+            <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sc-teal/10 text-sc-teal">
+                <Icon name="import" size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-sc-blue-darker">
+                  Importer des bulletins (PDF)
+                </p>
+                <p className="truncate text-[11.5px] text-gray-500">
+                  Lecture automatique du PDF mensuel
+                </p>
+              </div>
+              <Icon
+                name="chevron-down"
+                size={16}
+                className="flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+              />
             </summary>
-            <div className="mt-3">
+            <div className="border-t border-sc-border p-4">
+              <ImportPayslipsForm />
+            </div>
+          </details>
+
+          <details className="group rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+            <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sc-blue-light text-sc-blue">
+                <Icon name="payroll" size={18} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-sc-blue-darker">
+                  Générer une période
+                </p>
+                <p className="truncate text-[11.5px] text-gray-500">
+                  Créer les bulletins automatiquement
+                </p>
+              </div>
+              <Icon
+                name="chevron-down"
+                size={16}
+                className="flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="border-t border-sc-border p-4">
               <GeneratePayrollForm defaultPeriod={defaultPeriod} />
             </div>
           </details>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Tuiles synthèse — visibles pour tous (admin = équipe / agent = perso) */}
       {records.length > 0 && (
