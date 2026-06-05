@@ -34,7 +34,7 @@ export function CollapsibleSection({
     <details
       id={htmlId}
       open={defaultOpen}
-      className="group scroll-mt-8 overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]"
+      className="group scroll-mt-8 overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]"
     >
       <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 transition hover:bg-sc-blue-bg/40 [&::-webkit-details-marker]:hidden">
         {/* Barre d'accent */}

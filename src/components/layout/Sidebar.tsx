@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import type { NavSection } from "@/lib/navigation";
 
-type SidebarProps = {
+export type SidebarProps = {
   sections: NavSection[];
   /** Compteurs affichés en pastille, indexés par href */
   badges?: Record<string, number>;

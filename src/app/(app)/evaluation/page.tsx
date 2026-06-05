@@ -185,8 +185,8 @@ export default async function EvaluationListPage({
             <span className="h-[18px] w-1 rounded bg-sc-warning" />
             À évaluer ({todo.length})
           </h3>
-          <div className="overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-            <table className="w-full text-[13px]">
+          <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead className="bg-sc-blue-bg text-left">
                 <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                   <th className="px-4 py-3">Agent</th>
@@ -259,8 +259,8 @@ export default async function EvaluationListPage({
             )}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-            <table className="w-full text-[13px]">
+          <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead className="bg-sc-blue-bg text-left">
                 <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                   {scope !== "SELF" && <th className="px-4 py-3">Agent</th>}

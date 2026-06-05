@@ -1,5 +1,5 @@
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Topbar, type TopbarNotification } from "@/components/layout/Topbar";
+import { AppShell } from "@/components/layout/AppShell";
+import { type TopbarNotification } from "@/components/layout/Topbar";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
 import { navSectionsFor } from "@/lib/navigation";
@@ -94,27 +94,26 @@ export default async function AppLayout({
     currentUser.role === Role.MANAGER;
 
   return (
-    <div className="grid min-h-screen grid-cols-[260px_1fr] app-shell">
-      <Sidebar
-        sections={sections}
-        badges={badges}
-        organization={{
+    <AppShell
+      sidebar={{
+        sections,
+        badges,
+        organization: {
           name: organization.name,
           shortName: organization.shortName,
           tagline: organization.tagline,
           logoUrl: organization.logoFilename
             ? `/api/branding/logo?v=${encodeURIComponent(organization.updatedAt.toISOString())}`
             : null,
-        }}
-      />
-      <main className="min-w-0">
-        <Topbar
-          notifications={topbarNotifications}
-          user={user}
-          showSearch={canSearch}
-        />
-        <div className="px-8 py-6 print-content">{children}</div>
-      </main>
-    </div>
+        },
+      }}
+      topbar={{
+        notifications: topbarNotifications,
+        user,
+        showSearch: canSearch,
+      }}
+    >
+      {children}
+    </AppShell>
   );
 }

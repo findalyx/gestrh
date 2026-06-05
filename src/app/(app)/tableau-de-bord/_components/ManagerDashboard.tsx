@@ -310,7 +310,8 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
               Aucune demande en attente. Bonne journée !
             </p>
           ) : (
-            <table className="w-full text-[13px]">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead className="text-left">
                 <tr className="border-b border-sc-border text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                   <th className="pb-2">Agent</th>
@@ -346,6 +347,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </section>
       </div>

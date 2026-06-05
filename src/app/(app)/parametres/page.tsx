@@ -172,8 +172,8 @@ export default async function ParametresPage() {
           rôle applicatif — ils existent juste comme dossiers RH.
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-          <table className="w-full text-[13px]">
+        <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+          <table className="w-full min-w-[640px] text-[13px]">
             <thead className="bg-sc-blue-bg text-left">
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                 <th className="px-4 py-3">Email</th>
@@ -269,8 +269,8 @@ export default async function ParametresPage() {
         subtitle={!isDirection ? "Réservé à la Direction." : undefined}
         badge={`${services.length} service${services.length > 1 ? "s" : ""}`}
       >
-        <div className="overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-          <table className="w-full text-[13px]">
+        <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+          <table className="w-full min-w-[640px] text-[13px]">
             <thead className="bg-sc-blue-bg text-left">
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                 <th className="px-4 py-3">Service</th>
@@ -353,7 +353,7 @@ export default async function ParametresPage() {
         subtitle="20 dernières actions effectuées dans l'application."
         badge={`${recentAudit.length} entrée${recentAudit.length > 1 ? "s" : ""}`}
       >
-        <div className="overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+        <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
           {recentAudit.length === 0 ? (
             <div className="px-4 py-8 text-center text-[12.5px] text-gray-500">
               <Icon
@@ -364,7 +364,7 @@ export default async function ParametresPage() {
               Aucune action enregistrée pour le moment.
             </div>
           ) : (
-            <table className="w-full text-[12.5px]">
+            <table className="w-full min-w-[640px] text-[12.5px]">
               <thead className="bg-sc-blue-bg text-left">
                 <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                   <th className="px-4 py-3">Date</th>

@@ -15,11 +15,13 @@ export type TopbarNotification = {
   link: string;
 };
 
-type TopbarProps = {
+export type TopbarProps = {
   notifications: TopbarNotification[];
   user: { name: string; role: string; initials: string };
   /** Si true, on affiche la barre de recherche d'agents (DRH/Direction/Manager) */
   showSearch?: boolean;
+  /** Callback du bouton hamburger (mobile) — ouvre le menu latéral. */
+  onMenuClick?: () => void;
 };
 
 const VARIANT_STYLES: Record<
@@ -31,7 +33,12 @@ const VARIANT_STYLES: Record<
   info: { wrap: "bg-sc-teal-light text-sc-teal-dark", icon: "bell" },
 };
 
-export function Topbar({ notifications, user, showSearch = false }: TopbarProps) {
+export function Topbar({
+  notifications,
+  user,
+  showSearch = false,
+  onMenuClick,
+}: TopbarProps) {
   const pathname = usePathname();
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -57,18 +64,44 @@ export function Topbar({ notifications, user, showSearch = false }: TopbarProps)
   }, []);
 
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-sc-border bg-white px-8 py-4 no-print">
-      <div>
-        <h2 className="font-serif text-[22px] font-semibold text-sc-blue-darker">
-          {current.title}
-        </h2>
-        <p className="mt-0.5 text-[12.5px] text-gray-500">{current.subtitle}</p>
+    <header className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-sc-border bg-white px-4 py-3.5 no-print sm:px-6 sm:py-4 lg:px-8">
+      <div className="flex min-w-0 items-center gap-3">
+        {onMenuClick && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            aria-label="Ouvrir le menu"
+            className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-lg border border-sc-border bg-gray-50 text-gray-700 transition hover:border-sc-blue hover:bg-sc-blue-light hover:text-sc-blue lg:hidden"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        )}
+        <div className="min-w-0">
+          <h2 className="truncate font-serif text-lg font-semibold text-sc-blue-darker sm:text-[22px]">
+            {current.title}
+          </h2>
+          <p className="mt-0.5 hidden truncate text-[12.5px] text-gray-500 sm:block">
+            {current.subtitle}
+          </p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Recherche — soumet vers /personnel?q= (Manager + DRH + Direction) */}
         {showSearch && (
-          <form action="/personnel" method="get" className="relative">
+          <form action="/personnel" method="get" className="relative hidden md:block">
             <Icon
               name="search"
               size={15}
@@ -165,7 +198,7 @@ export function Topbar({ notifications, user, showSearch = false }: TopbarProps)
             <div className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-gradient-to-br from-sc-purple to-sc-blue text-[13px] font-semibold text-white">
               {user.initials}
             </div>
-            <div className="text-left">
+            <div className="hidden text-left sm:block">
               <p className="text-[13px] font-medium text-sc-ink">{user.name}</p>
               <p className="text-[11.5px] text-gray-500">{user.role}</p>
             </div>
