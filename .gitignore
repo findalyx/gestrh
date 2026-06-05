@@ -64,3 +64,8 @@ prisma/seed.sql
 TEMPLATE*.docx
 TEMPLATES*.docx
 *ATTESTATION*.docx
+
+# Papier en-tête officiel (sensible — stocké en privé sur Supabase, jamais committé)
+Papier*.docx
+*entete*.docx
+*en-tête*.docx

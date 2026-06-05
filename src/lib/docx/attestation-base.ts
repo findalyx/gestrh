@@ -6,6 +6,7 @@ import {
   Paragraph,
   TextRun,
 } from "docx";
+import { applyLetterhead } from "./letterhead";
 
 /**
  * Socle commun aux attestations signées par le Doyen Exécutif (pour le
@@ -149,11 +150,9 @@ export async function buildAttestationDocx(
   });
 
   const buf = await Packer.toBuffer(doc);
-  return new Uint8Array(
-    buf.buffer,
-    buf.byteOffset,
-    buf.byteLength,
-  ).slice() as Uint8Array<ArrayBuffer>;
+  const bytes = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).slice();
+  // Greffe sur le papier en-tête officiel s'il est configuré, sinon document simple.
+  return applyLetterhead(bytes);
 }
 
 /** Civilité longue selon le genre. */

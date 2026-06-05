@@ -11,6 +11,11 @@ import {
   getOrganization,
   saveLogoFile,
 } from "@/lib/organization";
+import { putObject, removeObject } from "@/lib/supabase-storage";
+
+const LETTERHEAD_PATH = "branding/letterhead.docx";
+const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const OrgSchema = z.object({
   name: z.string().trim().min(2, "Nom trop court").max(120),
@@ -187,4 +192,62 @@ export async function deleteLogo(
 
   revalidatePath("/", "layout");
   return { ok: true, message: "Logo supprimé." };
+}
+
+// ============================================================
+//  PAPIER EN-TÊTE (.docx) POUR LES ATTESTATIONS — DIRECTION + DRH
+// ============================================================
+export async function uploadLetterhead(
+  _prev: LogoActionState,
+  formData: FormData,
+): Promise<LogoActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const file = formData.get("letterhead");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Veuillez choisir un fichier." };
+  }
+  if (!file.name.toLowerCase().endsWith(".docx")) {
+    return { ok: false, error: "Le papier en-tête doit être un fichier Word (.docx)." };
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    return { ok: false, error: "Fichier trop volumineux (max 5 Mo)." };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const res = await putObject({
+    path: LETTERHEAD_PATH,
+    buffer,
+    contentType: DOCX_MIME,
+    upsert: true,
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+
+  await logAudit({
+    userId: me.id,
+    action: "UPLOAD_LETTERHEAD",
+    entity: "Organization",
+    details: file.name,
+  });
+
+  revalidatePath("/parametres");
+  return { ok: true, message: "Papier en-tête enregistré. Il sera appliqué aux attestations." };
+}
+
+export async function deleteLetterhead(
+  _prev: LogoActionState,
+  _formData: FormData,
+): Promise<LogoActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  await removeObject(LETTERHEAD_PATH);
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_LETTERHEAD",
+    entity: "Organization",
+  });
+
+  revalidatePath("/parametres");
+  return { ok: true, message: "Papier en-tête supprimé. Les attestations repassent en texte simple." };
 }

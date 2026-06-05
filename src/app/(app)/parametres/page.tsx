@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { getLastAccrualYYMM } from "@/lib/leave-accrual";
 import { getOrganization } from "@/lib/organization";
+import { listPrefix } from "@/lib/supabase-storage";
 import { Icon } from "@/components/Icon";
 import {
   RoleSelectForm,
@@ -12,6 +13,7 @@ import { ServiceManagerForm } from "./_components/ServiceManagerForm";
 import { CreateUserForm } from "./_components/CreateUserForm";
 import { LeaveBalanceAdmin } from "./_components/LeaveBalanceAdmin";
 import { OrganizationForm } from "./_components/OrganizationForm";
+import { LetterheadForm } from "./_components/LetterheadForm";
 import { CollapsibleSection } from "./_components/CollapsibleSection";
 
 export const dynamic = "force-dynamic";
@@ -106,6 +108,10 @@ export default async function ParametresPage() {
     ? `/api/branding/logo?v=${encodeURIComponent(organization.updatedAt.toISOString())}`
     : null;
 
+  // Le papier en-tête des attestations est stocké dans le bucket privé.
+  const brandingFiles = await listPrefix("branding");
+  const letterheadExists = brandingFiles.includes("letterhead.docx");
+
   return (
     <div className="space-y-3">
       {/* Section — Identité de l'organisation */}
@@ -137,6 +143,16 @@ export default async function ParametresPage() {
           }}
           logoUrl={logoUrl}
         />
+      </CollapsibleSection>
+
+      {/* Section — Papier en-tête des attestations */}
+      <CollapsibleSection
+        accent="bg-sc-purple"
+        title="Papier en-tête des attestations"
+        subtitle="Modèle Word officiel (en-tête + pied de page) appliqué aux attestations de congés, de reprise et de travail."
+        badge={letterheadExists ? "Configuré" : "Non configuré"}
+      >
+        <LetterheadForm exists={letterheadExists} />
       </CollapsibleSection>
 
       {/* Section — Soldes de congés */}
