@@ -18,8 +18,8 @@ export type NavSection = {
   items: NavItem[];
 };
 
-const ALL: Role[] = [Role.DIRECTION, Role.DRH, Role.MANAGER, Role.AGENT];
-const STAFF: Role[] = [Role.DIRECTION, Role.DRH, Role.MANAGER];
+const ALL: Role[] = [Role.DIRECTION, Role.RECTEUR, Role.DOYEN, Role.DRH, Role.MANAGER, Role.AGENT];
+const STAFF: Role[] = [Role.DIRECTION, Role.RECTEUR, Role.DOYEN, Role.DRH, Role.MANAGER];
 const ADMIN: Role[] = [Role.DIRECTION, Role.DRH];
 
 /**

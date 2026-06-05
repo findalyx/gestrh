@@ -19,9 +19,11 @@ datasource db {
 
 /// Profils utilisateurs (§4 des spécifications)
 enum Role {
-  DIRECTION // Direction Générale — accès complet, vue stratégique
+  DIRECTION // Direction Générale / DG — accès complet, vue stratégique
+  RECTEUR   // Recteur — autorité finale (alternative au DG sur les congés)
+  DOYEN     // Doyen Académique ou Exécutif — validation intermédiaire des congés
   DRH       // DRH / Responsable RH — accès complet RH
-  MANAGER   // Responsable de service — accès limité à son équipe
+  MANAGER   // Responsable / Chef de Service — accès limité à son équipe
   AGENT     // Agent PER ou PATS — accès à son propre dossier
 }
 
@@ -112,14 +114,30 @@ enum LeaveType {
   SANS_SOLDE
 }
 
-/// Workflow de validation : Manager -> DRH
+/// Workflow de validation des congés (Université St Christopher) :
+/// Employé -> Chef de Service -> Doyen -> DG/Recteur -> Autorisé.
+/// (Personnel du service « Direction Générale » : Employé -> DG directement.)
 enum LeaveStatus {
   BROUILLON
-  EN_ATTENTE_MANAGER
-  EN_ATTENTE_DRH
-  APPROUVE
+  EN_ATTENTE_CHEF
+  EN_ATTENTE_DOYEN
+  EN_ATTENTE_DG
+  AUTORISE
   REFUSE
   ANNULE
+}
+
+/// Niveau de validation dans la chaîne des congés.
+enum LeaveApprovalLevel {
+  CHEF
+  DOYEN
+  DG_RECTEUR
+}
+
+/// Sens de la décision prise à un niveau de validation.
+enum LeaveDecision {
+  FAVORABLE
+  DEFAVORABLE
 }
 
 enum EvaluationStatus {
@@ -221,6 +239,7 @@ model User {
   renewalDecisions      ContractRenewal[]      @relation("RenewalDecider")
   resignationDecisions  Resignation[]          @relation("ResignationDecider")
   contractNotifications ContractNotification[] @relation("NotificationSender")
+  leaveApprovals        LeaveApproval[]        @relation("LeaveApprovalDecider")
 }
 
 /// Paramètres applicatifs (clé / valeur). Pour stocker des compteurs ou
@@ -534,7 +553,26 @@ model LeaveRequest {
   approver  Agent? @relation("LeaveApprover", fields: [approverId], references: [id])
   approverId String?
 
+  approvals LeaveApproval[]
+
   @@index([status])
+}
+
+/// Trace d'une décision prise à un niveau de la chaîne de validation des
+/// congés (Chef de Service, Doyen, DG/Recteur). Une ligne par décision.
+model LeaveApproval {
+  id        String             @id @default(cuid())
+  level     LeaveApprovalLevel
+  decision  LeaveDecision
+  comment   String?
+  decidedAt DateTime           @default(now())
+
+  request   LeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  decidedBy User?        @relation("LeaveApprovalDecider", fields: [decidedById], references: [id])
+  decidedById String?
+
+  @@index([requestId])
 }
 
 /// Solde de congés d'un agent par type et par année

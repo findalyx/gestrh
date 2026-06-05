@@ -304,7 +304,7 @@ async function main() {
           LeaveType.MALADIE,
           LeaveType.EXCEPTIONNEL,
         ]),
-        status: LeaveStatus.APPROUVE,
+        status: LeaveStatus.AUTORISE,
         startDate,
         endDate,
         days: duration,
@@ -316,8 +316,8 @@ async function main() {
 
   // 18 demandes en attente de validation (futures) + quelques refusées
   const pendingStatuses: LeaveStatus[] = [
-    ...Array(10).fill(LeaveStatus.EN_ATTENTE_MANAGER),
-    ...Array(8).fill(LeaveStatus.EN_ATTENTE_DRH),
+    ...Array(10).fill(LeaveStatus.EN_ATTENTE_CHEF),
+    ...Array(8).fill(LeaveStatus.EN_ATTENTE_DG),
     ...Array(6).fill(LeaveStatus.REFUSE),
   ];
   for (const status of pendingStatuses) {

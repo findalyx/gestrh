@@ -101,7 +101,7 @@ export async function DirectionDashboard() {
     prisma.agent.count({ where: { category: StaffCategory.PATS } }),
     prisma.leaveRequest.count({
       where: {
-        status: LeaveStatus.APPROUVE,
+        status: LeaveStatus.AUTORISE,
         startDate: { lte: today },
         endDate: { gte: today },
       },
@@ -117,7 +117,7 @@ export async function DirectionDashboard() {
     prisma.leaveRequest.count({
       where: {
         status: {
-          in: [LeaveStatus.EN_ATTENTE_MANAGER, LeaveStatus.EN_ATTENTE_DRH],
+          in: [LeaveStatus.EN_ATTENTE_CHEF, LeaveStatus.EN_ATTENTE_DOYEN, LeaveStatus.EN_ATTENTE_DG],
         },
       },
     }),

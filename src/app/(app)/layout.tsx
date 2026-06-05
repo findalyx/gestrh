@@ -15,6 +15,8 @@ const ROLE_LABEL: Record<Role, string> = {
   DIRECTION: "Direction générale",
   DRH: "DRH",
   MANAGER: "Manager",
+  RECTEUR: "Recteur",
+  DOYEN: "Doyen",
   AGENT: "Agent",
 };
 
@@ -35,13 +37,13 @@ export default async function AppLayout({
   const pendingLeavesWhere = (() => {
     const base = {
       status: {
-        in: [LeaveStatus.EN_ATTENTE_MANAGER, LeaveStatus.EN_ATTENTE_DRH],
+        in: [LeaveStatus.EN_ATTENTE_CHEF, LeaveStatus.EN_ATTENTE_DOYEN, LeaveStatus.EN_ATTENTE_DG],
       },
     };
     if (currentUser.role === Role.MANAGER && currentUser.agent) {
       return {
         ...base,
-        status: LeaveStatus.EN_ATTENTE_MANAGER,
+        status: LeaveStatus.EN_ATTENTE_CHEF,
         agent: { service: { managerId: currentUser.agent.id } },
       };
     }

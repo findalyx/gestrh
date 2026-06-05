@@ -228,9 +228,10 @@ export default async function CongesPage() {
                   const isMine = r.agentId === me.agent?.id;
                   const canCancel =
                     isMine &&
-                    (r.status === LeaveStatus.EN_ATTENTE_MANAGER ||
-                      r.status === LeaveStatus.EN_ATTENTE_DRH ||
-                      (r.status === LeaveStatus.APPROUVE && r.startDate > new Date()));
+                    (r.status === LeaveStatus.EN_ATTENTE_CHEF ||
+                      r.status === LeaveStatus.EN_ATTENTE_DOYEN ||
+                      r.status === LeaveStatus.EN_ATTENTE_DG ||
+                      (r.status === LeaveStatus.AUTORISE && r.startDate > new Date()));
                   return (
                     <tr key={r.id} className="border-t border-sc-border">
                       {scope !== "SELF" && (
@@ -267,8 +268,9 @@ export default async function CongesPage() {
                           {/* L'admin peut aussi approuver/refuser ici si encore en attente */}
                           {isAdmin &&
                             !isMine &&
-                            (r.status === LeaveStatus.EN_ATTENTE_DRH ||
-                              r.status === LeaveStatus.EN_ATTENTE_MANAGER) && (
+                            (r.status === LeaveStatus.EN_ATTENTE_DG ||
+                              r.status === LeaveStatus.EN_ATTENTE_DOYEN ||
+                              r.status === LeaveStatus.EN_ATTENTE_CHEF) && (
                               <>
                                 <ApproveButton requestId={r.id} />
                                 <RejectButton requestId={r.id} />

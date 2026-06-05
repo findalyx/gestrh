@@ -12,6 +12,8 @@ const ROLE_LABEL: Record<Role, string> = {
   DIRECTION: "Direction",
   DRH: "DRH",
   MANAGER: "Manager",
+  RECTEUR: "Recteur",
+  DOYEN: "Doyen",
   AGENT: "Agent",
 };
 

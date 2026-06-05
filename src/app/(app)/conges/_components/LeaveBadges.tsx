@@ -5,26 +5,29 @@ const BASE =
 
 const STATUS_STYLE: Record<LeaveStatus, string> = {
   BROUILLON: "bg-gray-100 text-gray-600",
-  EN_ATTENTE_MANAGER: "bg-sc-warning-light text-[#854f0b]",
-  EN_ATTENTE_DRH: "bg-sc-blue-light text-sc-blue",
-  APPROUVE: "bg-sc-green-light text-sc-green-dark",
+  EN_ATTENTE_CHEF: "bg-sc-warning-light text-[#854f0b]",
+  EN_ATTENTE_DOYEN: "bg-sc-purple-light text-sc-purple",
+  EN_ATTENTE_DG: "bg-sc-blue-light text-sc-blue",
+  AUTORISE: "bg-sc-green-light text-sc-green-dark",
   REFUSE: "bg-sc-danger-light text-sc-danger",
   ANNULE: "bg-gray-100 text-gray-500",
 };
 
 const STATUS_LABEL: Record<LeaveStatus, string> = {
   BROUILLON: "Brouillon",
-  EN_ATTENTE_MANAGER: "Manager",
-  EN_ATTENTE_DRH: "DRH",
-  APPROUVE: "Approuvé",
+  EN_ATTENTE_CHEF: "Chef de service",
+  EN_ATTENTE_DOYEN: "Doyen",
+  EN_ATTENTE_DG: "DG / Recteur",
+  AUTORISE: "Autorisé",
   REFUSE: "Refusé",
   ANNULE: "Annulé",
 };
 
 export function LeaveStatusBadge({ value }: { value: LeaveStatus }) {
   const isWaiting =
-    value === LeaveStatus.EN_ATTENTE_MANAGER ||
-    value === LeaveStatus.EN_ATTENTE_DRH;
+    value === LeaveStatus.EN_ATTENTE_CHEF ||
+    value === LeaveStatus.EN_ATTENTE_DOYEN ||
+    value === LeaveStatus.EN_ATTENTE_DG;
   return (
     <span className={`${BASE} ${STATUS_STYLE[value]}`}>
       {isWaiting && "⏳ "}

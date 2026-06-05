@@ -46,7 +46,7 @@ export async function PresenceHeatmap() {
     }),
     prisma.leaveRequest.findMany({
       where: {
-        status: LeaveStatus.APPROUVE,
+        status: LeaveStatus.AUTORISE,
         startDate: { lte: end },
         endDate: { gte: start },
       },

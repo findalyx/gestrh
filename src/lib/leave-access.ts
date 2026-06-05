@@ -4,9 +4,16 @@ import type { Prisma } from "@prisma/client";
 import { Role, LeaveStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/dal";
 
+const READ_ALL_ROLES: Role[] = [
+  Role.DIRECTION,
+  Role.RECTEUR,
+  Role.DOYEN,
+  Role.DRH,
+];
+
 /**
  * Filtre Prisma à appliquer sur LeaveRequest selon le rôle de l'utilisateur.
- * - DIRECTION / DRH : toutes les demandes
+ * - DIRECTION / RECTEUR / DOYEN / DRH : toutes les demandes (lecture)
  * - MANAGER : son équipe + ses propres demandes
  * - AGENT : ses propres demandes uniquement
  */
@@ -16,7 +23,7 @@ export async function getLeaveScopeWhere(): Promise<{
 }> {
   const user = await getCurrentUser();
 
-  if (user.role === Role.DIRECTION || user.role === Role.DRH) {
+  if (READ_ALL_ROLES.includes(user.role)) {
     return { where: {}, scope: "ALL" };
   }
 
@@ -43,10 +50,12 @@ export async function getLeaveScopeWhere(): Promise<{
 }
 
 /**
- * Filtre pour les demandes en attente d'action de l'utilisateur courant.
- * - MANAGER : demandes EN_ATTENTE_MANAGER de son équipe
- * - DRH / DIRECTION : demandes EN_ATTENTE_DRH
- * - AGENT : aucune (il n'a rien à valider)
+ * Filtre pour les demandes en attente d'action de l'utilisateur courant,
+ * selon son niveau dans la chaîne de validation.
+ * - MANAGER (Chef de Service) : EN_ATTENTE_CHEF de son équipe
+ * - DOYEN : EN_ATTENTE_DOYEN
+ * - DG (DIRECTION) / RECTEUR : EN_ATTENTE_DG
+ * - DRH / AGENT : aucune (la DRH gère les attestations, pas la validation)
  */
 export async function getMyPendingApprovalsWhere(): Promise<{
   where: Prisma.LeaveRequestWhereInput;
@@ -54,17 +63,18 @@ export async function getMyPendingApprovalsWhere(): Promise<{
 }> {
   const user = await getCurrentUser();
 
-  if (user.role === Role.DIRECTION || user.role === Role.DRH) {
-    return {
-      where: { status: LeaveStatus.EN_ATTENTE_DRH },
-      canApprove: true,
-    };
+  if (user.role === Role.DIRECTION || user.role === Role.RECTEUR) {
+    return { where: { status: LeaveStatus.EN_ATTENTE_DG }, canApprove: true };
+  }
+
+  if (user.role === Role.DOYEN) {
+    return { where: { status: LeaveStatus.EN_ATTENTE_DOYEN }, canApprove: true };
   }
 
   if (user.role === Role.MANAGER && user.agent) {
     return {
       where: {
-        status: LeaveStatus.EN_ATTENTE_MANAGER,
+        status: LeaveStatus.EN_ATTENTE_CHEF,
         agent: { service: { managerId: user.agent.id } },
       },
       canApprove: true,

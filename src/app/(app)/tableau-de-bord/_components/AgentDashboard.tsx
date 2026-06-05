@@ -90,9 +90,10 @@ export async function AgentDashboard({ agentId, firstName }: Props) {
         agentId,
         status: {
           in: [
-            LeaveStatus.EN_ATTENTE_MANAGER,
-            LeaveStatus.EN_ATTENTE_DRH,
-            LeaveStatus.APPROUVE,
+            LeaveStatus.EN_ATTENTE_CHEF,
+            LeaveStatus.EN_ATTENTE_DOYEN,
+            LeaveStatus.EN_ATTENTE_DG,
+            LeaveStatus.AUTORISE,
           ],
         },
         endDate: { gte: new Date() },
@@ -327,12 +328,12 @@ export async function AgentDashboard({ agentId, firstName }: Props) {
                     </p>
                     <span
                       className={`whitespace-nowrap rounded-full px-2 py-[1.5px] text-[10px] font-semibold uppercase tracking-wider ${
-                        l.status === LeaveStatus.APPROUVE
+                        l.status === LeaveStatus.AUTORISE
                           ? "bg-sc-green-light text-sc-green-dark"
                           : "bg-sc-warning-light text-[#854f0b]"
                       }`}
                     >
-                      {l.status === LeaveStatus.APPROUVE
+                      {l.status === LeaveStatus.AUTORISE
                         ? "Approuvé"
                         : "En attente"}
                     </span>

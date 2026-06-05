@@ -51,7 +51,7 @@ export async function getAlertsForUser(user: UserContext): Promise<Alert[]> {
       prisma.leaveRequest.count({
         where: {
           status: {
-            in: [LeaveStatus.EN_ATTENTE_MANAGER, LeaveStatus.EN_ATTENTE_DRH],
+            in: [LeaveStatus.EN_ATTENTE_CHEF, LeaveStatus.EN_ATTENTE_DOYEN, LeaveStatus.EN_ATTENTE_DG],
           },
         },
       }),
@@ -147,7 +147,7 @@ export async function getAlertsForUser(user: UserContext): Promise<Alert[]> {
     const [teamPendingLeaves, evalsToDo] = await Promise.all([
       prisma.leaveRequest.count({
         where: {
-          status: LeaveStatus.EN_ATTENTE_MANAGER,
+          status: LeaveStatus.EN_ATTENTE_CHEF,
           agent: { service: { managerId: user.agent.id } },
         },
       }),
@@ -189,7 +189,7 @@ export async function getAlertsForUser(user: UserContext): Promise<Alert[]> {
         where: {
           agentId: user.agent.id,
           status: {
-            in: [LeaveStatus.EN_ATTENTE_MANAGER, LeaveStatus.EN_ATTENTE_DRH],
+            in: [LeaveStatus.EN_ATTENTE_CHEF, LeaveStatus.EN_ATTENTE_DOYEN, LeaveStatus.EN_ATTENTE_DG],
           },
         },
         orderBy: { createdAt: "desc" },

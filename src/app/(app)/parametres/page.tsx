@@ -20,6 +20,8 @@ const ROLE_LABEL: Record<Role, string> = {
   DIRECTION: "Direction",
   DRH: "DRH",
   MANAGER: "Manager",
+  RECTEUR: "Recteur",
+  DOYEN: "Doyen",
   AGENT: "Agent",
 };
 
@@ -27,6 +29,8 @@ const ROLE_STYLE: Record<Role, string> = {
   DIRECTION: "bg-sc-purple-light text-sc-purple-dark",
   DRH: "bg-sc-blue-light text-sc-blue",
   MANAGER: "bg-sc-teal-light text-sc-teal-dark",
+  RECTEUR: "bg-sc-purple-light text-sc-purple-dark",
+  DOYEN: "bg-sc-blue-light text-sc-blue",
   AGENT: "bg-gray-100 text-gray-700",
 };
 

@@ -49,3 +49,6 @@ next-env.d.ts
 
 # clone temporaire segnoogo (transposition)
 gestrh-src/
+
+# Données réelles (PII) — ne pas committer
+SIRH_UNIVERSITE_ST_CHRISTOPHER_.xlsx

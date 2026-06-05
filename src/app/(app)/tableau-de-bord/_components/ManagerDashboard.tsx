@@ -79,7 +79,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
     }),
     prisma.leaveRequest.count({
       where: {
-        status: LeaveStatus.APPROUVE,
+        status: LeaveStatus.AUTORISE,
         startDate: { lte: today },
         endDate: { gte: today },
         agent: { serviceId: service.id },
@@ -87,7 +87,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
     }),
     prisma.leaveRequest.count({
       where: {
-        status: LeaveStatus.EN_ATTENTE_MANAGER,
+        status: LeaveStatus.EN_ATTENTE_CHEF,
         agent: { serviceId: service.id },
       },
     }),
@@ -146,7 +146,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
     // Congés approuvés à venir dans les 30 prochains jours
     prisma.leaveRequest.findMany({
       where: {
-        status: LeaveStatus.APPROUVE,
+        status: LeaveStatus.AUTORISE,
         startDate: { gte: today, lte: new Date(today.getTime() + 30 * DAY) },
         agent: { serviceId: service.id },
       },
@@ -188,7 +188,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
   // Pending leaves pour la table
   const pendingLeaves = await prisma.leaveRequest.findMany({
     where: {
-      status: LeaveStatus.EN_ATTENTE_MANAGER,
+      status: LeaveStatus.EN_ATTENTE_CHEF,
       agent: { serviceId: service.id },
     },
     orderBy: { createdAt: "asc" },
