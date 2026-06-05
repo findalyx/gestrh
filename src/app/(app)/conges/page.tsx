@@ -359,6 +359,14 @@ export default async function CongesPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-2">
+                          {r.status === LeaveStatus.AUTORISE && (
+                            <a
+                              href={`/api/conges/${r.id}/attestation`}
+                              className="text-[12px] font-medium text-sc-blue hover:underline"
+                            >
+                              📄 Attestation
+                            </a>
+                          )}
                           {canCancel && <CancelButton requestId={r.id} />}
                           {/* L'admin peut aussi approuver/refuser ici si encore en attente */}
                           {isAdmin &&
