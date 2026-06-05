@@ -14,6 +14,7 @@ import {
 } from "../_lib/schema";
 
 export type AgentFormDefaults = {
+  matricule?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -92,11 +93,29 @@ export function AgentForm({
         </div>
       )}
 
-      {matricule && (
+      {matricule ? (
         <div className="rounded-lg border border-sc-border bg-sc-blue-bg px-4 py-2.5 text-[12.5px]">
           Matricule : <span className="font-mono font-semibold">{matricule}</span>{" "}
           <span className="text-gray-500">— ne peut pas être modifié</span>
         </div>
+      ) : (
+        <FieldGroup title="Immatriculation">
+          <Field label="Matricule (optionnel)" name="matricule" error={err("matricule")}>
+            <input
+              id="matricule"
+              name="matricule"
+              defaultValue={v("matricule") as string}
+              placeholder="Auto si vide — ex. 3110"
+              className={inputCls}
+            />
+          </Field>
+          <p className="text-[11.5px] text-gray-500">
+            Laissez vide pour une attribution automatique. Renseignez le
+            matricule réel (ex.{" "}
+            <span className="font-mono">3110</span>) pour rattacher à cette fiche
+            des bulletins de paie déjà importés.
+          </p>
+        </FieldGroup>
       )}
 
       <FieldGroup title="Identité">
@@ -260,6 +279,7 @@ export function AgentForm({
             >
               <option value={StaffCategory.PER}>PER (Enseignant / Recherche)</option>
               <option value={StaffCategory.PATS}>PATS (Administratif / Technique)</option>
+              <option value={StaffCategory.PRESTATAIRE}>Prestataire</option>
             </select>
           </Field>
           <Field

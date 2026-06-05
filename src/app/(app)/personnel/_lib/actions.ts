@@ -34,6 +34,7 @@ async function nextMatricule(
 
 function rawFormValues(formData: FormData) {
   return {
+    matricule: String(formData.get("matricule") ?? ""),
     firstName: String(formData.get("firstName") ?? ""),
     lastName: String(formData.get("lastName") ?? ""),
     email: String(formData.get("email") ?? ""),
@@ -81,10 +82,25 @@ export async function createAgent(
     };
   }
 
+  // Matricule explicite (ex. pour rattacher des bulletins) : doit être unique.
+  const wantedMatricule = data.matricule ? data.matricule.trim() : "";
+  if (wantedMatricule) {
+    const clash = await prisma.agent.findUnique({
+      where: { matricule: wantedMatricule },
+      select: { id: true },
+    });
+    if (clash) {
+      return {
+        errors: { matricule: ["Ce matricule est déjà utilisé par un autre agent"] },
+        values: raw,
+      };
+    }
+  }
+
   let createdId: string;
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const matricule = await nextMatricule(tx, data.category);
+      const matricule = wantedMatricule || (await nextMatricule(tx, data.category));
       const created = await tx.agent.create({
         data: {
           matricule,
@@ -119,11 +135,19 @@ export async function createAgent(
       details: `matricule=${result.matricule} ${data.firstName} ${data.lastName}`,
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
-      return {
-        errors: { serviceId: ["Service introuvable"] },
-        values: raw,
-      };
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      if (e.code === "P2002") {
+        return {
+          errors: { matricule: ["Ce matricule est déjà utilisé par un autre agent"] },
+          values: raw,
+        };
+      }
+      if (e.code === "P2003") {
+        return {
+          errors: { serviceId: ["Service introuvable"] },
+          values: raw,
+        };
+      }
     }
     throw e;
   }

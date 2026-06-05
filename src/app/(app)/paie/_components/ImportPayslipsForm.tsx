@@ -15,6 +15,11 @@ export function ImportPayslipsForm() {
         Téléversez le PDF mensuel des bulletins. Le système lit chaque bulletin
         (période, matricule, brut, net) et met à jour la paie automatiquement.
       </p>
+      <p className="mt-1 text-[11.5px] text-gray-500">
+        Ré-importer le même PDF est sans risque : chaque bulletin est mis à jour
+        par agent et par période (aucun doublon). C&apos;est ainsi qu&apos;on
+        complète une période où des bulletins manquaient.
+      </p>
 
       <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
         <input
@@ -51,15 +56,26 @@ export function ImportPayslipsForm() {
             .
           </div>
           {state.unmatched.length > 0 && (
-            <div className="rounded-lg border border-sc-warning/40 bg-sc-warning-light px-3 py-2 text-[12px] text-[#854f0b]">
+            <div className="rounded-lg border border-sc-warning/40 bg-sc-warning-light px-3 py-2.5 text-[12px] text-[#854f0b]">
               ⚠ {state.unmatched.length} bulletin
               {state.unmatched.length > 1 ? "s" : ""} non relié
               {state.unmatched.length > 1 ? "s" : ""} à un agent (matricule absent
-              du système) :
-              <div className="mt-1 font-mono text-[11.5px]">
-                {state.unmatched
-                  .map((u) => `S${u.matricule}${u.name ? ` (${u.name})` : ""}`)
-                  .join(" · ")}
+              du système). Créez le dossier puis ré-importez le même PDF pour les
+              rattacher :
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {state.unmatched.map((u, i) => (
+                  <a
+                    key={i}
+                    href={`/personnel/nouveau?matricule=${encodeURIComponent(u.matricule ?? "")}`}
+                    className="inline-flex items-center gap-1 rounded-md border border-sc-warning/50 bg-white px-2 py-1 font-mono text-[11.5px] text-[#854f0b] transition hover:bg-sc-warning-light"
+                    title={u.name ? `Indice nom : ${u.name}` : undefined}
+                  >
+                    S{u.matricule}
+                    <span className="font-sans font-semibold text-sc-blue">
+                      + créer
+                    </span>
+                  </a>
+                ))}
               </div>
             </div>
           )}

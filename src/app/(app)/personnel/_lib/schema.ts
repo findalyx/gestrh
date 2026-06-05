@@ -26,6 +26,17 @@ const dateString = z
 
 export const AgentFormSchema = z
   .object({
+    // Optionnel : si vide, le matricule est attribué automatiquement.
+    // Renseigné (ex. « 3110 »), il permet de rattacher des bulletins déjà
+    // importés à la fiche créée.
+    matricule: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .max(20)
+      .regex(/^[A-Z0-9-]*$/, "Lettres, chiffres et tirets uniquement")
+      .optional()
+      .or(z.literal("")),
     firstName: z.string().trim().min(1, "Le prénom est requis").max(80),
     lastName: z.string().trim().min(1, "Le nom est requis").max(80),
     email: z.string().trim().toLowerCase().email("Email invalide"),
