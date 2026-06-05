@@ -226,6 +226,12 @@ export default async function AgentDetailPage({
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
+                    <a
+                      href={`/api/contract/${c.id}/docx`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-2.5 py-1 text-[11.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-light"
+                    >
+                      📝 Générer en Word
+                    </a>
                     {c.pdfFilename ? (
                       <>
                         <a
