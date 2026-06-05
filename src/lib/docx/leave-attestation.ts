@@ -1,218 +1,78 @@
-import {
-  AlignmentType,
-  Document,
-  HeadingLevel,
-  Packer,
-  Paragraph,
-  TextRun,
-} from "docx";
-import {
-  LeaveApprovalLevel,
-  LeaveType,
-  type Agent,
-  type LeaveRequest,
-  type Service,
-} from "@prisma/client";
+import { type Agent, type LeaveRequest } from "@prisma/client";
 import { formatDate } from "@/lib/contract-utils";
+import { buildAttestationDocx, civilite } from "./attestation-base";
 
-const FONT = "Calibri";
+const TOP_LEFT = "LE DIRECTEUR GENERAL";
+const SIGN = ["Pour le Directeur Général,", "Le Doyen Exécutif"];
 
-const TYPE_LABEL: Record<LeaveType, string> = {
-  ANNUEL: "congé annuel",
-  MALADIE: "congé de maladie",
-  MATERNITE: "congé de maternité",
-  PATERNITE: "congé de paternité",
-  EXCEPTIONNEL: "congé exceptionnel",
-  SANS_SOLDE: "congé sans solde",
-};
+type AgentLite = Pick<Agent, "firstName" | "lastName" | "gender" | "jobTitle">;
+type LeaveLite = Pick<LeaveRequest, "startDate" | "endDate" | "days">;
 
-const LEVEL_LABEL: Record<LeaveApprovalLevel, string> = {
-  CHEF: "Chef de Service",
-  DOYEN: "Doyen",
-  DG_RECTEUR: "Direction Générale / Recteur",
-};
-
-type AgentLite = Pick<
-  Agent,
-  "firstName" | "lastName" | "matricule" | "gender" | "jobTitle"
->;
-type LeaveLite = Pick<
-  LeaveRequest,
-  "type" | "startDate" | "endDate" | "days" | "decidedAt"
->;
-type ServiceLite = Pick<Service, "name">;
-type ApprovalLite = { level: LeaveApprovalLevel; decidedAt: Date };
-
-function p(opts: {
-  text: string;
-  bold?: boolean;
-  size?: number;
-  align?: (typeof AlignmentType)[keyof typeof AlignmentType];
-  heading?: (typeof HeadingLevel)[keyof typeof HeadingLevel];
-  spacingAfter?: number;
-}): Paragraph {
-  return new Paragraph({
-    alignment: opts.align,
-    heading: opts.heading,
-    spacing: { after: opts.spacingAfter ?? 140 },
-    children: [
-      new TextRun({
-        text: opts.text,
-        bold: opts.bold,
-        size: opts.size ?? 22,
-        font: FONT,
-      }),
-    ],
-  });
-}
-
-function kv(label: string, value: string): Paragraph {
-  return new Paragraph({
-    spacing: { after: 90 },
-    children: [
-      new TextRun({ text: `${label} : `, bold: true, size: 22, font: FONT }),
-      new TextRun({ text: value, size: 22, font: FONT }),
-    ],
-  });
-}
-
-/** Date de reprise = lendemain de la fin du congé. */
+/** Date de reprise = lendemain du dernier jour de congé. */
 function returnDate(end: Date): Date {
   const d = new Date(end);
   d.setDate(d.getDate() + 1);
   return d;
 }
 
+function fullName(agent: AgentLite): string {
+  return `${agent.firstName} ${agent.lastName.toUpperCase()}`;
+}
+
+/**
+ * Attestation de Congés — calée sur le modèle de l'organisation.
+ */
 export async function buildLeaveAttestationDocx(
   leave: LeaveLite,
   agent: AgentLite,
-  service: ServiceLite,
-  approvals: ApprovalLite[],
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const civ = agent.gender === "FEMME" ? "Madame" : "Monsieur";
-  const ne = agent.gender === "FEMME" ? "ée" : "é";
+  const c = civilite(agent.gender);
+  const reprise = returnDate(leave.endDate);
 
-  const doc = new Document({
-    creator: "SIRH St Christopher",
-    title: `Attestation de congés — ${agent.firstName} ${agent.lastName}`,
-    styles: { default: { document: { run: { font: FONT, size: 22 } } } },
-    sections: [
-      {
-        properties: {
-          page: { margin: { top: 720, bottom: 720, left: 1080, right: 1080 } },
-        },
-        children: [
-          p({
-            text: "UNIVERSITÉ ST CHRISTOPHER — DAKAR",
-            bold: true,
-            size: 28,
-            align: AlignmentType.CENTER,
-          }),
-          p({
-            text: "Direction des Ressources Humaines",
-            size: 22,
-            align: AlignmentType.CENTER,
-            spacingAfter: 300,
-          }),
-          p({
-            text: "ATTESTATION DE CONGÉS",
-            bold: true,
-            size: 32,
-            heading: HeadingLevel.HEADING_1,
-            align: AlignmentType.CENTER,
-            spacingAfter: 320,
-          }),
-
-          new Paragraph({
-            spacing: { after: 220 },
-            alignment: AlignmentType.JUSTIFIED,
-            children: [
-              new TextRun({
-                text:
-                  "La Direction des Ressources Humaines de l'Université St Christopher " +
-                  `atteste que ${civ} ${agent.firstName} ${agent.lastName.toUpperCase()}, ` +
-                  `${agent.jobTitle} au sein du service ${service.name} ` +
-                  `(matricule ${agent.matricule}), est autoris${ne} à prendre ` +
-                  `un ${TYPE_LABEL[leave.type]} dans les conditions suivantes :`,
-                size: 22,
-                font: FONT,
-              }),
-            ],
-          }),
-
-          kv("Type de congé", TYPE_LABEL[leave.type]),
-          kv("Durée", `${leave.days} jour(s)`),
-          kv("Date de départ", formatDate(leave.startDate)),
-          kv("Dernier jour de congé", formatDate(leave.endDate)),
-          kv("Date de reprise prévue", formatDate(returnDate(leave.endDate))),
-          p({ text: "", spacingAfter: 200 }),
-
-          p({
-            text: "Autorisations accordées",
-            bold: true,
-            size: 24,
-            spacingAfter: 120,
-          }),
-          ...(approvals.length > 0
-            ? approvals.map((a) =>
-                p({
-                  text: `— ${LEVEL_LABEL[a.level]} : favorable, le ${formatDate(a.decidedAt)}.`,
-                  spacingAfter: 80,
-                }),
-              )
-            : [
-                p({
-                  text: `— Congé autorisé le ${formatDate(leave.decidedAt ?? leave.startDate)}.`,
-                  spacingAfter: 80,
-                }),
-              ]),
-
-          p({ text: "", spacingAfter: 300 }),
-          new Paragraph({
-            spacing: { after: 300 },
-            alignment: AlignmentType.JUSTIFIED,
-            children: [
-              new TextRun({
-                text:
-                  "La présente attestation est délivrée pour servir et valoir ce que de droit.",
-                size: 22,
-                font: FONT,
-              }),
-            ],
-          }),
-
-          p({
-            text: `Fait à Dakar, le ${formatDate(new Date())}.`,
-            align: AlignmentType.RIGHT,
-            spacingAfter: 240,
-          }),
-          p({
-            text: "Pour la Direction des Ressources Humaines,",
-            bold: true,
-            align: AlignmentType.RIGHT,
-            spacingAfter: 240,
-          }),
-          p({
-            text: "(Nom, qualité et signature)",
-            size: 20,
-            align: AlignmentType.RIGHT,
-            spacingAfter: 300,
-          }),
-          p({
-            text:
-              "Document généré électroniquement par le SIRH de l'Université St Christopher.",
-            size: 18,
-            align: AlignmentType.CENTER,
-          }),
-        ],
-      },
+  return buildAttestationDocx({
+    docTitle: `Attestation de congés — ${agent.firstName} ${agent.lastName}`,
+    topLeft: TOP_LEFT,
+    title: "Attestation de Congés",
+    bodyParas: [
+      `Je soussigné, Directeur Général de Saint Christopher, atteste que ` +
+        `${c.long} ${fullName(agent)}, employ${c.ne} dans notre institution ` +
+        `en qualité de ${agent.jobTitle}, est bénéficiaire de congés pour une ` +
+        `durée de ${leave.days} jour${leave.days > 1 ? "s" : ""}, sur la ` +
+        `période du ${formatDate(leave.startDate)} au ${formatDate(leave.endDate)}.`,
+      `${c.ielle} devra reprendre service le ${formatDate(reprise)}.`,
     ],
+    closing: "Attestation faite pour servir et valoir ce que de droit.",
+    placeDateLine: `Fait à Dakar, le ${formatDate(new Date())}.`,
+    signatureLines: SIGN,
   });
+}
 
-  const buf = await Packer.toBuffer(doc);
-  return new Uint8Array(
-    buf.buffer,
-    buf.byteOffset,
-    buf.byteLength,
-  ).slice() as Uint8Array<ArrayBuffer>;
+/**
+ * Attestation de Reprise — calée sur le modèle de l'organisation.
+ * `actualReturn` permet de renseigner la date de reprise réelle ; à défaut on
+ * prend le lendemain de la fin de congé.
+ */
+export async function buildLeaveReturnAttestationDocx(
+  leave: LeaveLite,
+  agent: AgentLite,
+  actualReturn?: Date,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const c = civilite(agent.gender);
+  const reprise = actualReturn ?? returnDate(leave.endDate);
+
+  return buildAttestationDocx({
+    docTitle: `Attestation de reprise — ${agent.firstName} ${agent.lastName}`,
+    topLeft: TOP_LEFT,
+    title: "Attestation de Reprise",
+    bodyParas: [
+      `Je soussigné, Directeur Général de Saint Christopher, atteste que ` +
+        `${c.long} ${fullName(agent)}, employ${c.ne} dans notre institution ` +
+        `en qualité de ${agent.jobTitle}, bénéficiaire de congés depuis le ` +
+        `${formatDate(leave.startDate)}, a effectivement repris service ce jour ` +
+        `${formatDate(reprise)}.`,
+    ],
+    closing: "Attestation faite pour savoir et valoir ce qui de droit.",
+    placeDateLine: `Fait à Dakar, le ${formatDate(new Date())}.`,
+    signatureLines: SIGN,
+  });
 }

@@ -136,15 +136,24 @@ export default async function AgentDetailPage({
           </div>
         </div>
         <div className="flex flex-col items-end gap-2 text-right">
-          {canEdit && (
-            <Link
-              href={`/personnel/${id}/modifier`}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <a
+              href={`/api/personnel/${id}/attestation-travail`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-1.5 text-[12px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
             >
-              <Icon name="settings" size={13} />
-              Modifier
-            </Link>
-          )}
+              <Icon name="export" size={13} />
+              Attestation de travail
+            </a>
+            {canEdit && (
+              <Link
+                href={`/personnel/${id}/modifier`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-1.5 text-[12px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+              >
+                <Icon name="settings" size={13} />
+                Modifier
+              </Link>
+            )}
+          </div>
           <p className="mt-1 text-[11px] uppercase tracking-wide text-gray-500">
             Ancienneté
           </p>

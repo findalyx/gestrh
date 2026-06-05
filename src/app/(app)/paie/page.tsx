@@ -7,7 +7,6 @@ import { Icon } from "@/components/Icon";
 import { KpiCard } from "@/components/KpiCard";
 import { PayrollStatusBadge } from "./_components/PayrollBadge";
 import {
-  GeneratePayrollForm,
   MarkPeriodPaidBatchButton,
   ValidatePeriodBatchButton,
 } from "./_components/PayrollActions";
@@ -113,6 +112,11 @@ export default async function PaiePage({
 
   const listWhere = { AND: [scopeWhere, periodFilter, qFilter] };
 
+  // Filtres actifs (pour proposer la réinitialisation)
+  const filtersActive = Boolean(
+    q || selectedMonth || sp.year || sp.period,
+  );
+
   const [records, totalCount, draftCount, validatedCount] = await Promise.all([
     prisma.payrollRecord.findMany({
       where: listWhere,
@@ -152,10 +156,6 @@ export default async function PaiePage({
     }),
     { gross: 0, net: 0, contributions: 0 },
   );
-
-  // Période par défaut pour la génération : mois courant
-  const now = new Date();
-  const defaultPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   const isAdmin = scope === "ALL";
 
@@ -257,6 +257,14 @@ export default async function PaiePage({
               >
                 Filtrer
               </button>
+              {filtersActive && (
+                <Link
+                  href="/paie"
+                  className="rounded-lg px-3 py-[9px] text-[12.5px] font-medium text-gray-500 transition hover:text-sc-danger"
+                >
+                  Réinitialiser
+                </Link>
+              )}
             </form>
           )}
 
@@ -274,57 +282,31 @@ export default async function PaiePage({
         </div>
       </div>
 
-      {/* Outils admin : import PDF & génération — cartes compactes dépliables */}
+      {/* Outils admin : import PDF (source unique des bulletins) */}
       {isAdmin && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <details className="group rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-            <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sc-teal/10 text-sc-teal">
-                <Icon name="import" size={18} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold text-sc-blue-darker">
-                  Importer des bulletins (PDF)
-                </p>
-                <p className="truncate text-[11.5px] text-gray-500">
-                  Lecture automatique du PDF mensuel
-                </p>
-              </div>
-              <Icon
-                name="chevron-down"
-                size={16}
-                className="flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180"
-              />
-            </summary>
-            <div className="border-t border-sc-border p-4">
-              <ImportPayslipsForm />
+        <details className="group rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+          <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sc-teal/10 text-sc-teal">
+              <Icon name="import" size={18} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-sc-blue-darker">
+                Importer des bulletins (PDF)
+              </p>
+              <p className="truncate text-[11.5px] text-gray-500">
+                Lecture automatique du PDF mensuel
+              </p>
             </div>
-          </details>
-
-          <details className="group rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-            <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sc-blue-light text-sc-blue">
-                <Icon name="payroll" size={18} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold text-sc-blue-darker">
-                  Générer une période
-                </p>
-                <p className="truncate text-[11.5px] text-gray-500">
-                  Créer les bulletins automatiquement
-                </p>
-              </div>
-              <Icon
-                name="chevron-down"
-                size={16}
-                className="flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180"
-              />
-            </summary>
-            <div className="border-t border-sc-border p-4">
-              <GeneratePayrollForm defaultPeriod={defaultPeriod} />
-            </div>
-          </details>
-        </div>
+            <Icon
+              name="chevron-down"
+              size={16}
+              className="flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="border-t border-sc-border p-4">
+            <ImportPayslipsForm />
+          </div>
+        </details>
       )}
 
       {/* Tuiles synthèse — visibles pour tous (admin = équipe / agent = perso) */}

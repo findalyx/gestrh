@@ -136,6 +136,9 @@ export default async function EvaluationListPage({
   const now = new Date();
   const defaultYear = String(now.getFullYear());
 
+  // Filtres actifs (pour proposer la réinitialisation)
+  const filtersActive = Boolean(perfFilter || sp.period);
+
   return (
     <div className="space-y-6">
       {/* Barre d'actions */}
@@ -190,6 +193,14 @@ export default async function EvaluationListPage({
               >
                 Filtrer
               </button>
+              {filtersActive && (
+                <Link
+                  href="/evaluation"
+                  className="rounded-lg px-3 py-[9px] text-[12.5px] font-medium text-gray-500 transition hover:text-sc-danger"
+                >
+                  Réinitialiser
+                </Link>
+              )}
             </form>
           )}
         </div>

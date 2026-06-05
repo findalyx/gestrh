@@ -59,3 +59,8 @@ prisma/seed.sql
 
 # Bulletins de paie / PDF (PII)
 *.pdf
+
+# Modèles d'attestation fournis par l'organisation (servent de référence)
+TEMPLATE*.docx
+TEMPLATES*.docx
+*ATTESTATION*.docx

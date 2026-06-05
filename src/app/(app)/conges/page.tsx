@@ -138,12 +138,20 @@ function RequestsTable({
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-2">
                     {r.status === LeaveStatus.AUTORISE && (
-                      <a
-                        href={`/api/conges/${r.id}/attestation`}
-                        className="text-[12px] font-medium text-sc-blue hover:underline"
-                      >
-                        📄 Attestation
-                      </a>
+                      <>
+                        <a
+                          href={`/api/conges/${r.id}/attestation`}
+                          className="text-[12px] font-medium text-sc-blue hover:underline"
+                        >
+                          📄 Congés
+                        </a>
+                        <a
+                          href={`/api/conges/${r.id}/attestation-reprise`}
+                          className="text-[12px] font-medium text-sc-blue hover:underline"
+                        >
+                          📄 Reprise
+                        </a>
+                      </>
                     )}
                     {canCancel && <CancelButton requestId={r.id} />}
                     {isAdmin && !isMine && PENDING_STATUSES.includes(r.status) && (
