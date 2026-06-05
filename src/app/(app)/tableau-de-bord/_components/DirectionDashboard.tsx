@@ -67,8 +67,12 @@ export async function DirectionDashboard() {
   const today = new Date();
   const yearStart = new Date(today.getFullYear(), 0, 1);
 
-  // Récupère la période la plus récente pour la masse salariale
+  // Dernière période disposant réellement de bulletins : on prend le mois le
+  // plus récent dont au moins un bulletin a un net > 0. Les bulletins se font
+  // en fin de mois, donc le mois courant (ex. brouillons à 0) est ignoré tant
+  // qu'aucune paie réelle n'y est saisie — le dashboard affiche donc M-1.
   const latestPeriod = await prisma.payrollRecord.findFirst({
+    where: { netSalary: { gt: 0 } },
     orderBy: { period: "desc" },
     select: { period: true },
   });
@@ -170,9 +174,10 @@ export async function DirectionDashboard() {
       by: ["stage"],
       _count: { _all: true },
     }),
-    // Masse salariale nette par période (12 dernières périodes)
+    // Masse salariale nette par période (12 dernières périodes réelles)
     prisma.payrollRecord.groupBy({
       by: ["period"],
+      where: { netSalary: { gt: 0 } },
       _sum: { netSalary: true },
       orderBy: { period: "asc" },
       take: 12,

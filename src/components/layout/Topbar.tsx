@@ -50,6 +50,12 @@ export function Topbar({
       (i) => pathname === i.href || pathname.startsWith(i.href + "/"),
     ) ?? NAV_ITEMS[0];
 
+  // Recherche contextuelle : selon le module courant, on cible la bonne page
+  // (et son propre paramètre ?q=). Par défaut on cherche un agent.
+  const search = pathname.startsWith("/paie")
+    ? { action: "/paie", placeholder: "Rechercher un bulletin (nom, matricule)…" }
+    : { action: "/personnel", placeholder: "Rechercher un agent…" };
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -99,9 +105,13 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Recherche — soumet vers /personnel?q= (Manager + DRH + Direction) */}
+        {/* Recherche contextuelle — cible le module courant (Manager + DRH + Direction) */}
         {showSearch && (
-          <form action="/personnel" method="get" className="relative hidden md:block">
+          <form
+            action={search.action}
+            method="get"
+            className="relative hidden md:block"
+          >
             <Icon
               name="search"
               size={15}
@@ -110,7 +120,7 @@ export function Topbar({
             <input
               name="q"
               type="search"
-              placeholder="Rechercher un agent…"
+              placeholder={search.placeholder}
               autoComplete="off"
               className="w-[280px] rounded-lg border border-sc-border bg-gray-50 py-[9px] pl-[38px] pr-3.5 text-[13px] outline-none transition focus:border-sc-blue focus:bg-white focus:ring-[3px] focus:ring-sc-blue/10"
             />

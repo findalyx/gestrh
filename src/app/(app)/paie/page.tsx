@@ -31,6 +31,7 @@ type SearchParams = {
   month?: string;
   period?: string; // ancien paramètre, géré pour compat (?period=YYYY-MM)
   generated?: string;
+  q?: string; // recherche par nom / matricule d'agent
 };
 
 const MONTHS_LABEL: Record<string, string> = {
@@ -96,7 +97,21 @@ export default async function PaiePage({
       ? { period: selectedPeriod }
       : { period: { startsWith: `${selectedYear}-` } };
 
-  const listWhere = { AND: [scopeWhere, periodFilter] };
+  // Recherche par nom / prénom / matricule d'agent
+  const q = sp.q?.trim() ?? "";
+  const qFilter = q
+    ? {
+        agent: {
+          OR: [
+            { firstName: { contains: q, mode: "insensitive" as const } },
+            { lastName: { contains: q, mode: "insensitive" as const } },
+            { matricule: { contains: q, mode: "insensitive" as const } },
+          ],
+        },
+      }
+    : {};
+
+  const listWhere = { AND: [scopeWhere, periodFilter, qFilter] };
 
   const [records, totalCount, draftCount, validatedCount] = await Promise.all([
     prisma.payrollRecord.findMany({
@@ -217,6 +232,25 @@ export default async function PaiePage({
                   })}
                 </select>
               </div>
+              {scope === "ALL" && (
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="q"
+                    className="text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                  >
+                    Recherche
+                  </label>
+                  <input
+                    id="q"
+                    name="q"
+                    type="search"
+                    defaultValue={q}
+                    placeholder="Nom ou matricule…"
+                    autoComplete="off"
+                    className="w-[200px] rounded-lg border border-sc-border bg-gray-50 px-3 py-[8px] text-[13px] outline-none focus:border-sc-blue focus:bg-white"
+                  />
+                </div>
+              )}
               <button
                 type="submit"
                 className="rounded-lg border border-sc-border bg-white px-3 py-[9px] text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50"
@@ -354,12 +388,19 @@ export default async function PaiePage({
         <div className="rounded-xl border border-dashed border-sc-border bg-white p-8 text-center">
           <Icon name="payroll" size={20} className="mx-auto text-gray-300" />
           <p className="mt-2 text-[13px] text-gray-500">
-            {totalCount === 0
-              ? scope === "SELF"
-                ? "Vous n'avez aucun bulletin enregistré."
-                : "Aucun bulletin n'a encore été généré."
-              : "Aucun bulletin pour cette période."}
+            {q
+              ? `Aucun bulletin ne correspond à « ${q} » sur ${activeLabel.toLowerCase()}.`
+              : totalCount === 0
+                ? scope === "SELF"
+                  ? "Vous n'avez aucun bulletin enregistré."
+                  : "Aucun bulletin n'a encore été généré."
+                : "Aucun bulletin pour cette période."}
           </p>
+          {q && (
+            <p className="mt-1 text-[12px] text-gray-400">
+              Astuce : sélectionnez « Tous les mois » pour élargir la recherche.
+            </p>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
