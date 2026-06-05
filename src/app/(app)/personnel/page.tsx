@@ -5,6 +5,7 @@ import { StaffCategory, AgentStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
 import { getAgentScopeWhere } from "@/lib/personnel-access";
+import { listCddAlerts, listRetirementAlerts } from "@/lib/contract-alerts";
 import { AgentStatusBadge, CategoryBadge } from "@/components/Badges";
 import { Icon } from "@/components/Icon";
 
@@ -80,11 +81,54 @@ export default async function PersonnelListPage({
   const hasFilters = Boolean(q || cat || statut || serviceId);
   const canEdit = me.role === Role.DIRECTION || me.role === Role.DRH;
 
+  // Signalements par agent : échéance CDD (expiré / imminent) ou départ
+  // retraite proche. Le plus grave l'emporte.
+  const agentFlags = new Map<string, { label: string; cls: string; title: string }>();
+  if (scope !== "SELF") {
+    const [cddAlerts, retirementAlerts] = await Promise.all([
+      listCddAlerts(),
+      listRetirementAlerts(),
+    ]);
+    for (const a of cddAlerts) {
+      if (a.level === "expire") {
+        agentFlags.set(a.agentId, {
+          label: "CDD expiré",
+          cls: "bg-sc-danger-light text-sc-danger",
+          title: `Contrat ${a.reference} expiré`,
+        });
+      } else if (
+        (a.level === "imminent" || a.level === "proche") &&
+        !agentFlags.has(a.agentId)
+      ) {
+        agentFlags.set(a.agentId, {
+          label: `CDD J−${a.daysRemaining}`,
+          cls: "bg-orange-100 text-orange-700",
+          title: `Contrat ${a.reference} · échéance dans ${a.daysRemaining} jours`,
+        });
+      }
+    }
+    for (const r of retirementAlerts) {
+      if ((r.alertWindow ?? 99) <= 24 && !agentFlags.has(r.agentId)) {
+        agentFlags.set(r.agentId, {
+          label: "Retraite proche",
+          cls: "bg-amber-50 text-amber-700",
+          title: `Départ retraite à anticiper (${r.totalMonthsRemaining} mois)`,
+        });
+      }
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Barre d'actions */}
       {canEdit && (
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href="/personnel/echeances"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+          >
+            <Icon name="alert" size={14} /> Échéances &amp; retraites
+          </Link>
           <Link
             href="/personnel/statistiques"
             className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
@@ -266,12 +310,22 @@ export default async function PersonnelListPage({
                     {a.matricule}
                   </td>
                   <td className="px-4 py-2.5">
-                    <Link
-                      href={`/personnel/${a.id}`}
-                      className="font-medium text-sc-blue-darker hover:underline"
-                    >
-                      {a.lastName.toUpperCase()} {a.firstName}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/personnel/${a.id}`}
+                        className="font-medium text-sc-blue-darker hover:underline"
+                      >
+                        {a.lastName.toUpperCase()} {a.firstName}
+                      </Link>
+                      {agentFlags.get(a.id) && (
+                        <span
+                          title={agentFlags.get(a.id)!.title}
+                          className={`whitespace-nowrap rounded-full px-1.5 py-[1px] text-[9.5px] font-semibold ${agentFlags.get(a.id)!.cls}`}
+                        >
+                          ⚠ {agentFlags.get(a.id)!.label}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5 text-gray-700">{a.service.name}</td>
                   <td className="px-4 py-2.5 text-gray-700">{a.jobTitle}</td>

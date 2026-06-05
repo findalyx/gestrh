@@ -40,7 +40,7 @@ export function KpiCard({
         <div className="truncate text-[11px] font-medium text-gray-500">
           {label}
         </div>
-        <div className="truncate whitespace-nowrap text-[19px] font-bold leading-tight text-sc-blue-darker">
+        <div className="text-[18px] font-bold leading-tight text-sc-blue-darker break-words">
           {value}
         </div>
         <div className="truncate text-[11px] text-gray-500">{hint}</div>

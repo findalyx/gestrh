@@ -1,13 +1,13 @@
 import "server-only";
 
 import {
-  ContractStatus,
   EvaluationStatus,
   JobStatus,
   LeaveStatus,
   Role,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { listCddAlerts, listRetirementAlerts } from "./contract-alerts";
 
 export type AlertVariant = "warning" | "danger" | "info";
 export type AlertType = "ALERTE" | "RAPPEL" | "VALIDATION" | "INFO";
@@ -41,36 +41,37 @@ export async function getAlertsForUser(user: UserContext): Promise<Alert[]> {
   const in30Days = new Date(today.getTime() + 30 * DAY);
 
   if (user.role === Role.DIRECTION || user.role === Role.DRH) {
-    const [pendingLeaves, lateEvals, expiringContracts, openPostingsNoApp] =
-      await Promise.all([
-        prisma.leaveRequest.count({
-          where: {
-            status: {
-              in: [LeaveStatus.EN_ATTENTE_MANAGER, LeaveStatus.EN_ATTENTE_DRH],
-            },
+    const [
+      pendingLeaves,
+      lateEvals,
+      cddAlerts,
+      retirementAlerts,
+      openPostingsNoApp,
+    ] = await Promise.all([
+      prisma.leaveRequest.count({
+        where: {
+          status: {
+            in: [LeaveStatus.EN_ATTENTE_MANAGER, LeaveStatus.EN_ATTENTE_DRH],
           },
-        }),
-        prisma.evaluation.count({
-          where: {
-            status: {
-              in: [EvaluationStatus.PLANIFIEE, EvaluationStatus.EN_COURS],
-            },
-            dueDate: { lt: today },
+        },
+      }),
+      prisma.evaluation.count({
+        where: {
+          status: {
+            in: [EvaluationStatus.PLANIFIEE, EvaluationStatus.EN_COURS],
           },
-        }),
-        prisma.contract.count({
-          where: {
-            status: ContractStatus.ACTIF,
-            endDate: { gte: today, lte: in30Days },
-          },
-        }),
-        prisma.jobPosting.count({
-          where: {
-            status: JobStatus.OUVERT,
-            applications: { none: {} },
-          },
-        }),
-      ]);
+          dueDate: { lt: today },
+        },
+      }),
+      listCddAlerts(),
+      listRetirementAlerts(),
+      prisma.jobPosting.count({
+        where: {
+          status: JobStatus.OUVERT,
+          applications: { none: {} },
+        },
+      }),
+    ]);
 
     if (pendingLeaves > 0) {
       alerts.push({
@@ -92,14 +93,42 @@ export async function getAlertsForUser(user: UserContext): Promise<Alert[]> {
         link: "/evaluation",
       });
     }
-    if (expiringContracts > 0) {
+    const expiredCdd = cddAlerts.filter((a) => a.level === "expire").length;
+    const imminentCdd = cddAlerts.filter(
+      (a) => a.level === "imminent" || a.level === "proche",
+    ).length;
+    const retireSoon = retirementAlerts.filter(
+      (r) => (r.alertWindow ?? 99) <= 6,
+    ).length;
+
+    if (expiredCdd > 0) {
       alerts.push({
-        id: "expiring-contracts",
+        id: "cdd-expired",
+        type: "ALERTE",
+        variant: "danger",
+        title: `${expiredCdd} CDD expiré${expiredCdd > 1 ? "s" : ""}`,
+        message: "À régulariser : renouvellement ou rupture.",
+        link: "/personnel/echeances",
+      });
+    }
+    if (imminentCdd > 0) {
+      alerts.push({
+        id: "cdd-soon",
         type: "ALERTE",
         variant: "warning",
-        title: `${expiringContracts} contrat${expiringContracts > 1 ? "s" : ""} expire${expiringContracts > 1 ? "nt" : ""} sous 30 jours`,
-        message: "Vérifiez les renouvellements.",
-        link: "/personnel",
+        title: `${imminentCdd} CDD à échéance (≤ 30 jours)`,
+        message: "Anticipez le renouvellement.",
+        link: "/personnel/echeances",
+      });
+    }
+    if (retireSoon > 0) {
+      alerts.push({
+        id: "retire-soon",
+        type: "RAPPEL",
+        variant: "warning",
+        title: `${retireSoon} départ${retireSoon > 1 ? "s" : ""} retraite < 6 mois`,
+        message: "Préparez la succession à anticiper.",
+        link: "/personnel/echeances",
       });
     }
     if (openPostingsNoApp > 0) {
