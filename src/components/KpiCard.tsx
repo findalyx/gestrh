@@ -37,13 +37,13 @@ export function KpiCard({
         <Icon name={icon} size={18} />
       </div>
       <div className="min-w-0">
-        <div className="truncate text-[11px] font-medium text-gray-500">
+        <div className="text-[11px] font-medium leading-snug text-gray-500">
           {label}
         </div>
         <div className="text-[18px] font-bold leading-tight text-sc-blue-darker break-words">
           {value}
         </div>
-        <div className="truncate text-[11px] text-gray-500">{hint}</div>
+        <div className="text-[11px] leading-snug text-gray-500">{hint}</div>
       </div>
     </div>
   );

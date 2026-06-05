@@ -19,7 +19,7 @@ import { AgePyramidChart } from "./charts/AgePyramidChart";
 import { RecruitmentFunnel } from "./charts/RecruitmentFunnel";
 import { PayrollEvolution } from "./charts/PayrollEvolution";
 import { PayrollByGenderDonut } from "./charts/PayrollByGenderDonut";
-import { EvaluationByStatus } from "./charts/EvaluationByStatus";
+import { GenderDonut } from "./charts/GenderDonut";
 import { PresenceHeatmap } from "./PresenceHeatmap";
 
 const QUICK_MODULES: {
@@ -98,7 +98,7 @@ export async function DirectionDashboard() {
     agentsForAgePyramid,
     appByStage,
     payrollsByPeriod,
-    evaluationsByStatus,
+    agentsByGender,
     payrollByGender,
   ] = await Promise.all([
     prisma.agent.count(),
@@ -182,9 +182,9 @@ export async function DirectionDashboard() {
       orderBy: { period: "asc" },
       take: 12,
     }),
-    // Évaluations par statut
-    prisma.evaluation.groupBy({
-      by: ["status"],
+    // Effectif par sexe (répartition genre)
+    prisma.agent.groupBy({
+      by: ["gender"],
       _count: { _all: true },
     }),
     // Masse salariale nette par sexe — calcul via raw query parce que
@@ -247,12 +247,13 @@ export async function DirectionDashboard() {
     else womenPayroll += r.netSalary;
   }
 
-  // Évaluations : on enrichit avec "EN_RETARD" calculé dynamiquement
-  // (les statuts en base sont PLANIFIEE/EN_COURS/TERMINEE/EN_RETARD)
-  const evalData = evaluationsByStatus.map((e) => ({
-    status: e.status,
-    count: e._count._all,
-  }));
+  // Répartition par sexe (effectif)
+  let menCount = 0;
+  let womenCount = 0;
+  for (const g of agentsByGender) {
+    if (g.gender === Gender.HOMME) menCount += g._count._all;
+    else womenCount += g._count._all;
+  }
 
   // Services pour le bar chart
   const serviceData = services.map((s) => ({
@@ -313,8 +314,8 @@ export async function DirectionDashboard() {
           color="green"
           icon="payroll"
           label="Masse salariale"
-          value={`${compactFcfa(massNet)} FCFA`}
-          hint={periodLabel}
+          value={compactFcfa(massNet)}
+          hint={`FCFA · ${periodLabel}`}
         />
         <KpiCard
           color="teal"
@@ -367,10 +368,10 @@ export async function DirectionDashboard() {
         </div>
 
         <ChartCard
-          title="Évaluations"
-          subtitle="Répartition par statut sur l'ensemble des campagnes"
+          title="Répartition par sexe"
+          subtitle="Effectif hommes / femmes"
         >
-          <EvaluationByStatus data={evalData} />
+          <GenderDonut men={menCount} women={womenCount} />
         </ChartCard>
       </div>
 

@@ -3,26 +3,11 @@
 import { Doughnut } from "react-chartjs-2";
 import { COMMON_FONT_FAMILY } from "./chart-setup";
 
-// Couleurs nettement distinctes (identiques au donut d'effectif par sexe).
+// Couleurs nettement distinctes pour bien séparer les deux sexes.
 const MEN_COLOR = "#2f6fd0"; // bleu
 const WOMEN_COLOR = "#e0559b"; // rose/magenta
 
-const FCFA = new Intl.NumberFormat("fr-FR");
-
-function compactFcfa(n: number): string {
-  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)} Mds`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)} K`;
-  return String(n);
-}
-
-export function PayrollByGenderDonut({
-  men,
-  women,
-}: {
-  men: number;
-  women: number;
-}) {
+export function GenderDonut({ men, women }: { men: number; women: number }) {
   const total = men + women;
   if (total === 0) {
     return (
@@ -64,14 +49,14 @@ export function PayrollByGenderDonut({
                 label: (ctx) => {
                   const v = Number(ctx.parsed) || 0;
                   const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0";
-                  return `${ctx.label} : ${FCFA.format(v)} FCFA (${pct} %)`;
+                  return `${ctx.label} : ${v} agent${v > 1 ? "s" : ""} (${pct} %)`;
                 },
               },
             },
             datalabels: {
               display: (ctx) => {
                 const v = Number(ctx.dataset.data[ctx.dataIndex]) || 0;
-                return total > 0 && (v / total) >= 0.05;
+                return total > 0 && v / total >= 0.05;
               },
               color: "#ffffff",
               font: {
@@ -79,21 +64,22 @@ export function PayrollByGenderDonut({
                 weight: "bold",
                 size: 13,
               },
+              // Affiche « 31 · 58% » sur chaque part
               formatter: (value) => {
                 const v = Number(value) || 0;
                 if (total === 0) return "";
-                return `${((v / total) * 100).toFixed(0)}%`;
+                return `${v}\n${((v / total) * 100).toFixed(0)}%`;
               },
             },
           },
         }}
       />
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-8">
-        <div className="font-serif text-xl font-bold text-sc-blue-darker">
-          {compactFcfa(total)}
+        <div className="font-serif text-2xl font-bold text-sc-blue-darker">
+          {total}
         </div>
         <div className="text-[10.5px] uppercase tracking-wider text-gray-500">
-          FCFA total
+          agents
         </div>
       </div>
     </div>
