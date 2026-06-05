@@ -125,7 +125,7 @@ export async function DirectionDashboard() {
     prisma.trainingEnrollment.count(),
     prisma.evaluation.count(),
     prisma.evaluation.count({ where: { status: EvaluationStatus.TERMINEE } }),
-    prisma.payrollRecord.count({ where: { period: "2026-05" } }),
+    prisma.payrollRecord.count({ where: { period: latestPeriod?.period ?? "" } }),
     // Masse salariale nette de la dernière période
     latestPeriod
       ? prisma.payrollRecord.aggregate({
@@ -183,7 +183,7 @@ export async function DirectionDashboard() {
     // Masse salariale nette par sexe — calcul via raw query parce que
     // groupBy ne supporte pas un join direct ; on agrège en mémoire après.
     prisma.payrollRecord.findMany({
-      where: { period: "2026-05" },
+      where: { period: latestPeriod?.period ?? "" },
       select: {
         netSalary: true,
         agent: { select: { gender: true } },
