@@ -46,7 +46,11 @@ export async function importPayslips(
     parsed = await parsePayslips(buffer);
   } catch (e) {
     console.error("[importPayslips] parse error:", e);
-    return { ok: false, error: "Impossible de lire ce PDF (format non reconnu)." };
+    const detail = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      error: `Impossible de lire ce PDF : ${detail.slice(0, 200)}`,
+    };
   }
 
   // Période dominante (pour l'archivage + le résumé)

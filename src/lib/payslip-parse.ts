@@ -3,6 +3,9 @@ import "server-only";
 /**
  * Extraction des données d'un PDF de bulletins de paie (1 page = 1 bulletin).
  * Format SCIMD / Saint Christopher's Iba Mar Diop (texte sélectionnable).
+ *
+ * Utilise `unpdf` (build pdfjs adapté au serverless — pas de worker/canvas),
+ * importé dynamiquement pour ne pas alourdir le rendu de la page.
  */
 
 export type ParsedPayslip = {
@@ -49,10 +52,10 @@ function parsePeriod(text: string): string | null {
 
 export function parsePayslipPage(text: string, page: number): ParsedPayslip {
   const mat = text.match(/\bS(\d{3,5})\b/);
-  const net = text.match(/NET\s*A\s*PAYER\s+([\d   ]+)/i);
-  const brut = text.match(/Total\s*Brut\s+([\d   ]+)/i);
+  const net = text.match(/NET\s*A?\s*PAYER\s*([\d   ]+)/i);
+  const brut = text.match(/Total\s*Brut\s*([\d   ]+)/i);
   const nm = text.match(
-    /\b(?:Mme|Mlle|Mr|M)\b[\s\n]+([A-ZÀ-Ÿ][A-ZÀ-Ÿ '\-]{2,40})/,
+    /\b(?:Mme|Mlle|Mr|M)\b\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ '\-]{2,30})/,
   );
   return {
     page,
@@ -65,14 +68,9 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
 }
 
 export async function parsePayslips(buffer: Buffer): Promise<ParsedPayslip[]> {
-  // Import dynamique : pdfjs ne doit pas être chargé au rendu de la page
-  // (sinon il fait planter le runtime serverless), seulement à l'usage.
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  try {
-    const result = await parser.getText();
-    return result.pages.map((p) => parsePayslipPage(p.text, p.num));
-  } finally {
-    await parser.destroy();
-  }
+  const { extractText, getDocumentProxy } = await import("unpdf");
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const { text } = await extractText(pdf, { mergePages: false });
+  const pages = Array.isArray(text) ? text : [text];
+  return pages.map((t, i) => parsePayslipPage(t ?? "", i + 1));
 }
