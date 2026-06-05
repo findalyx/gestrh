@@ -1,25 +1,26 @@
 "use client";
 
 import { Bar } from "react-chartjs-2";
-import { COMMON_FONT_FAMILY, SERVICE_PALETTE } from "./chart-setup";
+import { COMMON_FONT_FAMILY, SC_COLORS } from "./chart-setup";
 
 type Item = { service: string; count: number };
 
 export function ServiceBarChart({ data }: { data: Item[] }) {
+  // Trié du plus grand au plus petit + couleur unique (lisibilité).
+  const sorted = [...data].sort((a, b) => b.count - a.count);
+  const height = Math.max(220, sorted.length * 26);
   return (
-    <div className="h-[260px]">
+    <div style={{ height }}>
       <Bar
         data={{
-          labels: data.map((d) => d.service),
+          labels: sorted.map((d) => d.service),
           datasets: [
             {
               label: "Effectif",
-              data: data.map((d) => d.count),
-              backgroundColor: data.map(
-                (_, i) => SERVICE_PALETTE[i % SERVICE_PALETTE.length],
-              ),
+              data: sorted.map((d) => d.count),
+              backgroundColor: SC_COLORS.blue,
               borderRadius: 6,
-              maxBarThickness: 36,
+              maxBarThickness: 30,
             },
           ],
         }}

@@ -99,9 +99,9 @@ export function HeatmapGrid({
   return (
     <div ref={containerRef} className="relative overflow-x-auto">
       <div
-        className="grid items-center gap-x-1 gap-y-1.5"
+        className="grid w-max items-center gap-x-1 gap-y-1.5"
         style={{
-          gridTemplateColumns: `auto repeat(${daysISO.length}, 1.25rem)`,
+          gridTemplateColumns: `max-content repeat(${daysISO.length}, 1.25rem)`,
         }}
       >
         {rows.map((row, ri) => (

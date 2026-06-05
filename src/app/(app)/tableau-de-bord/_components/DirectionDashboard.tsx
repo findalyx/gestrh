@@ -337,7 +337,7 @@ export async function DirectionDashboard() {
         <div className="lg:col-span-2">
           <ChartCard
             title="Effectif par service"
-            subtitle="Répartition des agents dans les 7 services"
+            subtitle={`Répartition des agents dans les ${serviceData.length} services`}
           >
             <ServiceBarChart data={serviceData} />
           </ChartCard>

@@ -26,7 +26,7 @@ export function AgePyramidChart({ buckets }: { buckets: Bucket[] }) {
             {
               label: "Hommes",
               data: buckets.map((b) => b.men),
-              backgroundColor: SC_COLORS.blue,
+              backgroundColor: SC_COLORS.teal,
               borderRadius: 4,
               maxBarThickness: 24,
             },
