@@ -137,7 +137,7 @@ function RequestsTable({
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center justify-end gap-2">
-                    {r.status === LeaveStatus.AUTORISE && (
+                    {isAdmin && r.status === LeaveStatus.AUTORISE && (
                       <>
                         <a
                           href={`/api/conges/${r.id}/attestation`}

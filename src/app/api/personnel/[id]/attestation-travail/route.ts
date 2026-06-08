@@ -5,17 +5,12 @@ import { buildWorkAttestationDocx } from "@/lib/docx/work-attestation";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_ROLES: Role[] = [
-  Role.DIRECTION,
-  Role.RECTEUR,
-  Role.DOYEN,
-  Role.DRH,
-];
+// Génération de documents officiels réservée à la Direction et à la DRH.
+const ADMIN_ROLES: Role[] = [Role.DIRECTION, Role.DRH];
 
 /**
  * Attestation de travail (.docx) pour un agent.
- * Accès : l'agent concerné (sa propre attestation) ou Direction / Recteur /
- * Doyen / DRH.
+ * Génération réservée à la Direction générale et à la DRH.
  */
 export async function GET(
   _request: Request,
@@ -44,9 +39,7 @@ export async function GET(
   });
   if (!agent) return new Response("Agent introuvable", { status: 404 });
 
-  const isAdmin = ADMIN_ROLES.includes(me.role);
-  const isOwn = me.agent?.id === agent.id;
-  if (!isAdmin && !isOwn) {
+  if (!ADMIN_ROLES.includes(me.role)) {
     return new Response("Accès refusé", { status: 403 });
   }
 

@@ -5,12 +5,8 @@ import { buildLeaveAttestationDocx } from "@/lib/docx/leave-attestation";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_ROLES: Role[] = [
-  Role.DIRECTION,
-  Role.RECTEUR,
-  Role.DOYEN,
-  Role.DRH,
-];
+// Génération de documents officiels réservée à la Direction et à la DRH.
+const ADMIN_ROLES: Role[] = [Role.DIRECTION, Role.DRH];
 
 /**
  * Attestation de congés (.docx) — disponible quand le congé est AUTORISÉ.
@@ -41,9 +37,7 @@ export async function GET(
   });
   if (!leave) return new Response("Demande introuvable", { status: 404 });
 
-  const isAdmin = ADMIN_ROLES.includes(me.role);
-  const isOwn = me.agent?.id === leave.agentId;
-  if (!isAdmin && !isOwn) {
+  if (!ADMIN_ROLES.includes(me.role)) {
     return new Response("Accès refusé", { status: 403 });
   }
   if (leave.status !== LeaveStatus.AUTORISE) {
