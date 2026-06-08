@@ -40,6 +40,16 @@ function formatDate(d: Date | null | undefined): string {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "long" }).format(d);
 }
 
+function periodLabel(p: string): string {
+  const [y, m] = p.split("-").map(Number);
+  if (!y || !m) return p;
+  const s = new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(y, m - 1, 1));
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function yearsBetween(start: Date, end: Date | null | undefined): string {
   const e = end ?? new Date();
   const years = (e.getTime() - start.getTime()) / (365.25 * 24 * 3600 * 1000);
@@ -59,6 +69,8 @@ export default async function AgentDetailPage({
   await assertAgentVisible(id);
   const me = await getCurrentUser();
   const canEdit = me.role === Role.DIRECTION || me.role === Role.DRH;
+  // L'agent peut gérer sa propre photo, même sans droit d'édition de la fiche.
+  const canEditPhoto = canEdit || me.agent?.id === id;
 
   const currentYear = new Date().getFullYear();
 
@@ -76,6 +88,20 @@ export default async function AgentDetailPage({
   });
 
   if (!agent) notFound();
+
+  // Dernier bulletin importé (le salaire réel vient de la paie, pas du contrat).
+  const latestPayroll = await prisma.payrollRecord.findFirst({
+    where: { agentId: id },
+    orderBy: { period: "desc" },
+    select: {
+      period: true,
+      baseSalary: true,
+      bonuses: true,
+      allowances: true,
+      deductions: true,
+      netSalary: true,
+    },
+  });
 
   const initials = `${agent.firstName[0]}${agent.lastName[0]}`.toUpperCase();
   const activeContract = agent.contracts.find((c) => c.status === "ACTIF");
@@ -124,7 +150,7 @@ export default async function AgentDetailPage({
               : null
           }
           initials={initials}
-          canEdit={canEdit}
+          canEdit={canEditPhoto}
         />
         <div className="flex-1 min-w-0">
           <h2 className="font-serif text-2xl font-semibold text-sc-blue-darker">
@@ -202,10 +228,30 @@ export default async function AgentDetailPage({
                   <span className="text-gray-500"> · {activeContract.grade}</span>
                 )}
               </Field>
-              <Field label="Salaire de base">
-                {FCFA.format(activeContract.baseSalary)} FCFA
-              </Field>
+              {activeContract.baseSalary > 0 && (
+                <Field label="Salaire de base (contrat)">
+                  {FCFA.format(activeContract.baseSalary)} FCFA
+                </Field>
+              )}
             </>
+          )}
+          {latestPayroll && (
+            <Field label="Dernier salaire (bulletin)">
+              <span className="font-semibold text-sc-blue-darker">
+                {FCFA.format(latestPayroll.netSalary)} FCFA
+              </span>{" "}
+              net
+              <span className="text-gray-400">
+                {" "}
+                · brut{" "}
+                {FCFA.format(
+                  latestPayroll.baseSalary +
+                    latestPayroll.bonuses +
+                    latestPayroll.allowances,
+                )}{" "}
+                · {periodLabel(latestPayroll.period)}
+              </span>
+            </Field>
           )}
         </Section>
       </div>

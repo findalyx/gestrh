@@ -126,7 +126,13 @@ export async function importPayslips(
       continue;
     }
     const brut = p.brut ?? p.net;
-    const deductions = Math.max(0, brut - p.net);
+    // Cotisations salariales réelles lues sur le bulletin (« Total cotisation »).
+    // Repli sur (brut − net) si l'extraction échoue. Le calcul brut − net est
+    // faux quand des indemnités non imposables (transport…) gonflent le net.
+    const deductions =
+      p.cotisation != null && p.cotisation > 0
+        ? p.cotisation
+        : Math.max(0, brut - p.net);
     const pdfUrl = await saveIndividualBulletin(p.page, p.period, agent.id);
 
     const existing = await prisma.payrollRecord.findUnique({

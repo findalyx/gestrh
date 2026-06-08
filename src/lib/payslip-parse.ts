@@ -15,6 +15,7 @@ export type ParsedPayslip = {
   period: string | null; // YYYY-MM
   brut: number | null;
   net: number | null;
+  cotisation: number | null; // cotisations salariales (1er montant après « Total cotisation »)
 };
 
 const MONTHS: Record<string, string> = {
@@ -54,6 +55,10 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
   const mat = text.match(/\bS(\d{3,5})\b/);
   const net = text.match(/NET\s*A?\s*PAYER\s*([\d   ]+)/i);
   const brut = text.match(/Total\s*Brut\s*([\d   ]+)/i);
+  // « Total cotisation(s) » : 1er montant = cotisations salariales (le 2e =
+  // charges patronales). Donne la vraie retenue, qui peut différer de
+  // (brut − net) à cause des indemnités non imposables (transport…).
+  const cotis = text.match(/Total\s*cotisations?\s*([\d   ]+)/i);
   const nm = text.match(
     /\b(?:Mme|Mlle|Mr|M)\b\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ '\-]{2,30})/,
   );
@@ -64,6 +69,7 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
     period: parsePeriod(text),
     brut: toInt(brut?.[1]),
     net: toInt(net?.[1]),
+    cotisation: toInt(cotis?.[1]),
   };
 }
 

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/dal";
+import { getCurrentUser } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import {
   putObject,
@@ -12,6 +12,19 @@ import {
 } from "@/lib/supabase-storage";
 
 export type PhotoActionResult = { ok: true } | { ok: false; error: string };
+
+/** Direction/DRH peuvent gérer toute photo ; un agent peut gérer la sienne. */
+async function assertCanEditPhoto(agentId: string): Promise<
+  { ok: true; userId: string } | { ok: false; error: string }
+> {
+  const me = await getCurrentUser();
+  const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
+  const isSelf = me.agent?.id === agentId;
+  if (!isAdmin && !isSelf) {
+    return { ok: false, error: "Accès refusé." };
+  }
+  return { ok: true, userId: me.id };
+}
 
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024; // 4 Mo (limite pratique Server Action)
 const PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -26,7 +39,8 @@ export async function uploadAgentPhoto(
   formData: FormData,
 ): Promise<PhotoActionResult> {
   try {
-    const me = await requireRole(Role.DIRECTION, Role.DRH);
+    const auth = await assertCanEditPhoto(agentId);
+    if (!auth.ok) return auth;
 
     const file = formData.get("photo");
     if (!(file instanceof File) || file.size === 0) {
@@ -68,7 +82,7 @@ export async function uploadAgentPhoto(
     });
 
     await logAudit({
-      userId: me.id,
+      userId: auth.userId,
       action: "UPLOAD_AGENT_PHOTO",
       entity: "Agent",
       entityId: agentId,
@@ -88,7 +102,8 @@ export async function deleteAgentPhoto(
   agentId: string,
 ): Promise<PhotoActionResult> {
   try {
-    const me = await requireRole(Role.DIRECTION, Role.DRH);
+    const auth = await assertCanEditPhoto(agentId);
+    if (!auth.ok) return auth;
 
     await removePrefix(`agents/${agentId}`);
     await prisma.agent.update({
@@ -97,7 +112,7 @@ export async function deleteAgentPhoto(
     });
 
     await logAudit({
-      userId: me.id,
+      userId: auth.userId,
       action: "DELETE_AGENT_PHOTO",
       entity: "Agent",
       entityId: agentId,
