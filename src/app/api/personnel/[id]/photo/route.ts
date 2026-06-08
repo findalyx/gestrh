@@ -19,24 +19,29 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  await getCurrentUser();
+  try {
+    const { id } = await params;
+    await getCurrentUser();
 
-  const agent = await prisma.agent.findUnique({
-    where: { id },
-    select: { photoUrl: true },
-  });
-  if (!agent?.photoUrl) {
-    return new Response("Aucune photo", { status: 404 });
+    const agent = await prisma.agent.findUnique({
+      where: { id },
+      select: { photoUrl: true },
+    });
+    if (!agent?.photoUrl) {
+      return new Response("Aucune photo", { status: 404 });
+    }
+
+    const buffer = await getObject(agent.photoUrl);
+    if (!buffer) return new Response("Fichier manquant", { status: 404 });
+
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": contentTypeFor(agent.photoUrl),
+        "Cache-Control": "private, max-age=60",
+      },
+    });
+  } catch (e) {
+    console.error("[photo] échec:", e);
+    return new Response("Erreur", { status: 500 });
   }
-
-  const buffer = await getObject(agent.photoUrl);
-  if (!buffer) return new Response("Fichier manquant", { status: 404 });
-
-  return new Response(new Uint8Array(buffer), {
-    headers: {
-      "Content-Type": contentTypeFor(agent.photoUrl),
-      "Cache-Control": "private, max-age=60",
-    },
-  });
 }
