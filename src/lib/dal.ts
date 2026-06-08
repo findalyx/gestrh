@@ -46,6 +46,7 @@ export const getCurrentUser = cache(async () => {
           jobTitle: true,
           category: true,
           serviceId: true,
+          photoUrl: true,
         },
       },
     },

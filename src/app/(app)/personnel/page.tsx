@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/dal";
 import { getAgentScopeWhere } from "@/lib/personnel-access";
 import { listCddAlerts, listRetirementAlerts } from "@/lib/contract-alerts";
 import { AgentStatusBadge, CategoryBadge } from "@/components/Badges";
+import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
@@ -314,7 +315,16 @@ export default async function PersonnelListPage({
                     {a.matricule}
                   </td>
                   <td className="px-4 py-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <Avatar
+                        size={32}
+                        initials={`${a.firstName[0] ?? ""}${a.lastName[0] ?? ""}`.toUpperCase()}
+                        src={
+                          a.photoUrl
+                            ? `/api/personnel/${a.id}/photo?v=${encodeURIComponent(a.updatedAt.toISOString())}`
+                            : null
+                        }
+                      />
                       <Link
                         href={`/personnel/${a.id}`}
                         className="font-medium text-sc-blue-darker hover:underline"

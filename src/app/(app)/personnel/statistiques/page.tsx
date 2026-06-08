@@ -84,6 +84,7 @@ export default async function StatistiquesPage() {
       baseSalary: true,
       agent: {
         select: {
+          id: true,
           category: true,
           service: { select: { id: true, name: true } },
         },
@@ -91,8 +92,33 @@ export default async function StatistiquesPage() {
     },
   });
 
+  // Masse salariale = dernier bulletin importé de chaque agent (le baseSalary
+  // du contrat n'est pas renseigné). On prend le brut du bulletin le plus
+  // récent par agent.
+  const payrolls = await prisma.payrollRecord.findMany({
+    orderBy: { period: "desc" },
+    select: {
+      agentId: true,
+      period: true,
+      baseSalary: true,
+      bonuses: true,
+      allowances: true,
+    },
+  });
+  const salaryByAgent = new Map<string, number>();
+  for (const p of payrolls) {
+    // findMany trié par période desc → la 1re occurrence d'un agent est la plus récente.
+    if (!salaryByAgent.has(p.agentId)) {
+      salaryByAgent.set(p.agentId, p.baseSalary + p.bonuses + p.allowances);
+    }
+  }
+  const salaryOf = (agentId: string) => salaryByAgent.get(agentId) ?? 0;
+
   const total = activeContracts.length;
-  const totalMass = activeContracts.reduce((acc, c) => acc + c.baseSalary, 0);
+  const totalMass = activeContracts.reduce(
+    (acc, c) => acc + salaryOf(c.agent.id),
+    0,
+  );
 
   // Répartition par type
   const byType: Record<ContractType, number> = {
@@ -120,8 +146,9 @@ export default async function StatistiquesPage() {
   const byService = new Map<string, { name: string; count: number; mass: number }>();
 
   for (const c of activeContracts) {
+    const salary = salaryOf(c.agent.id);
     byType[c.type]++;
-    massByType[c.type] += c.baseSalary;
+    massByType[c.type] += salary;
     byCategory[c.agent.category]++;
     const s = byService.get(c.agent.service.id) ?? {
       name: c.agent.service.name,
@@ -129,7 +156,7 @@ export default async function StatistiquesPage() {
       mass: 0,
     };
     s.count++;
-    s.mass += c.baseSalary;
+    s.mass += salary;
     byService.set(c.agent.service.id, s);
   }
   const servicesSorted = Array.from(byService.values()).sort(

@@ -87,6 +87,10 @@ export default async function AppLayout({
     initials: currentUser.agent
       ? `${currentUser.agent.firstName[0]}${currentUser.agent.lastName[0]}`.toUpperCase()
       : currentUser.email.slice(0, 2).toUpperCase(),
+    photoSrc:
+      currentUser.agent && currentUser.agent.photoUrl
+        ? `/api/personnel/${currentUser.agent.id}/photo`
+        : null,
   };
 
   // Recherche d'agent : utile uniquement pour ceux qui ont accès à /personnel

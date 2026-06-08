@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { Avatar } from "@/components/Avatar";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { logout } from "@/app/login/actions";
 
@@ -17,7 +18,12 @@ export type TopbarNotification = {
 
 export type TopbarProps = {
   notifications: TopbarNotification[];
-  user: { name: string; role: string; initials: string };
+  user: {
+    name: string;
+    role: string;
+    initials: string;
+    photoSrc?: string | null;
+  };
   /** Si true, on affiche la barre de recherche d'agents (DRH/Direction/Manager) */
   showSearch?: boolean;
   /** Callback du bouton hamburger (mobile) — ouvre le menu latéral. */
@@ -205,9 +211,7 @@ export function Topbar({
             aria-expanded={userMenuOpen}
             className="flex items-center gap-2.5 border-l border-sc-border pl-3.5 transition hover:opacity-80"
           >
-            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-full bg-gradient-to-br from-sc-purple to-sc-blue text-[13px] font-semibold text-white">
-              {user.initials}
-            </div>
+            <Avatar src={user.photoSrc} initials={user.initials} size={38} />
             <div className="hidden text-left sm:block">
               <p className="text-[13px] font-medium text-sc-ink">{user.name}</p>
               <p className="text-[11.5px] text-gray-500">{user.role}</p>
