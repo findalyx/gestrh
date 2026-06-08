@@ -69,3 +69,6 @@ TEMPLATES*.docx
 Papier*.docx
 *entete*.docx
 *en-tête*.docx
+
+# Tout document Word déposé à la racine = document interne sensible → jamais committé
+*.docx

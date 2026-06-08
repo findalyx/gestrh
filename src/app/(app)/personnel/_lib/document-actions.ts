@@ -32,69 +32,81 @@ const DOC_TYPE_TITLE: Record<DocumentType, string> = {
   AUTRE: "Document",
 };
 
+export type UploadDocumentResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 /**
  * Téléverse une pièce justificative pour un agent. Le fichier est stocké sur
  * Supabase (documents/{id}/…) ; la base ne garde que les métadonnées.
- * Lève une Error en cas d'échec (l'appelant client l'attrape).
+ * Renvoie toujours un résultat typé (jamais d'exception non gérée) afin
+ * d'éviter la réponse 500 opaque côté client et de remonter la vraie cause.
  */
 export async function uploadAgentDocument(
   agentId: string,
   formData: FormData,
-): Promise<void> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+): Promise<UploadDocumentResult> {
+  try {
+    const me = await requireRole(Role.DIRECTION, Role.DRH);
 
-  const rawType = String(formData.get("docType") ?? "").trim();
-  if (!Object.values(DocumentType).includes(rawType as DocumentType)) {
-    throw new Error("Type de document invalide.");
+    const rawType = String(formData.get("docType") ?? "").trim();
+    if (!Object.values(DocumentType).includes(rawType as DocumentType)) {
+      return { ok: false, error: "Type de document invalide." };
+    }
+    const docType = rawType as DocumentType;
+
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { ok: false, error: "Aucun fichier sélectionné." };
+    }
+    const invalid = validateDocumentFile(file);
+    if (invalid) return { ok: false, error: invalid };
+
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { id: true },
+    });
+    if (!agent) return { ok: false, error: "Agent introuvable." };
+
+    const customTitle = String(formData.get("title") ?? "").trim();
+
+    // On crée la ligne d'abord (id requis pour le chemin de stockage), puis on
+    // téléverse ; en cas d'échec d'upload on annule la ligne.
+    const doc = await prisma.document.create({
+      data: {
+        type: docType,
+        title: customTitle || DOC_TYPE_TITLE[docType] || file.name,
+        fileName: sanitizeFilename(file.name),
+        mimeType: file.type || "application/octet-stream",
+        size: file.size,
+        agentId,
+        uploadedById: me.id,
+      },
+      select: { id: true },
+    });
+
+    const saved = await saveAgentDocumentFile({ documentId: doc.id, file });
+    if (!saved.ok) {
+      await prisma.document.delete({ where: { id: doc.id } });
+      return { ok: false, error: saved.error };
+    }
+
+    await logAudit({
+      userId: me.id,
+      action: "UPLOAD_AGENT_DOCUMENT",
+      entity: "Document",
+      entityId: doc.id,
+      details: `${docType} · agent ${agentId}`,
+    });
+
+    revalidatePath(`/personnel/${agentId}/documents`);
+    revalidatePath(`/personnel/${agentId}`);
+    return { ok: true };
+  } catch (e) {
+    console.error("[uploadAgentDocument] échec:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: `Échec du téléversement : ${msg}` };
   }
-  const docType = rawType as DocumentType;
-
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    throw new Error("Aucun fichier sélectionné.");
-  }
-  const invalid = validateDocumentFile(file);
-  if (invalid) throw new Error(invalid);
-
-  const agent = await prisma.agent.findUnique({
-    where: { id: agentId },
-    select: { id: true },
-  });
-  if (!agent) throw new Error("Agent introuvable.");
-
-  const customTitle = String(formData.get("title") ?? "").trim();
-
-  // On crée la ligne d'abord (id requis pour le chemin de stockage), puis on
-  // téléverse ; en cas d'échec d'upload on annule la ligne.
-  const doc = await prisma.document.create({
-    data: {
-      type: docType,
-      title: customTitle || DOC_TYPE_TITLE[docType] || file.name,
-      fileName: sanitizeFilename(file.name),
-      mimeType: file.type || "application/octet-stream",
-      size: file.size,
-      agentId,
-      uploadedById: me.id,
-    },
-    select: { id: true },
-  });
-
-  const saved = await saveAgentDocumentFile({ documentId: doc.id, file });
-  if (!saved.ok) {
-    await prisma.document.delete({ where: { id: doc.id } });
-    throw new Error(saved.error);
-  }
-
-  await logAudit({
-    userId: me.id,
-    action: "UPLOAD_AGENT_DOCUMENT",
-    entity: "Document",
-    entityId: doc.id,
-    details: `${docType} · agent ${agentId}`,
-  });
-
-  revalidatePath(`/personnel/${agentId}/documents`);
-  revalidatePath(`/personnel/${agentId}`);
 }
 
 export async function deleteAgentDocument(

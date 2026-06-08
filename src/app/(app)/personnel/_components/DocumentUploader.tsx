@@ -38,11 +38,26 @@ export function DocumentUploader({ agentId }: { agentId: string }) {
   const [pending, setPending] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Limite pratique d'envoi via Server Action sur l'hébergeur (~4,5 Mo).
+  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
   async function action(formData: FormData) {
     setError(null);
+    const file = formData.get("file");
+    if (file instanceof File && file.size > MAX_UPLOAD_BYTES) {
+      setError(
+        `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(1)} Mo). ` +
+          "Maximum ~4 Mo : compressez le PDF ou réduisez l'image avant l'envoi.",
+      );
+      return;
+    }
     setPending(true);
     try {
-      await uploadAgentDocument(agentId, formData);
+      const res = await uploadAgentDocument(agentId, formData);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
       formRef.current?.reset();
       setOpen(false);
     } catch (e) {

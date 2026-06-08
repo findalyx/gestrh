@@ -16,6 +16,7 @@ import {
   NewContractForm,
   UploadContractPdfForm,
 } from "../_components/ContractForm";
+import { AgentPhotoUploader } from "../_components/AgentPhotoUploader";
 
 export const dynamic = "force-dynamic";
 
@@ -115,9 +116,16 @@ export default async function AgentDetailPage({
 
       {/* En-tête fiche */}
       <div className="flex flex-wrap items-start gap-5 rounded-xl border border-sc-border bg-white p-6 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-        <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sc-purple to-sc-blue text-2xl font-semibold text-white">
-          {initials}
-        </div>
+        <AgentPhotoUploader
+          agentId={agent.id}
+          photoSrc={
+            agent.photoUrl
+              ? `/api/personnel/${agent.id}/photo?v=${encodeURIComponent(agent.updatedAt.toISOString())}`
+              : null
+          }
+          initials={initials}
+          canEdit={canEdit}
+        />
         <div className="flex-1 min-w-0">
           <h2 className="font-serif text-2xl font-semibold text-sc-blue-darker">
             {agent.firstName} {agent.lastName}
