@@ -130,8 +130,10 @@ export async function importPayslips(
     // Cotisations salariales réelles lues sur le bulletin (« Total cotisation »).
     // Repli sur (brut − net) si l'extraction échoue. Le calcul brut − net est
     // faux quand des indemnités non imposables (transport…) gonflent le net.
+    // La cotisation salariale est toujours < brut. Ce garde rejette une
+    // extraction douteuse (montants collés) et évite tout dépassement Int.
     const deductions =
-      p.cotisation != null && p.cotisation > 0
+      p.cotisation != null && p.cotisation > 0 && p.cotisation < brut
         ? p.cotisation
         : Math.max(0, brut - p.net);
     const pdfUrl = await saveIndividualBulletin(p.page, p.period, agent.id);

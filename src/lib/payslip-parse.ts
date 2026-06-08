@@ -42,6 +42,26 @@ function toInt(s: string | undefined | null): number | null {
   return digits ? Number.parseInt(digits, 10) : null;
 }
 
+/**
+ * Reconstruit le PREMIER nombre français d'une suite « 14 048 46 463 » où
+ * plusieurs montants se suivent sur la même ligne (cas du « Total cotisation »
+ * qui aligne salarial puis patronal). On prend le 1er token puis les groupes
+ * de 3 chiffres consécutifs, et on s'arrête au 1er token ≠ 3 chiffres (= début
+ * du montant suivant). Évite de coller deux montants en un nombre géant.
+ */
+function firstAmount(s: string | undefined | null): number | null {
+  if (!s) return null;
+  const tokens = s.trim().split(/[\s   ]+/).filter(Boolean);
+  if (tokens.length === 0) return null;
+  let acc = tokens[0];
+  for (let i = 1; i < tokens.length; i++) {
+    if (/^\d{3}$/.test(tokens[i])) acc += tokens[i];
+    else break;
+  }
+  const digits = acc.replace(/[^0-9]/g, "");
+  return digits ? Number.parseInt(digits, 10) : null;
+}
+
 function parsePeriod(text: string): string | null {
   const m = text.match(
     /\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})/i,
@@ -69,7 +89,8 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
     period: parsePeriod(text),
     brut: toInt(brut?.[1]),
     net: toInt(net?.[1]),
-    cotisation: toInt(cotis?.[1]),
+    // 1er nombre uniquement (salarial), pas salarial+patronal collés.
+    cotisation: firstAmount(cotis?.[1]),
   };
 }
 
