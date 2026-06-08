@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Role, WellbeingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
@@ -27,7 +28,16 @@ function whenLabel(d: number): string {
   return `Dans ${d} jours`;
 }
 
-export default async function BienEtrePage() {
+type Vue = "anniversaires" | "avis";
+
+export default async function BienEtrePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vue?: string }>;
+}) {
+  const sp = await searchParams;
+  const vue: Vue = sp.vue === "avis" ? "avis" : "anniversaires";
+
   const me = await getCurrentUser();
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
 
@@ -74,8 +84,54 @@ export default async function BienEtrePage() {
         </div>
       </div>
 
-      {/* À célébrer : jour J et jusqu'à 3 jours après */}
-      {celebrable.length > 0 && (
+      {/* Onglets */}
+      <div className="flex flex-wrap gap-1 rounded-lg border border-sc-border bg-white p-1.5">
+        <Link
+          href="/bien-etre"
+          className={`rounded-md px-4 py-1.5 text-[13px] font-semibold transition ${
+            vue === "anniversaires"
+              ? "bg-sc-purple text-white"
+              : "text-sc-blue-darker hover:bg-sc-blue-light"
+          }`}
+        >
+          🎂 Anniversaires
+          {celebrable.length > 0 && (
+            <span
+              className={`ml-1.5 rounded-full px-1.5 py-[1px] text-[10.5px] font-bold ${
+                vue === "anniversaires"
+                  ? "bg-white/25 text-white"
+                  : "bg-sc-purple-light text-sc-purple"
+              }`}
+            >
+              {celebrable.length}
+            </span>
+          )}
+        </Link>
+        <Link
+          href="/bien-etre?vue=avis"
+          className={`rounded-md px-4 py-1.5 text-[13px] font-semibold transition ${
+            vue === "avis"
+              ? "bg-sc-teal text-white"
+              : "text-sc-blue-darker hover:bg-sc-blue-light"
+          }`}
+        >
+          💬 Avis &amp; idées
+          {isAdmin && newCount > 0 && (
+            <span
+              className={`ml-1.5 rounded-full px-1.5 py-[1px] text-[10.5px] font-bold ${
+                vue === "avis"
+                  ? "bg-white/25 text-white"
+                  : "bg-sc-warning-light text-[#854f0b]"
+              }`}
+            >
+              {newCount}
+            </span>
+          )}
+        </Link>
+      </div>
+
+      {/* ===== Onglet Anniversaires ===== */}
+      {vue === "anniversaires" && celebrable.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-2.5 font-serif text-base font-semibold text-sc-blue-darker">
             <Icon name="gift" size={18} className="text-sc-purple" />
@@ -122,6 +178,7 @@ export default async function BienEtrePage() {
       )}
 
       {/* Anniversaires à venir */}
+      {vue === "anniversaires" && (
       <section>
         <h3 className="mb-3 flex items-center gap-2.5 font-serif text-base font-semibold text-sc-blue-darker">
           <span className="h-[18px] w-1 rounded bg-sc-purple" />
@@ -164,12 +221,13 @@ export default async function BienEtrePage() {
           </div>
         )}
       </section>
+      )}
 
-      {/* Donner mon avis (anonyme) */}
-      <FeedbackForm />
+      {/* ===== Onglet Avis & idées ===== */}
+      {vue === "avis" && <FeedbackForm />}
 
       {/* Avis reçus — DRH / Direction */}
-      {isAdmin && (
+      {vue === "avis" && isAdmin && (
         <section>
           <h3 className="mb-3 flex items-center gap-2.5 font-serif text-base font-semibold text-sc-blue-darker">
             <span className="h-[18px] w-1 rounded bg-sc-teal" />
