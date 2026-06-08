@@ -40,8 +40,9 @@ export default async function BienEtrePage({
 
   const me = await getCurrentUser();
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
+  const firstName = me.agent?.firstName ?? "";
 
-  const [celebrable, birthdays, posts] = await Promise.all([
+  const [celebrable, birthdays, posts, myWishes] = await Promise.all([
     listCelebrableBirthdays(new Date(), 3),
     listUpcomingBirthdays(new Date(), 30),
     isAdmin
@@ -50,6 +51,13 @@ export default async function BienEtrePage({
           take: 200,
         })
       : Promise.resolve([]),
+    // Messages d'anniversaire reçus par l'utilisateur (livrés en notifications).
+    prisma.notification.findMany({
+      where: { userId: me.id, title: { startsWith: "🎉" } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, message: true, createdAt: true },
+    }),
   ]);
 
   // « À venir » = strictement futur (aujourd'hui est géré par « à célébrer »).
@@ -75,10 +83,10 @@ export default async function BienEtrePage({
         </div>
         <div>
           <h2 className="font-serif text-lg font-semibold text-sc-blue-darker">
-            Espace de vie
+            Bienvenue{firstName ? ` ${firstName}` : ""} 👋
           </h2>
           <p className="text-[12.5px] text-gray-600">
-            Le bien-être au travail : célébrer les anniversaires et donner la
+            dans votre espace de vie — célébrer les anniversaires et donner la
             parole à chacun, en toute confidentialité.
           </p>
         </div>
@@ -129,6 +137,31 @@ export default async function BienEtrePage({
           )}
         </Link>
       </div>
+
+      {/* Mes messages d'anniversaire reçus */}
+      {vue === "anniversaires" && myWishes.length > 0 && (
+        <section className="rounded-xl border border-sc-purple/30 bg-gradient-to-br from-sc-purple/10 to-white p-5 shadow-[0_1px_2px_rgba(85,69,150,0.1)]">
+          <h3 className="mb-3 flex items-center gap-2.5 font-serif text-base font-semibold text-sc-purple">
+            <Icon name="gift" size={18} />
+            Vos messages d&apos;anniversaire 🎉
+          </h3>
+          <div className="space-y-2">
+            {myWishes.map((w) => (
+              <div
+                key={w.id}
+                className="rounded-lg border border-sc-border bg-white px-4 py-3"
+              >
+                <p className="text-[13px] text-gray-700">{w.message}</p>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  {new Intl.DateTimeFormat("fr-FR", {
+                    dateStyle: "medium",
+                  }).format(w.createdAt)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ===== Onglet Anniversaires ===== */}
       {vue === "anniversaires" && celebrable.length > 0 && (
