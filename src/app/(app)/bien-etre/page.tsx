@@ -1,10 +1,15 @@
 import { Role, WellbeingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
-import { listUpcomingBirthdays, type BirthdayItem } from "@/lib/wellbeing";
+import {
+  listUpcomingBirthdays,
+  listCelebrableBirthdays,
+  type BirthdayItem,
+} from "@/lib/wellbeing";
 import { Icon } from "@/components/Icon";
 import { FeedbackForm } from "./_components/FeedbackForm";
 import { FeedbackInbox, type InboxPost } from "./_components/FeedbackInbox";
+import { BirthdayWish } from "./_components/BirthdayWish";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +31,8 @@ export default async function BienEtrePage() {
   const me = await getCurrentUser();
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
 
-  const [birthdays, posts] = await Promise.all([
+  const [celebrable, birthdays, posts] = await Promise.all([
+    listCelebrableBirthdays(new Date(), 3),
     listUpcomingBirthdays(new Date(), 30),
     isAdmin
       ? prisma.wellbeingPost.findMany({
@@ -36,7 +42,7 @@ export default async function BienEtrePage() {
       : Promise.resolve([]),
   ]);
 
-  const today = birthdays.filter((b) => b.isToday);
+  // « À venir » = strictement futur (aujourd'hui est géré par « à célébrer »).
   const upcoming = birthdays.filter((b) => !b.isToday);
 
   const inboxPosts: InboxPost[] = posts.map((p) => ({
@@ -68,18 +74,22 @@ export default async function BienEtrePage() {
         </div>
       </div>
 
-      {/* Anniversaires du jour */}
-      {today.length > 0 && (
+      {/* À célébrer : jour J et jusqu'à 3 jours après */}
+      {celebrable.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-2.5 font-serif text-base font-semibold text-sc-blue-darker">
             <Icon name="gift" size={18} className="text-sc-purple" />
-            Anniversaire{today.length > 1 ? "s" : ""} du jour 🎉
+            À célébrer 🎉
           </h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {today.map((b) => (
+            {celebrable.map((b) => (
               <div
                 key={b.agentId}
-                className="rounded-xl border border-sc-purple/30 bg-gradient-to-br from-sc-purple/10 to-white p-4 shadow-[0_1px_2px_rgba(85,69,150,0.1)]"
+                className={`rounded-xl border p-4 ${
+                  b.isToday
+                    ? "border-sc-purple/30 bg-gradient-to-br from-sc-purple/10 to-white shadow-[0_1px_2px_rgba(85,69,150,0.1)]"
+                    : "border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]"
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sc-purple to-sc-blue text-base font-semibold text-white">
@@ -95,9 +105,16 @@ export default async function BienEtrePage() {
                     </p>
                   </div>
                 </div>
-                <p className="mt-2 text-[12px] font-medium text-sc-purple">
-                  Souhaitez-lui un joyeux anniversaire&nbsp;!
+                <p className="mt-2 text-[11.5px] font-medium text-sc-purple">
+                  {b.isToday
+                    ? "C'est aujourd'hui !"
+                    : `Anniversaire il y a ${b.daysSince} jour${b.daysSince > 1 ? "s" : ""}`}
                 </p>
+                <BirthdayWish
+                  agentId={b.agentId}
+                  firstName={b.firstName}
+                  canSend={b.userId !== null}
+                />
               </div>
             ))}
           </div>
