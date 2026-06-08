@@ -107,6 +107,14 @@ export const NAV_SECTIONS: NavSection[] = [
         roles: ALL,
       },
       {
+        label: "Espace de vie",
+        href: "/bien-etre",
+        icon: "heart",
+        title: "Espace de vie — bien-être au travail",
+        subtitle: "Anniversaires, avis anonymes et idées d'amélioration",
+        roles: ALL,
+      },
+      {
         label: "Conformité & archives",
         href: "/conformite",
         icon: "compliance",

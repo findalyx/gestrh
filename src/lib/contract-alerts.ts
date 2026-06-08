@@ -11,6 +11,7 @@ import {
   daysUntil,
   retirementInfo,
 } from "@/lib/contract-utils";
+import { listUpcomingBirthdays } from "@/lib/wellbeing";
 
 // ---------------------------------------------------------------
 //  Lecture : alertes contractuelles & retraites
@@ -232,4 +233,38 @@ export async function materializeAlerts(now: Date = new Date()): Promise<AlertRu
   }
 
   return { cddCreated, retirementCreated, recipients: recipients.length };
+}
+
+/**
+ * Notifications pour les anniversaires DU JOUR → Direction/DRH (pour penser à
+ * les célébrer). Les anniversaires restent visibles par tous dans l'Espace de
+ * vie ; ici on se contente d'un rappel quotidien aux responsables.
+ */
+export async function materializeBirthdayAlerts(
+  now: Date = new Date(),
+): Promise<number> {
+  const today = (await listUpcomingBirthdays(now, 0)).filter((b) => b.isToday);
+  if (today.length === 0) return 0;
+
+  const recipients = await recipientsForGlobalAlerts();
+  let created = 0;
+
+  for (const b of today) {
+    const title = `Anniversaire aujourd'hui · ${b.fullName}`;
+    const message = `${b.serviceName}${b.age ? ` · ${b.age} ans` : ""}. Pensez à lui souhaiter un joyeux anniversaire !`;
+    for (const userId of recipients) {
+      if (await alreadyNotified(userId, title)) continue;
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: NotificationType.INFO,
+          title,
+          message,
+          link: "/bien-etre",
+        },
+      });
+      created++;
+    }
+  }
+  return created;
 }

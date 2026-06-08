@@ -820,3 +820,33 @@ model Document {
   @@index([agentId])
   @@index([contractId])
 }
+
+// ============================================================
+//  BIEN-ÊTRE / ESPACE DE VIE
+// ============================================================
+
+enum WellbeingTopic {
+  ENVIRONNEMENT   // avis sur l'environnement de travail
+  AMELIORATION    // idée d'amélioration
+  RECONNAISSANCE  // remerciement / félicitation
+  AUTRE
+}
+
+enum WellbeingStatus {
+  NOUVEAU
+  LU
+  TRAITE
+}
+
+/// Avis / idée déposé(e) par un employé — 100 % ANONYME : aucun lien vers
+/// l'agent ou l'utilisateur n'est conservé. Vu et traité par la DRH.
+model WellbeingPost {
+  id        String          @id @default(cuid())
+  topic     WellbeingTopic  @default(AUTRE)
+  message   String
+  status    WellbeingStatus @default(NOUVEAU)
+  createdAt DateTime        @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}

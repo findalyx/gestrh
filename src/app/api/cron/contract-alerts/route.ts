@@ -1,4 +1,7 @@
-import { materializeAlerts } from "@/lib/contract-alerts";
+import {
+  materializeAlerts,
+  materializeBirthdayAlerts,
+} from "@/lib/contract-alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +33,12 @@ async function runAlerts(request: Request): Promise<Response> {
   }
 
   const report = await materializeAlerts();
+  const birthdayNotifications = await materializeBirthdayAlerts();
   return Response.json({
     ok: true,
     cddNotifications: report.cddCreated,
     retirementNotifications: report.retirementCreated,
+    birthdayNotifications,
     recipients: report.recipients,
     timestamp: new Date().toISOString(),
   });
