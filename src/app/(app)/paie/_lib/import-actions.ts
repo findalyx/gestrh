@@ -53,6 +53,7 @@ export async function importPayslips(
     };
   }
 
+  try {
   // Période dominante (pour l'archivage + le résumé)
   const periodCounts = new Map<string, number>();
   for (const p of parsed) {
@@ -180,4 +181,12 @@ export async function importPayslips(
     unmatched,
     skipped,
   };
+  } catch (e) {
+    console.error("[importPayslips] échec:", e);
+    const detail = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      error: `Échec de l'import : ${detail.slice(0, 200)}`,
+    };
+  }
 }

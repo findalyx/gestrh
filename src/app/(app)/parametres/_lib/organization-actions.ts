@@ -13,7 +13,8 @@ import {
 } from "@/lib/organization";
 import { putObject, removeObject } from "@/lib/supabase-storage";
 
-const LETTERHEAD_PATH = "branding/letterhead.docx";
+// Préfixe dédié `templates/` (pas `branding/`, purgé à chaque changement de logo).
+const LETTERHEAD_PATH = "templates/letterhead.docx";
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 

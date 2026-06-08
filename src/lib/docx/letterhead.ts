@@ -3,8 +3,12 @@ import "server-only";
 import JSZip from "jszip";
 import { getObject } from "@/lib/supabase-storage";
 
-/** Emplacement du papier en-tête officiel (bucket privé Supabase). */
-export const LETTERHEAD_PATH = "branding/letterhead.docx";
+/**
+ * Emplacement du papier en-tête officiel (bucket privé Supabase).
+ * Préfixe dédié `templates/` — surtout PAS `branding/`, qui est purgé en
+ * entier (`removePrefix`) à chaque changement de logo.
+ */
+export const LETTERHEAD_PATH = "templates/letterhead.docx";
 
 export async function getLetterheadBytes(): Promise<Buffer | null> {
   return getObject(LETTERHEAD_PATH);

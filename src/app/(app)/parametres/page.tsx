@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { getLastAccrualYYMM } from "@/lib/leave-accrual";
 import { getOrganization } from "@/lib/organization";
-import { listPrefix } from "@/lib/supabase-storage";
+import { hasLetterhead } from "@/lib/docx/letterhead";
 import { Icon } from "@/components/Icon";
 import {
   RoleSelectForm,
@@ -109,8 +109,8 @@ export default async function ParametresPage() {
     : null;
 
   // Le papier en-tête des attestations est stocké dans le bucket privé.
-  const brandingFiles = await listPrefix("branding");
-  const letterheadExists = brandingFiles.includes("letterhead.docx");
+  // On vérifie via le même accès que la génération → badge fiable.
+  const letterheadExists = await hasLetterhead();
 
   return (
     <div className="space-y-3">
