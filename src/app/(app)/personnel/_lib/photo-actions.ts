@@ -5,11 +5,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import {
-  putObject,
-  removePrefix,
-  sanitizeFilename,
-} from "@/lib/supabase-storage";
+import { putObject, removePrefix } from "@/lib/supabase-storage";
 
 export type PhotoActionResult = { ok: true } | { ok: false; error: string };
 
@@ -63,10 +59,11 @@ export async function uploadAgentPhoto(
     });
     if (!agent) return { ok: false, error: "Agent introuvable." };
 
-    // On purge l'ancienne photo (l'extension peut changer) puis on dépose.
+    // Chemin déterministe (sans nom de fichier) → la route de service n'a pas
+    // besoin de requête DB. On purge l'ancien dossier (anciens noms) puis dépose.
     await removePrefix(`agents/${agentId}`);
 
-    const path = `agents/${agentId}/photo_${sanitizeFilename(file.name)}`;
+    const path = `agents/${agentId}/photo`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const put = await putObject({
       path,
