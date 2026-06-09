@@ -27,6 +27,7 @@ export default async function PersonnelListPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+ try {
   const sp = await searchParams;
   const me = await getCurrentUser();
 
@@ -379,6 +380,22 @@ export default async function PersonnelListPage({
       )}
     </div>
   );
+ } catch (e) {
+  const err = e as { digest?: string };
+  if (
+    typeof err?.digest === "string" &&
+    (err.digest.startsWith("NEXT_REDIRECT") || err.digest === "NEXT_NOT_FOUND")
+  ) {
+    throw e;
+  }
+  const msg = e instanceof Error ? `${e.message}\n\n${e.stack ?? ""}` : String(e);
+  return (
+    <pre className="overflow-auto whitespace-pre-wrap rounded-lg border border-sc-danger/40 bg-sc-danger-light p-4 text-[11px] text-sc-danger">
+      DIAGNOSTIC /personnel — envoyez cette capture :{"\n\n"}
+      {msg}
+    </pre>
+  );
+ }
 }
 
 function isAgentStatus(v: string | undefined): v is AgentStatus {
