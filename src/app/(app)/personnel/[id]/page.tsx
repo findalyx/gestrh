@@ -144,7 +144,11 @@ export default async function AgentDetailPage({
       <div className="flex flex-wrap items-start gap-5 rounded-xl border border-sc-border bg-white p-6 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
         <AgentPhotoUploader
           agentId={agent.id}
-          photoSrc={agent.photoUrl ? `/api/personnel/${agent.id}/photo` : null}
+          photoSrc={
+            agent.photoUrl?.startsWith("agents/")
+              ? `/api/personnel/${agent.id}/photo`
+              : null
+          }
           initials={initials}
           canEdit={canEditPhoto}
         />

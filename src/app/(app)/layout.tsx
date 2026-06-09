@@ -88,7 +88,7 @@ export default async function AppLayout({
       ? `${currentUser.agent.firstName[0]}${currentUser.agent.lastName[0]}`.toUpperCase()
       : currentUser.email.slice(0, 2).toUpperCase(),
     photoSrc:
-      currentUser.agent && currentUser.agent.photoUrl
+      currentUser.agent && currentUser.agent.photoUrl?.startsWith("agents/")
         ? `/api/personnel/${currentUser.agent.id}/photo`
         : null,
   };

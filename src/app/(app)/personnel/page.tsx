@@ -319,7 +319,11 @@ export default async function PersonnelListPage({
                       <Avatar
                         size={32}
                         initials={`${a.firstName[0] ?? ""}${a.lastName[0] ?? ""}`.toUpperCase()}
-                        src={a.photoUrl ? `/api/personnel/${a.id}/photo` : null}
+                        src={
+                          a.photoUrl?.startsWith("agents/")
+                            ? `/api/personnel/${a.id}/photo`
+                            : null
+                        }
                       />
                       <Link
                         href={`/personnel/${a.id}`}
