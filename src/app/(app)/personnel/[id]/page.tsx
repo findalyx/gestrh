@@ -18,6 +18,10 @@ import {
 } from "../_components/ContractForm";
 import { AgentPhotoUploader } from "../_components/AgentPhotoUploader";
 import { DeleteAgentButton } from "../_components/DeleteAgentButton";
+import {
+  PrestationSection,
+  type PrestationItem,
+} from "../_components/PrestationSection";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +93,16 @@ export default async function AgentDetailPage({
   });
 
   if (!agent) notFound();
+
+  const isPrestataire = agent.category === "PRESTATAIRE";
+
+  // Prestations mensuelles — uniquement pour les prestataires de services.
+  const prestations = isPrestataire
+    ? await prisma.prestationInvoice.findMany({
+        where: { agentId: id },
+        orderBy: { period: "desc" },
+      })
+    : [];
 
   // Dernier bulletin importé (le salaire réel vient de la paie, pas du contrat).
   const latestPayroll = await prisma.payrollRecord.findFirst({
@@ -384,6 +398,36 @@ export default async function AgentDetailPage({
           </details>
         )}
       </Section>
+
+      {/* Prestations mensuelles — prestataires uniquement */}
+      {isPrestataire && (
+        <Section
+          icon="payroll"
+          title={`Prestations mensuelles (${prestations.length})`}
+        >
+          <p className="mb-3 text-[12px] text-gray-500">
+            Chaque mois, le prestataire signe un document (bon de commande,
+            facture ou attestation de service fait) qui sert de base au paiement
+            et tient lieu de bulletin.
+          </p>
+          <PrestationSection
+            agentId={agent.id}
+            canEdit={canEdit}
+            items={prestations.map(
+              (p): PrestationItem => ({
+                id: p.id,
+                period: p.period,
+                amount: p.amount,
+                label: p.label,
+                status: p.status,
+                documentName: p.documentName,
+                hasDocument: Boolean(p.documentPath),
+                paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+              }),
+            )}
+          />
+        </Section>
+      )}
 
       {/* Historique de carrière */}
       <Section

@@ -188,6 +188,13 @@ enum PayrollStatus {
   PAYE
 }
 
+/// Statut d'une prestation mensuelle (prestataires de services).
+enum PrestationStatus {
+  EN_ATTENTE // document mensuel pas encore reçu / signé
+  SIGNE      // document signé reçu, base de paiement établie
+  PAYE       // paiement effectué
+}
+
 enum DocumentType {
   CONTRAT
   CONTRAT_SIGNE
@@ -268,6 +275,11 @@ model Organization {
   phone        String?
   email        String?
   website      String?
+  // Informations légales (figurent sur les contrats générés)
+  capital       BigInt? // capital social en FCFA
+  bp            String? // boîte postale
+  legalRepName  String? // nom du représentant légal (signataire des contrats)
+  legalRepTitle String? // titre / fonction, ex: "Directeur Général", "Recteur"
   // Logo uploadé ; chemin = ./uploads/branding/{logoFilename}
   logoFilename String?
   logoMimeType String?
@@ -350,6 +362,7 @@ model Agent {
   evaluationsGiven   Evaluation[]        @relation("Evaluator")
   enrollments        TrainingEnrollment[]
   payrollRecords     PayrollRecord[]
+  prestationInvoices PrestationInvoice[]
   documents          Document[]
   careerEntries      CareerEntry[]
 
@@ -525,6 +538,31 @@ model PayrollRecord {
   pdfUrl      String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String
+
+  @@unique([agentId, period])
+  @@index([period])
+}
+
+/// Prestation mensuelle d'un prestataire de services.
+/// Chaque mois, le prestataire signe un document (bon de commande / facture /
+/// attestation de service fait) qui sert de base au paiement et tient lieu de
+/// bulletin. Le PDF signé est stocké sur Supabase Storage.
+model PrestationInvoice {
+  id           String           @id @default(cuid())
+  period       String           // "2026-05"
+  amount       Int              // montant de la prestation du mois, en FCFA
+  label        String?          // ex: "Vacations mars", "Enseignement + jury"
+  status       PrestationStatus @default(EN_ATTENTE)
+  // Document mensuel signé — chemin Supabase = prestations/{agentId}/{filename}
+  documentName String?
+  documentPath String?
+  documentSize Int?
+  paidAt       DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
   agentId String

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import { removePrefix } from "@/lib/supabase-storage";
+import { deletePrestationFolder } from "@/lib/prestation-storage";
 import { AgentFormSchema, type AgentFormState } from "./schema";
 
 /**
@@ -300,10 +301,11 @@ export async function deleteAgent(
     };
   }
 
-  // Purge Supabase Storage — les PDF de contrats de cet agent
+  // Purge Supabase Storage — PDF de contrats + documents de prestation
   for (const c of agent.contracts) {
     await removePrefix(`contracts/${c.id}`);
   }
+  await deletePrestationFolder(agentId);
 
   // Suppression proprement dite. Cascade Prisma :
   //  - contracts → PayrollRecord, Document, ContractRenewal, Resignation, ContractNotification
