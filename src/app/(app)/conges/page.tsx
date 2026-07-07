@@ -9,11 +9,7 @@ import { ApproveButton, CancelButton, RejectButton } from "./_components/LeaveAc
 
 export const dynamic = "force-dynamic";
 
-const PENDING_STATUSES: LeaveStatus[] = [
-  LeaveStatus.EN_ATTENTE_CHEF,
-  LeaveStatus.EN_ATTENTE_DOYEN,
-  LeaveStatus.EN_ATTENTE_DG,
-];
+const PENDING_STATUSES: LeaveStatus[] = [LeaveStatus.EN_ATTENTE];
 
 const requestInclude = {
   agent: {

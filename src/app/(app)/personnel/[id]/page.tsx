@@ -22,6 +22,7 @@ import {
   PrestationSection,
   type PrestationItem,
 } from "../_components/PrestationSection";
+import { LeaveChainForm } from "../_components/LeaveChainForm";
 
 export const dynamic = "force-dynamic";
 
@@ -89,12 +90,27 @@ export default async function AgentDetailPage({
         where: { year: currentYear },
         orderBy: { type: "asc" },
       },
+      leaveChainSteps: {
+        orderBy: { level: "asc" },
+        select: { level: true, validatorId: true },
+      },
     },
   });
 
   if (!agent) notFound();
 
   const isPrestataire = agent.category === "PRESTATAIRE";
+
+  // Validateurs disponibles + chaîne actuelle (config congés, non-prestataires).
+  const leaveValidators = isPrestataire
+    ? []
+    : await prisma.validator.findMany({
+        where: { active: true, NOT: { agentId: id } },
+        orderBy: { label: "asc" },
+        include: { agent: { select: { firstName: true, lastName: true } } },
+      });
+  const currentChain: Record<number, string> = {};
+  for (const s of agent.leaveChainSteps) currentChain[s.level] = s.validatorId;
 
   // Prestations mensuelles — uniquement pour les prestataires de services.
   const prestations = isPrestataire
@@ -429,6 +445,21 @@ export default async function AgentDetailPage({
                 paidAt: p.paidAt ? p.paidAt.toISOString() : null,
               }),
             )}
+          />
+        </Section>
+      )}
+
+      {/* Chaîne de validation des congés — non-prestataires, config DRH/Direction */}
+      {!isPrestataire && canEdit && (
+        <Section icon="calendar" title="Chaîne de validation des congés">
+          <LeaveChainForm
+            agentId={agent.id}
+            currentChain={currentChain}
+            validators={leaveValidators.map((v) => ({
+              id: v.id,
+              label: v.label,
+              agentName: `${v.agent.lastName.toUpperCase()} ${v.agent.firstName}`,
+            }))}
           />
         </Section>
       )}

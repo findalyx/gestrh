@@ -50,12 +50,12 @@ export async function getLeaveScopeWhere(): Promise<{
 }
 
 /**
- * Filtre pour les demandes en attente d'action de l'utilisateur courant,
- * selon son niveau dans la chaîne de validation.
- * - MANAGER (Chef de Service) : EN_ATTENTE_CHEF de son équipe
- * - DOYEN : EN_ATTENTE_DOYEN
- * - DG (DIRECTION) / RECTEUR : EN_ATTENTE_DG
- * - DRH / AGENT : aucune (la DRH gère les attestations, pas la validation)
+ * Filtre pour les demandes en attente d'action de l'utilisateur courant.
+ * Modèle de chaîne configurable : une demande m'attend si son validateur
+ * courant (dénormalisé sur `currentApproverAgentId`) est mon propre agent.
+ * - DIRECTION (DG) : voit toutes les demandes en attente (pouvoir de secours)
+ * - Tout agent validateur : les demandes dont il est le validateur courant
+ * - Sans compte agent : aucune
  */
 export async function getMyPendingApprovalsWhere(): Promise<{
   where: Prisma.LeaveRequestWhereInput;
@@ -63,19 +63,21 @@ export async function getMyPendingApprovalsWhere(): Promise<{
 }> {
   const user = await getCurrentUser();
 
-  if (user.role === Role.DIRECTION || user.role === Role.RECTEUR) {
-    return { where: { status: LeaveStatus.EN_ATTENTE_DG }, canApprove: true };
+  // Le DG peut agir en secours sur toute demande en attente.
+  if (user.role === Role.DIRECTION) {
+    return {
+      where: { status: LeaveStatus.EN_ATTENTE },
+      canApprove: true,
+    };
   }
 
-  if (user.role === Role.DOYEN) {
-    return { where: { status: LeaveStatus.EN_ATTENTE_DOYEN }, canApprove: true };
-  }
-
-  if (user.role === Role.MANAGER && user.agent) {
+  // Tout utilisateur relié à un agent voit les demandes dont il est le
+  // validateur courant (quel que soit son rôle applicatif).
+  if (user.agent) {
     return {
       where: {
-        status: LeaveStatus.EN_ATTENTE_CHEF,
-        agent: { service: { managerId: user.agent.id } },
+        status: LeaveStatus.EN_ATTENTE,
+        currentApproverAgentId: user.agent.id,
       },
       canApprove: true,
     };

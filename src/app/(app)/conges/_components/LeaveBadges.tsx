@@ -5,6 +5,8 @@ const BASE =
 
 const STATUS_STYLE: Record<LeaveStatus, string> = {
   BROUILLON: "bg-gray-100 text-gray-600",
+  EN_ATTENTE: "bg-sc-warning-light text-[#854f0b]",
+  // Anciens statuts (historique) — conservés pour l'affichage des vieilles demandes.
   EN_ATTENTE_CHEF: "bg-sc-warning-light text-[#854f0b]",
   EN_ATTENTE_DOYEN: "bg-sc-purple-light text-sc-purple",
   EN_ATTENTE_DG: "bg-sc-blue-light text-sc-blue",
@@ -15,6 +17,7 @@ const STATUS_STYLE: Record<LeaveStatus, string> = {
 
 const STATUS_LABEL: Record<LeaveStatus, string> = {
   BROUILLON: "Brouillon",
+  EN_ATTENTE: "En attente",
   EN_ATTENTE_CHEF: "Chef de service",
   EN_ATTENTE_DOYEN: "Doyen",
   EN_ATTENTE_DG: "DG / Recteur",
@@ -23,15 +26,27 @@ const STATUS_LABEL: Record<LeaveStatus, string> = {
   ANNULE: "Annulé",
 };
 
-export function LeaveStatusBadge({ value }: { value: LeaveStatus }) {
+export function LeaveStatusBadge({
+  value,
+  levelLabel,
+}: {
+  value: LeaveStatus;
+  levelLabel?: string | null;
+}) {
   const isWaiting =
+    value === LeaveStatus.EN_ATTENTE ||
     value === LeaveStatus.EN_ATTENTE_CHEF ||
     value === LeaveStatus.EN_ATTENTE_DOYEN ||
     value === LeaveStatus.EN_ATTENTE_DG;
+  // Pour le nouveau statut générique, on affiche le libellé du validateur courant.
+  const text =
+    value === LeaveStatus.EN_ATTENTE && levelLabel
+      ? `En attente · ${levelLabel}`
+      : STATUS_LABEL[value];
   return (
     <span className={`${BASE} ${STATUS_STYLE[value]}`}>
       {isWaiting && "⏳ "}
-      {STATUS_LABEL[value]}
+      {text}
     </span>
   );
 }

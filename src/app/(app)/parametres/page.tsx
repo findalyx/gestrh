@@ -15,6 +15,7 @@ import { LeaveBalanceAdmin } from "./_components/LeaveBalanceAdmin";
 import { OrganizationForm } from "./_components/OrganizationForm";
 import { LetterheadForm } from "./_components/LetterheadForm";
 import { CollapsibleSection } from "./_components/CollapsibleSection";
+import { ValidatorsAdmin } from "./_components/ValidatorsAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,16 @@ export default async function ParametresPage() {
   const me = await requireRole(Role.DIRECTION, Role.DRH);
   const isDirection = me.role === Role.DIRECTION;
 
-  const [users, services, agentsWithoutUser, recentAudit, lastAccrual, organization] = await Promise.all([
+  const [
+    users,
+    services,
+    agentsWithoutUser,
+    recentAudit,
+    lastAccrual,
+    organization,
+    validators,
+    allAgents,
+  ] = await Promise.all([
     prisma.user.findMany({
       orderBy: [{ role: "asc" }, { email: "asc" }],
       include: {
@@ -98,6 +108,18 @@ export default async function ParametresPage() {
     }),
     getLastAccrualYYMM(),
     getOrganization(),
+    prisma.validator.findMany({
+      orderBy: { label: "asc" },
+      include: {
+        agent: { select: { firstName: true, lastName: true, matricule: true } },
+      },
+    }),
+    prisma.agent.findMany({
+      where: { status: "ACTIF" },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: { id: true, firstName: true, lastName: true, matricule: true },
+      take: 1000,
+    }),
   ]);
 
   const now = new Date();
@@ -165,6 +187,29 @@ export default async function ParametresPage() {
         <LeaveBalanceAdmin
           lastAccrual={lastAccrual}
           currentYYMM={currentYYMM}
+        />
+      </CollapsibleSection>
+
+      {/* Section — Validateurs de congés */}
+      <CollapsibleSection
+        accent="bg-sc-teal"
+        title="Validateurs de congés"
+        subtitle="Liste des personnes qui valident les congés (RH, Doyen Exécutif, Recteur…). La chaîne de chaque agent se configure sur sa fiche."
+        badge={`${validators.length} validateur${validators.length > 1 ? "s" : ""}`}
+        htmlId="validateurs"
+      >
+        <ValidatorsAdmin
+          validators={validators.map((v) => ({
+            id: v.id,
+            label: v.label,
+            agentName: `${v.agent.lastName.toUpperCase()} ${v.agent.firstName}`,
+            matricule: v.agent.matricule,
+          }))}
+          agents={allAgents.map((a) => ({
+            id: a.id,
+            name: `${a.lastName.toUpperCase()} ${a.firstName}`,
+            matricule: a.matricule,
+          }))}
         />
       </CollapsibleSection>
 

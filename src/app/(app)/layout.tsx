@@ -6,7 +6,7 @@ import { navSectionsFor } from "@/lib/navigation";
 import { ensureMonthlyAccrualUpToDate } from "@/lib/leave-accrual";
 import { getOrganization } from "@/lib/organization";
 import { getAlertsForUser } from "@/lib/alerts";
-import { LeaveStatus, JobStatus, Role } from "@prisma/client";
+import { LeaveStatus, JobStatus, Role, type Prisma } from "@prisma/client";
 
 // Données partagées par toutes les pages : recalculées à chaque requête.
 export const dynamic = "force-dynamic";
@@ -33,24 +33,22 @@ export default async function AppLayout({
   // Ne s'exécute réellement que la première visite d'un nouveau mois.
   await ensureMonthlyAccrualUpToDate();
 
-  // Filtre les compteurs en fonction du rôle (badges sidebar).
-  const pendingLeavesWhere = (() => {
-    const base = {
-      status: {
-        in: [LeaveStatus.EN_ATTENTE_CHEF, LeaveStatus.EN_ATTENTE_DOYEN, LeaveStatus.EN_ATTENTE_DG],
-      },
-    };
-    if (currentUser.role === Role.MANAGER && currentUser.agent) {
+  // Badge sidebar « congés » : demandes en attente qui me concernent.
+  // Chaîne configurable → validateur courant dénormalisé sur la demande.
+  const pendingLeavesWhere = ((): Prisma.LeaveRequestWhereInput => {
+    if (currentUser.role === Role.DIRECTION) {
+      return { status: LeaveStatus.EN_ATTENTE };
+    }
+    if (currentUser.agent) {
       return {
-        ...base,
-        status: LeaveStatus.EN_ATTENTE_CHEF,
-        agent: { service: { managerId: currentUser.agent.id } },
+        status: LeaveStatus.EN_ATTENTE,
+        OR: [
+          { currentApproverAgentId: currentUser.agent.id }, // à valider par moi
+          { agentId: currentUser.agent.id }, // mes propres demandes en cours
+        ],
       };
     }
-    if (currentUser.role === Role.AGENT && currentUser.agent) {
-      return { ...base, agentId: currentUser.agent.id };
-    }
-    return base;
+    return { id: "__none__" };
   })();
 
   const [pendingLeaves, openPostings, alerts] = await Promise.all([

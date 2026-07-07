@@ -117,24 +117,20 @@ enum LeaveType {
   SANS_SOLDE
 }
 
-/// Workflow de validation des congés (Université St Christopher) :
-/// Employé -> Chef de Service -> Doyen -> DG/Recteur -> Autorisé.
-/// (Personnel du service « Direction Générale » : Employé -> DG directement.)
+/// Workflow de validation des congés (Université St Christopher).
+/// Chaîne de validateurs configurable par agent (1 à 4 niveaux).
+/// EN_ATTENTE + `currentLevel` sur LeaveRequest = niveau en cours.
+/// (Les valeurs EN_ATTENTE_CHEF/DOYEN/DG sont conservées pour l'historique
+///  des anciennes demandes, mais ne sont plus produites.)
 enum LeaveStatus {
   BROUILLON
+  EN_ATTENTE
   EN_ATTENTE_CHEF
   EN_ATTENTE_DOYEN
   EN_ATTENTE_DG
   AUTORISE
   REFUSE
   ANNULE
-}
-
-/// Niveau de validation dans la chaîne des congés.
-enum LeaveApprovalLevel {
-  CHEF
-  DOYEN
-  DG_RECTEUR
 }
 
 /// Sens de la décision prise à un niveau de validation.
@@ -358,6 +354,8 @@ model Agent {
   leaveRequests      LeaveRequest[]      @relation("LeaveRequester")
   leaveApprovals     LeaveRequest[]      @relation("LeaveApprover")
   leaveBalances      LeaveBalance[]
+  validatorRole      Validator?          @relation("AgentValidator")
+  leaveChainSteps    LeaveApprovalStep[] @relation("AgentLeaveChain")
   evaluationsReceived Evaluation[]       @relation("Evaluee")
   evaluationsGiven   Evaluation[]        @relation("Evaluator")
   enrollments        TrainingEnrollment[]
@@ -582,17 +580,21 @@ model PrestationInvoice {
 
 /// Demande de congé soumise à validation hiérarchique
 model LeaveRequest {
-  id        String      @id @default(cuid())
-  type      LeaveType
-  status    LeaveStatus @default(BROUILLON)
-  startDate DateTime
-  endDate   DateTime
-  days      Float
-  reason    String?
-  justifUrl String?     // certificat médical, etc.
-  decidedAt DateTime?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  type         LeaveType
+  status       LeaveStatus @default(BROUILLON)
+  currentLevel Int?        // niveau de la chaîne en cours (1..N), null si terminée
+  // Validateur attendu au niveau courant (dénormalisé pour filtrer efficacement
+  // « les demandes qui m'attendent »). Null quand la demande est terminée.
+  currentApproverAgentId String?
+  startDate    DateTime
+  endDate      DateTime
+  days         Float
+  reason       String?
+  justifUrl    String?     // certificat médical, etc.
+  decidedAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   agent     Agent  @relation("LeaveRequester", fields: [agentId], references: [id], onDelete: Cascade)
   agentId   String
@@ -602,16 +604,17 @@ model LeaveRequest {
   approvals LeaveApproval[]
 
   @@index([status])
+  @@index([currentApproverAgentId])
 }
 
 /// Trace d'une décision prise à un niveau de la chaîne de validation des
 /// congés (Chef de Service, Doyen, DG/Recteur). Une ligne par décision.
 model LeaveApproval {
-  id        String             @id @default(cuid())
-  level     LeaveApprovalLevel
+  id        String        @id @default(cuid())
+  level     Int           // niveau numérique de la chaîne (1..N)
   decision  LeaveDecision
   comment   String?
-  decidedAt DateTime           @default(now())
+  decidedAt DateTime      @default(now())
 
   request   LeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   requestId String
@@ -619,6 +622,37 @@ model LeaveApproval {
   decidedById String?
 
   @@index([requestId])
+}
+
+/// Validateur de congés : une personne (agent) dotée d'un libellé de rôle
+/// (« RH », « Doyen Exécutif », « Recteur », « Chef Service Scolarité »…).
+/// Constitue la liste dans laquelle on pioche pour bâtir la chaîne de chaque agent.
+model Validator {
+  id        String   @id @default(cuid())
+  label     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  agent   Agent  @relation("AgentValidator", fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String @unique
+
+  steps LeaveApprovalStep[]
+}
+
+/// Un maillon de la chaîne de validation des congés d'un agent donné.
+/// (agentId, level) unique : un seul validateur par niveau et par agent.
+model LeaveApprovalStep {
+  id      String @id @default(cuid())
+  level   Int // 1..4
+
+  agent   Agent  @relation("AgentLeaveChain", fields: [agentId], references: [id], onDelete: Cascade)
+  agentId String
+
+  validator   Validator @relation(fields: [validatorId], references: [id], onDelete: Cascade)
+  validatorId String
+
+  @@unique([agentId, level])
+  @@index([agentId])
 }
 
 /// Solde de congés d'un agent par type et par année

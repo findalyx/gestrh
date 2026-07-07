@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  LeaveApprovalLevel,
   LeaveDecision,
   LeaveStatus,
   LeaveType,
@@ -20,46 +19,14 @@ import {
   type LeaveActionState,
 } from "./schema";
 import {
-  canDecide,
-  initialStatus,
-  levelForStatus,
-  nextStatusAfterApproval,
+  buildRequestChain,
+  canDecideStep,
   PENDING_LEAVE_STATUSES,
-  type LeaveContext,
 } from "./workflow";
 
 // ============================================================
-//  Notifications — destinataires selon le statut « en attente »
+//  Notifications
 // ============================================================
-async function recipientUserIdsForStatus(
-  status: LeaveStatus,
-  serviceManagerId: string | null,
-): Promise<string[]> {
-  if (status === LeaveStatus.EN_ATTENTE_CHEF) {
-    if (!serviceManagerId) return [];
-    const u = await prisma.user.findFirst({
-      where: { agentId: serviceManagerId, isActive: true },
-      select: { id: true },
-    });
-    return u ? [u.id] : [];
-  }
-  if (status === LeaveStatus.EN_ATTENTE_DOYEN) {
-    const us = await prisma.user.findMany({
-      where: { role: Role.DOYEN, isActive: true },
-      select: { id: true },
-    });
-    return us.map((u) => u.id);
-  }
-  if (status === LeaveStatus.EN_ATTENTE_DG) {
-    const us = await prisma.user.findMany({
-      where: { role: { in: [Role.DIRECTION, Role.RECTEUR] }, isActive: true },
-      select: { id: true },
-    });
-    return us.map((u) => u.id);
-  }
-  return [];
-}
-
 async function notify(
   userIds: string[],
   data: { type: NotificationType; title: string; message: string; link: string },
@@ -71,7 +38,8 @@ async function notify(
   });
 }
 
-async function notifyEmployee(
+/** Notifie le compte utilisateur d'un agent (s'il en a un actif). */
+async function notifyAgent(
   agentId: string,
   data: { type: NotificationType; title: string; message: string; link: string },
 ): Promise<void> {
@@ -94,6 +62,21 @@ export async function createLeaveRequest(
     return {
       errors: {
         _form: ["Votre compte n'est pas relié à un agent. Contactez la DRH."],
+      },
+    };
+  }
+
+  // Les prestataires ne sont pas concernés par les congés.
+  const meAgent = await prisma.agent.findUnique({
+    where: { id: me.agent.id },
+    select: { category: true },
+  });
+  if (meAgent?.category === "PRESTATAIRE") {
+    return {
+      errors: {
+        _form: [
+          "Les prestataires de services ne sont pas concernés par le module de congés.",
+        ],
       },
     };
   }
@@ -130,19 +113,16 @@ export async function createLeaveRequest(
     };
   }
 
-  const agentInfo = await prisma.agent.findUnique({
-    where: { id: me.agent.id },
-    select: { service: { select: { name: true, managerId: true } } },
-  });
-  const ctx: LeaveContext = {
-    serviceName: agentInfo?.service?.name ?? null,
-    serviceManagerId: agentInfo?.service?.managerId ?? null,
-    requester: { agentId: me.agent.id, role: me.role },
-  };
-  const status = initialStatus(ctx);
-
   const agentId = me.agent.id;
-  const autoAuthorized = status === LeaveStatus.AUTORISE;
+
+  // Le DG valide ses propres congés → auto-autorisé. Sinon, chaîne de validateurs.
+  const isDg = me.role === Role.DIRECTION;
+  const chain = isDg ? [] : await buildRequestChain(agentId);
+  const autoAuthorized = isDg || chain.length === 0;
+
+  const status = autoAuthorized ? LeaveStatus.AUTORISE : LeaveStatus.EN_ATTENTE;
+  const currentLevel = autoAuthorized ? null : 1;
+  const currentApproverAgentId = autoAuthorized ? null : chain[0].validatorAgentId;
   const year = start.getFullYear();
 
   const created = await prisma.$transaction(async (tx) => {
@@ -151,6 +131,8 @@ export async function createLeaveRequest(
         agentId,
         type: data.type as LeaveType,
         status,
+        currentLevel,
+        currentApproverAgentId,
         startDate: start,
         endDate: end,
         days,
@@ -158,7 +140,6 @@ export async function createLeaveRequest(
       },
       select: { id: true },
     });
-    // Auto-autorisée (DG / Recteur) → décompte immédiat du solde.
     if (autoAuthorized) {
       await tx.leaveBalance.upsert({
         where: {
@@ -177,17 +158,14 @@ export async function createLeaveRequest(
     return c;
   });
 
-  // Sinon : on notifie le premier valideur de la chaîne.
+  // Notifie le premier validateur de la chaîne.
   if (!autoAuthorized) {
-    await notify(
-      await recipientUserIdsForStatus(status, ctx.serviceManagerId),
-      {
-        type: NotificationType.VALIDATION,
-        title: "Nouvelle demande de congé à valider",
-        message: `${me.agent.firstName} ${me.agent.lastName} · ${data.type} · ${days}j`,
-        link: "/conges",
-      },
-    );
+    await notifyAgent(chain[0].validatorAgentId, {
+      type: NotificationType.VALIDATION,
+      title: "Nouvelle demande de congé à valider",
+      message: `${me.agent.firstName} ${me.agent.lastName} · ${data.type} · ${days}j`,
+      link: "/conges",
+    });
   }
 
   await logAudit({
@@ -210,15 +188,7 @@ async function loadRequestForDecision(requestId: string) {
   return prisma.leaveRequest.findUnique({
     where: { id: requestId },
     include: {
-      agent: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          service: { select: { name: true, managerId: true } },
-          user: { select: { role: true } },
-        },
-      },
+      agent: { select: { id: true, firstName: true, lastName: true } },
     },
   });
 }
@@ -247,29 +217,34 @@ export async function approveLeaveRequest(
   if (isTerminal(request.status)) {
     return { ok: false, message: "Cette demande est déjà traitée." };
   }
-  if (me.agent && request.agentId === me.agent.id) {
+  if (
+    me.agent &&
+    request.agentId === me.agent.id &&
+    me.role !== Role.DIRECTION
+  ) {
     return { ok: false, message: "Vous ne pouvez pas valider votre propre demande." };
   }
 
-  const managerId = request.agent.service.managerId;
+  const chain = await buildRequestChain(request.agentId);
+  const level = request.currentLevel ?? 1;
   if (
-    !canDecide({
-      status: request.status,
-      userRole: me.role,
+    !canDecideStep({
+      chain,
+      currentLevel: level,
       userAgentId: me.agent?.id ?? null,
-      serviceManagerId: managerId,
+      userRole: me.role,
     })
   ) {
-    return { ok: false, message: "Vous n'avez pas les droits pour valider cette demande à ce niveau." };
+    return {
+      ok: false,
+      message: "Vous n'êtes pas le validateur attendu à ce niveau.",
+    };
   }
 
-  const level = levelForStatus(request.status) ?? LeaveApprovalLevel.CHEF;
-  const ctx: LeaveContext = {
-    serviceName: request.agent.service.name,
-    serviceManagerId: managerId,
-    requester: { agentId: request.agentId, role: request.agent.user?.role ?? Role.AGENT },
-  };
-  const newStatus = nextStatusAfterApproval(ctx, request.status);
+  const isLast = level >= chain.length;
+  const newStatus = isLast ? LeaveStatus.AUTORISE : LeaveStatus.EN_ATTENTE;
+  const newLevel = isLast ? null : level + 1;
+  const newApprover = isLast ? null : chain[newLevel! - 1].validatorAgentId;
   const year = request.startDate.getFullYear();
 
   await prisma.$transaction(async (tx) => {
@@ -286,11 +261,12 @@ export async function approveLeaveRequest(
       where: { id: requestId },
       data: {
         status: newStatus,
+        currentLevel: newLevel,
+        currentApproverAgentId: newApprover,
         approverId: me.agent?.id ?? null,
         decidedAt: new Date(),
       },
     });
-    // Le solde n'est décompté qu'à l'autorisation finale.
     if (newStatus === LeaveStatus.AUTORISE) {
       await tx.leaveBalance.upsert({
         where: {
@@ -308,23 +284,20 @@ export async function approveLeaveRequest(
     }
   });
 
-  if (newStatus === LeaveStatus.AUTORISE) {
-    await notifyEmployee(request.agentId, {
+  if (isLast) {
+    await notifyAgent(request.agentId, {
       type: NotificationType.VALIDATION,
       title: "Congé autorisé",
       message: `${request.type} · ${request.days}j — votre congé est autorisé.`,
       link: "/conges",
     });
   } else {
-    await notify(
-      await recipientUserIdsForStatus(newStatus, managerId),
-      {
-        type: NotificationType.VALIDATION,
-        title: "Demande de congé à valider",
-        message: `${request.agent.firstName} ${request.agent.lastName} · ${request.type} · ${request.days}j`,
-        link: "/conges",
-      },
-    );
+    await notifyAgent(chain[newLevel! - 1].validatorAgentId, {
+      type: NotificationType.VALIDATION,
+      title: "Demande de congé à valider",
+      message: `${request.agent.firstName} ${request.agent.lastName} · ${request.type} · ${request.days}j`,
+      link: "/conges",
+    });
   }
 
   await logAudit({
@@ -332,17 +305,14 @@ export async function approveLeaveRequest(
     action: "APPROVE_LEAVE_REQUEST",
     entity: "LeaveRequest",
     entityId: requestId,
-    details: `${level} · ${request.agent.firstName} ${request.agent.lastName} → ${newStatus}`,
+    details: `niveau ${level} · ${request.agent.firstName} ${request.agent.lastName} → ${newStatus}`,
   });
 
   revalidatePath("/conges");
   revalidatePath("/tableau-de-bord");
   return {
     ok: true,
-    message:
-      newStatus === LeaveStatus.AUTORISE
-        ? "Congé autorisé."
-        : "Validé et transmis au niveau suivant.",
+    message: isLast ? "Congé autorisé." : "Validé et transmis au niveau suivant.",
   };
 }
 
@@ -362,23 +332,29 @@ export async function rejectLeaveRequest(
   if (isTerminal(request.status)) {
     return { ok: false, message: "Cette demande est déjà traitée." };
   }
-  if (me.agent && request.agentId === me.agent.id) {
+  if (
+    me.agent &&
+    request.agentId === me.agent.id &&
+    me.role !== Role.DIRECTION
+  ) {
     return { ok: false, message: "Vous ne pouvez pas refuser votre propre demande." };
   }
 
-  const managerId = request.agent.service.managerId;
+  const chain = await buildRequestChain(request.agentId);
+  const level = request.currentLevel ?? 1;
   if (
-    !canDecide({
-      status: request.status,
-      userRole: me.role,
+    !canDecideStep({
+      chain,
+      currentLevel: level,
       userAgentId: me.agent?.id ?? null,
-      serviceManagerId: managerId,
+      userRole: me.role,
     })
   ) {
-    return { ok: false, message: "Vous n'avez pas les droits pour refuser cette demande." };
+    return {
+      ok: false,
+      message: "Vous n'êtes pas le validateur attendu à ce niveau.",
+    };
   }
-
-  const level = levelForStatus(request.status) ?? LeaveApprovalLevel.CHEF;
 
   await prisma.$transaction(async (tx) => {
     await tx.leaveApproval.create({
@@ -394,13 +370,15 @@ export async function rejectLeaveRequest(
       where: { id: requestId },
       data: {
         status: LeaveStatus.REFUSE,
+        currentLevel: null,
+        currentApproverAgentId: null,
         approverId: me.agent?.id ?? null,
         decidedAt: new Date(),
       },
     });
   });
 
-  await notifyEmployee(request.agentId, {
+  await notifyAgent(request.agentId, {
     type: NotificationType.ALERTE,
     title: "Demande de congé refusée",
     message: reason ? `Motif : ${reason}` : "Votre demande a été refusée.",
@@ -412,7 +390,7 @@ export async function rejectLeaveRequest(
     action: "REJECT_LEAVE_REQUEST",
     entity: "LeaveRequest",
     entityId: requestId,
-    details: `${level} · ${request.agent.firstName} ${request.agent.lastName} · motif="${reason || "—"}"`,
+    details: `niveau ${level} · ${request.agent.firstName} ${request.agent.lastName} · motif="${reason || "—"}"`,
   });
 
   revalidatePath("/conges");
@@ -434,7 +412,14 @@ export async function cancelLeaveRequest(
 
   const request = await prisma.leaveRequest.findUnique({
     where: { id: requestId },
-    select: { id: true, agentId: true, status: true, type: true, days: true, startDate: true },
+    select: {
+      id: true,
+      agentId: true,
+      status: true,
+      type: true,
+      days: true,
+      startDate: true,
+    },
   });
   if (!request) return { ok: false, message: "Demande introuvable." };
 
@@ -454,7 +439,11 @@ export async function cancelLeaveRequest(
     const wasAuthorized = request.status === LeaveStatus.AUTORISE;
     await tx.leaveRequest.update({
       where: { id: requestId },
-      data: { status: LeaveStatus.ANNULE },
+      data: {
+        status: LeaveStatus.ANNULE,
+        currentLevel: null,
+        currentApproverAgentId: null,
+      },
     });
     if (wasAuthorized) {
       const year = request.startDate.getFullYear();

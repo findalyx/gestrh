@@ -1,123 +1,98 @@
-import { LeaveStatus, LeaveApprovalLevel, Role } from "@prisma/client";
+import "server-only";
+
+import { LeaveStatus, Role } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 /**
- * Chaîne de validation des congés — Université St Christopher.
+ * Workflow de validation des congés — chaîne de validateurs configurable
+ * par agent (1 à 4 niveaux), définie dans Paramètres.
  *
- *   Employé → Chef de Service → Doyen → DG/Recteur → AUTORISÉ
+ *   Employé → Validateur niveau 1 → … → Validateur niveau N → AUTORISÉ
  *
- * Cas particulier : le personnel du service « Direction Générale » est validé
- * directement par le DG (niveau final uniquement).
+ * Repli : si aucune chaîne n'est configurée pour l'agent, sa demande passe
+ * par le Directeur Général (validateur unique).
  *
- * Auto-skip : si le demandeur occupe lui-même un niveau intermédiaire
- * (Chef de son service, ou Doyen), ce niveau est sauté. Le niveau final
- * (DG/Recteur) n'est jamais sauté — un demandeur ne peut pas s'auto-valider
- * (contrôlé dans l'action).
+ * Le statut « en attente » est générique (EN_ATTENTE) ; le niveau courant est
+ * porté par `LeaveRequest.currentLevel` (1..N).
  */
 
-export const DG_SERVICE_NAME = "Direction Générale";
+/** Statuts « en attente » (un seul, générique). */
+export const PENDING_LEAVE_STATUSES: LeaveStatus[] = [LeaveStatus.EN_ATTENTE];
 
-export type LeaveContext = {
-  serviceName: string | null;
-  serviceManagerId: string | null;
-  requester: { agentId: string; role: Role };
+export type ChainStep = {
+  level: number; // position 1..N
+  validatorAgentId: string; // l'agent qui valide
+  label: string; // libellé du rôle
 };
 
-const LEVEL_STATUS: Record<LeaveApprovalLevel, LeaveStatus> = {
-  CHEF: LeaveStatus.EN_ATTENTE_CHEF,
-  DOYEN: LeaveStatus.EN_ATTENTE_DOYEN,
-  DG_RECTEUR: LeaveStatus.EN_ATTENTE_DG,
-};
-
-function isDgService(serviceName: string | null): boolean {
-  return (serviceName ?? "").trim().toLowerCase() === DG_SERVICE_NAME.toLowerCase();
-}
-
-/** Niveaux applicables, après auto-skip des niveaux occupés par le demandeur. */
-export function applicableLevels(ctx: LeaveContext): LeaveApprovalLevel[] {
-  const base: LeaveApprovalLevel[] = isDgService(ctx.serviceName)
-    ? [LeaveApprovalLevel.DG_RECTEUR]
-    : [
-        LeaveApprovalLevel.CHEF,
-        LeaveApprovalLevel.DOYEN,
-        LeaveApprovalLevel.DG_RECTEUR,
-      ];
-  return base.filter((lvl) => {
-    if (lvl === LeaveApprovalLevel.CHEF)
-      // Sauté si le service n'a pas de chef, ou si le demandeur EST le chef.
-      return (
-        ctx.serviceManagerId != null &&
-        ctx.requester.agentId !== ctx.serviceManagerId
-      );
-    if (lvl === LeaveApprovalLevel.DOYEN)
-      return ctx.requester.role !== Role.DOYEN;
-    return true; // DG_RECTEUR toujours conservé
+/** Agent lié au compte DIRECTION (le DG) — validateur de repli. */
+export async function getDgAgentId(): Promise<string | null> {
+  const dg = await prisma.user.findFirst({
+    where: { role: Role.DIRECTION, isActive: true, agentId: { not: null } },
+    select: { agentId: true },
   });
-}
-
-/** Statut initial d'une demande à la création. */
-export function initialStatus(ctx: LeaveContext): LeaveStatus {
-  // Le DG (DIRECTION) et le Recteur n'ont besoin d'aucune validation :
-  // leur propre congé est autorisé directement.
-  if (
-    ctx.requester.role === Role.DIRECTION ||
-    ctx.requester.role === Role.RECTEUR
-  ) {
-    return LeaveStatus.AUTORISE;
-  }
-  return LEVEL_STATUS[applicableLevels(ctx)[0]];
-}
-
-/** Niveau correspondant à un statut « en attente », ou null. */
-export function levelForStatus(status: LeaveStatus): LeaveApprovalLevel | null {
-  if (status === LeaveStatus.EN_ATTENTE_CHEF) return LeaveApprovalLevel.CHEF;
-  if (status === LeaveStatus.EN_ATTENTE_DOYEN) return LeaveApprovalLevel.DOYEN;
-  if (status === LeaveStatus.EN_ATTENTE_DG) return LeaveApprovalLevel.DG_RECTEUR;
-  return null;
-}
-
-/** Statut après une validation favorable au niveau courant. */
-export function nextStatusAfterApproval(
-  ctx: LeaveContext,
-  currentStatus: LeaveStatus,
-): LeaveStatus {
-  const levels = applicableLevels(ctx);
-  const cur = levelForStatus(currentStatus);
-  if (!cur) return currentStatus;
-  const idx = levels.indexOf(cur);
-  if (idx < 0 || idx === levels.length - 1) return LeaveStatus.AUTORISE;
-  return LEVEL_STATUS[levels[idx + 1]];
+  return dg?.agentId ?? null;
 }
 
 /**
- * L'utilisateur courant peut-il décider (valider/refuser) une demande
- * dans son état actuel ?
+ * Chaîne effective d'une demande : les étapes configurées de l'agent,
+ * en excluant le demandeur lui-même (nul ne valide sa propre demande),
+ * re-numérotées 1..N. Repli sur le DG si vide.
  */
-export function canDecide(args: {
-  status: LeaveStatus;
-  userRole: Role;
-  userAgentId: string | null;
-  serviceManagerId: string | null;
-}): boolean {
-  switch (args.status) {
-    case LeaveStatus.EN_ATTENTE_CHEF:
-      return (
-        (args.userRole === Role.MANAGER &&
-          args.userAgentId != null &&
-          args.userAgentId === args.serviceManagerId) ||
-        args.userRole === Role.DIRECTION
-      );
-    case LeaveStatus.EN_ATTENTE_DOYEN:
-      return args.userRole === Role.DOYEN || args.userRole === Role.DIRECTION;
-    case LeaveStatus.EN_ATTENTE_DG:
-      return args.userRole === Role.DIRECTION || args.userRole === Role.RECTEUR;
-    default:
-      return false;
+export async function buildRequestChain(
+  requesterAgentId: string,
+): Promise<ChainStep[]> {
+  const steps = await prisma.leaveApprovalStep.findMany({
+    where: { agentId: requesterAgentId },
+    orderBy: { level: "asc" },
+    include: {
+      validator: { select: { label: true, agentId: true, active: true } },
+    },
+  });
+
+  const effective = steps
+    .filter((s) => s.validator.active)
+    .filter((s) => s.validator.agentId !== requesterAgentId);
+
+  if (effective.length > 0) {
+    return effective.map((s, i) => ({
+      level: i + 1,
+      validatorAgentId: s.validator.agentId,
+      label: s.validator.label,
+    }));
   }
+
+  // Repli : Directeur Général (sauf si le demandeur EST le DG → chaîne vide).
+  const dg = await getDgAgentId();
+  if (dg && dg !== requesterAgentId) {
+    return [{ level: 1, validatorAgentId: dg, label: "Directeur Général" }];
+  }
+  return [];
 }
 
-/** Tous les statuts « en attente » de la chaîne (utile pour les compteurs). */
-export const PENDING_LEAVE_STATUSES: LeaveStatus[] = [
-  LeaveStatus.EN_ATTENTE_CHEF,
-  LeaveStatus.EN_ATTENTE_DOYEN,
-  LeaveStatus.EN_ATTENTE_DG,
-];
+/**
+ * L'utilisateur courant peut-il décider sur cette demande, à son niveau courant ?
+ *   - le validateur désigné au niveau courant, OU
+ *   - la Direction (DG) — pouvoir de secours / override.
+ */
+export function canDecideStep(args: {
+  chain: ChainStep[];
+  currentLevel: number | null;
+  userAgentId: string | null;
+  userRole: Role;
+}): boolean {
+  if (args.currentLevel == null) return false;
+  const step = args.chain[args.currentLevel - 1];
+  if (!step) return false;
+  if (args.userRole === Role.DIRECTION) return true; // DG override
+  return args.userAgentId != null && args.userAgentId === step.validatorAgentId;
+}
+
+/** Le validateur (agentId) attendu au niveau courant, ou null. */
+export function currentValidatorAgentId(
+  chain: ChainStep[],
+  currentLevel: number | null,
+): string | null {
+  if (currentLevel == null) return null;
+  return chain[currentLevel - 1]?.validatorAgentId ?? null;
+}
