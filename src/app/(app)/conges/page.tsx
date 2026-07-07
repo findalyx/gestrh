@@ -67,12 +67,14 @@ function RequestsTable({
   showAgent,
   meAgentId,
   isAdmin,
+  isDirection,
   emptyMessage,
 }: {
   rows: LeaveRow[];
   showAgent: boolean;
   meAgentId: string | null;
   isAdmin: boolean;
+  isDirection: boolean;
   emptyMessage: string;
 }) {
   if (rows.length === 0) {
@@ -103,6 +105,11 @@ function RequestsTable({
               isMine &&
               (PENDING_STATUSES.includes(r.status) ||
                 (r.status === LeaveStatus.AUTORISE && r.startDate > new Date()));
+            // Boutons de décision : je suis le validateur courant, ou le DG (override).
+            const canDecideRow =
+              r.status === LeaveStatus.EN_ATTENTE &&
+              !isMine &&
+              (isDirection || r.currentApproverAgentId === meAgentId);
             return (
               <tr key={r.id} className="border-t border-sc-border">
                 {showAgent && (
@@ -150,7 +157,7 @@ function RequestsTable({
                       </>
                     )}
                     {canCancel && <CancelButton requestId={r.id} />}
-                    {isAdmin && !isMine && PENDING_STATUSES.includes(r.status) && (
+                    {canDecideRow && (
                       <>
                         <ApproveButton requestId={r.id} />
                         <RejectButton requestId={r.id} />
@@ -184,6 +191,7 @@ export default async function CongesPage({
   const { where: pendingWhere, canApprove } = await getMyPendingApprovalsWhere();
   const meAgentId = me.agent?.id ?? null;
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
+  const isDirection = me.role === Role.DIRECTION;
   const currentYear = new Date().getFullYear();
 
   const myAnnualBalance = me.agent
@@ -238,13 +246,14 @@ export default async function CongesPage({
           myAnnualBalance={myAnnualBalance}
         />
       ) : vue === "valides" ? (
-        <ValidesView scopeWhere={scopeWhere} scope={scope} meAgentId={meAgentId} isAdmin={isAdmin} />
+        <ValidesView scopeWhere={scopeWhere} scope={scope} meAgentId={meAgentId} isAdmin={isAdmin} isDirection={isDirection} />
       ) : (
         <CoursView
           scopeWhere={scopeWhere}
           scope={scope}
           meAgentId={meAgentId}
           isAdmin={isAdmin}
+          isDirection={isDirection}
           canApprove={canApprove}
           pendingWhere={pendingWhere}
           hasAgent={Boolean(me.agent)}
@@ -263,6 +272,7 @@ async function CoursView({
   scope,
   meAgentId,
   isAdmin,
+  isDirection,
   canApprove,
   pendingWhere,
   hasAgent,
@@ -271,6 +281,7 @@ async function CoursView({
   scope: "ALL" | "TEAM" | "SELF";
   meAgentId: string | null;
   isAdmin: boolean;
+  isDirection: boolean;
   canApprove: boolean;
   pendingWhere: Prisma.LeaveRequestWhereInput;
   hasAgent: boolean;
@@ -311,6 +322,7 @@ async function CoursView({
             showAgent
             meAgentId={meAgentId}
             isAdmin={isAdmin}
+            isDirection={isDirection}
             emptyMessage="Aucune demande en attente de votre décision."
           />
         </section>
@@ -342,6 +354,7 @@ async function CoursView({
             showAgent={scope !== "SELF"}
             meAgentId={meAgentId}
             isAdmin={isAdmin}
+            isDirection={isDirection}
             emptyMessage="Aucune demande en cours."
           />
         )}
@@ -357,6 +370,7 @@ async function CoursView({
           showAgent={scope !== "SELF"}
           meAgentId={meAgentId}
           isAdmin={isAdmin}
+          isDirection={isDirection}
           emptyMessage="Aucun congé validé pour l'instant."
         />
       </section>
@@ -372,11 +386,13 @@ async function ValidesView({
   scope,
   meAgentId,
   isAdmin,
+  isDirection,
 }: {
   scopeWhere: Prisma.LeaveRequestWhereInput;
   scope: "ALL" | "TEAM" | "SELF";
   meAgentId: string | null;
   isAdmin: boolean;
+  isDirection: boolean;
 }) {
   const valides = await prisma.leaveRequest.findMany({
     where: { AND: [scopeWhere, { status: LeaveStatus.AUTORISE }] },
@@ -395,6 +411,7 @@ async function ValidesView({
         showAgent={scope !== "SELF"}
         meAgentId={meAgentId}
         isAdmin={isAdmin}
+        isDirection={isDirection}
         emptyMessage="Aucun congé validé."
       />
     </section>
