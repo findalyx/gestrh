@@ -284,14 +284,26 @@ export async function approveLeaveRequest(
     }
   });
 
+  // Libellé du validateur qui vient de statuer (pour informer l'agent).
+  const currentLabel = chain[level - 1]?.label ?? "validateur";
+
   if (isLast) {
     await notifyAgent(request.agentId, {
       type: NotificationType.VALIDATION,
-      title: "Congé autorisé",
-      message: `${request.type} · ${request.days}j — votre congé est autorisé.`,
+      title: "Congé autorisé ✅",
+      message: `${request.type} · ${request.days}j — validé par ${currentLabel}. Votre congé est autorisé.`,
       link: "/conges",
     });
   } else {
+    const nextLabel = chain[newLevel! - 1]?.label ?? "niveau suivant";
+    // 1) Informe l'agent de l'avancement à chaque étape validée.
+    await notifyAgent(request.agentId, {
+      type: NotificationType.INFO,
+      title: "Demande de congé validée à une étape",
+      message: `Validée par ${currentLabel} (niveau ${level}/${chain.length}). En attente de ${nextLabel}.`,
+      link: "/conges",
+    });
+    // 2) Notifie le validateur du niveau suivant.
     await notifyAgent(chain[newLevel! - 1].validatorAgentId, {
       type: NotificationType.VALIDATION,
       title: "Demande de congé à valider",
