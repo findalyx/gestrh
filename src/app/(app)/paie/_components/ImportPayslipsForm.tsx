@@ -138,6 +138,56 @@ export function ImportPayslipsForm() {
               ` · ${state.skipped} ignoré(s) (données incomplètes)`}
             .
           </div>
+
+          {/* ============================================================
+              Diagnostic quand aucun bulletin n'a pu être importé :
+              on montre ce que le parseur a vu sur la 1ère page pour
+              aider à ajuster les regex.
+              ============================================================ */}
+          {state.debug && (
+            <div className="rounded-lg border border-sc-warning/40 bg-sc-warning-light px-3 py-2.5 text-[12px] text-[#854f0b]">
+              <p className="mb-1.5 font-semibold">
+                🔍 Diagnostic — aucun bulletin n&apos;a pu être extrait
+              </p>
+              <p className="mb-2 text-[11.5px]">
+                Le PDF a été lu ({state.debug.pagesDetected} pages détectées)
+                mais le parseur ne trouve pas les champs attendus. Voici ce
+                qu&apos;il extrait de la 1ère page :
+              </p>
+              <div className="mb-2 grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-md bg-white/60 px-2.5 py-2 font-mono text-[11px]">
+                <div>Matricule (attendu SXXXX) :</div>
+                <div className="font-semibold">
+                  {state.debug.parsedFirstPage.matricule ?? "—"}
+                </div>
+                <div>Période (mois AAAA) :</div>
+                <div className="font-semibold">
+                  {state.debug.parsedFirstPage.period ?? "—"}
+                </div>
+                <div>Total Brut :</div>
+                <div className="font-semibold">
+                  {state.debug.parsedFirstPage.brut ?? "—"}
+                </div>
+                <div>NET À PAYER :</div>
+                <div className="font-semibold">
+                  {state.debug.parsedFirstPage.net ?? "—"}
+                </div>
+              </div>
+              <details>
+                <summary className="cursor-pointer text-[11.5px] font-medium hover:underline">
+                  Voir les 600 premiers caractères extraits
+                </summary>
+                <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-white/80 p-2 text-[10.5px] leading-relaxed text-gray-800 whitespace-pre-wrap">
+                  {state.debug.firstPagePreview || "(vide — PDF possiblement scanné image)"}
+                </pre>
+              </details>
+              <p className="mt-2 text-[11px] leading-relaxed">
+                <strong>Que faire ?</strong> Envoie-moi cet extrait — les regex
+                du parseur (matricule / NET À PAYER / Total Brut) sont
+                spécifiques au format SCIMD. Si ton PDF a un layout différent,
+                on adapte en 2 minutes.
+              </p>
+            </div>
+          )}
           {state.unmatched.length > 0 && (
             <div className="rounded-lg border border-sc-warning/40 bg-sc-warning-light px-3 py-2.5 text-[12px] text-[#854f0b]">
               ⚠ {state.unmatched.length} bulletin

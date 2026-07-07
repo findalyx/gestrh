@@ -24,6 +24,17 @@ export type ImportPayslipsState =
       period: string | null;
       unmatched: { matricule: string | null; name: string | null }[];
       skipped: number;
+      /** Extrait de diagnostic quand aucun bulletin n'est valide. */
+      debug?: {
+        pagesDetected: number;
+        firstPagePreview: string;
+        parsedFirstPage: {
+          matricule: string | null;
+          net: number | null;
+          brut: number | null;
+          period: string | null;
+        };
+      };
     }
   | { ok: false; error: string }
   | undefined;
@@ -259,6 +270,36 @@ async function processPayslipsBuffer({
   revalidatePath("/paie");
   revalidatePath("/tableau-de-bord");
 
+  // Si rien n'a pu être importé, on renvoie un extrait de la 1ère page pour
+  // aider à diagnostiquer un souci de format de PDF.
+  const debug =
+    imported === 0 && updated === 0
+      ? {
+          pagesDetected: parsed.length,
+          firstPagePreview: "",
+          parsedFirstPage: {
+            matricule: parsed[0]?.matricule ?? null,
+            net: parsed[0]?.net ?? null,
+            brut: parsed[0]?.brut ?? null,
+            period: parsed[0]?.period ?? null,
+          },
+        }
+      : undefined;
+
+  // Le texte brut de la 1ère page n'est pas accessible ici (parsePayslips ne
+  // le renvoie plus). On le refait rapidement via unpdf.
+  if (debug) {
+    try {
+      const { extractText, getDocumentProxy } = await import("unpdf");
+      const pdf = await getDocumentProxy(new Uint8Array(buffer));
+      const { text } = await extractText(pdf, { mergePages: false });
+      const first = Array.isArray(text) ? text[0] : text;
+      debug.firstPagePreview = (first ?? "").slice(0, 600);
+    } catch {
+      /* silencieux */
+    }
+  }
+
   return {
     ok: true,
     imported,
@@ -266,6 +307,7 @@ async function processPayslipsBuffer({
     period: dominantPeriod,
     unmatched,
     skipped,
+    debug,
   };
   } catch (e) {
     console.error("[importPayslips] échec:", e);
