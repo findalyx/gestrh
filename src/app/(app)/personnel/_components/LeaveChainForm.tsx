@@ -18,21 +18,19 @@ export type ChainValidatorOption = {
 /**
  * Configure la chaîne de validation des congés d'un agent (4 niveaux).
  *
- * Le wrapper applique une `key` dérivée de la chaîne serveur : quand le serveur
- * renvoie une nouvelle chaîne (après enregistrement + revalidatePath), le
- * composant interne se re-monte et ré-initialise ses `select` contrôlés sur les
- * valeurs réellement enregistrées (compactées). Pendant l'édition, la chaîne
- * serveur ne change pas → pas de re-montage, les choix en cours sont conservés.
+ * Le wrapper applique une `key` sur l'agentId (stable) : le composant interne
+ * ne se re-monte PAS après un enregistrement (même agent) — ses `select`
+ * contrôlés conservent donc les sélections en mémoire au lieu de se vider
+ * (la re-lecture serveur post-action peut arriver vide/en décalage). En
+ * revanche, naviguer vers un autre agent change la key → ré-initialisation
+ * propre depuis la chaîne de ce nouvel agent.
  */
 export function LeaveChainForm(props: {
   agentId: string;
   validators: ChainValidatorOption[];
   currentChain: Record<number, string>;
 }) {
-  const signature = [1, 2, 3, 4]
-    .map((l) => props.currentChain[l] ?? "")
-    .join("|");
-  return <LeaveChainFormInner key={signature} {...props} />;
+  return <LeaveChainFormInner key={props.agentId} {...props} />;
 }
 
 function LeaveChainFormInner({
