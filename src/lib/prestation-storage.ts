@@ -72,13 +72,14 @@ export async function savePrestationBuffer(args: {
   period: string;
   filename: string;
   buffer: Buffer;
+  contentType?: string;
 }): Promise<PrestationDocResult> {
   const filename = sanitizeFilename(args.filename);
   const path = pathFor(args.agentId, args.period, filename);
   const put = await putObject({
     path,
     buffer: args.buffer,
-    contentType: "application/pdf",
+    contentType: args.contentType ?? "application/pdf",
     upsert: true,
   });
   if (!put.ok) return { ok: false, error: put.error };

@@ -51,10 +51,12 @@ function formatPeriod(p: string): string {
 
 export function PrestationSection({
   agentId,
+  matricule,
   items,
   canEdit,
 }: {
   agentId: string;
+  matricule: string;
   items: PrestationItem[];
   canEdit: boolean;
 }) {
@@ -99,7 +101,7 @@ export function PrestationSection({
             + Ajouter une note d&apos;honoraires
           </summary>
           <div className="border-t border-sc-border p-4">
-            <AddPrestationForm agentId={agentId} />
+            <AddPrestationForm agentId={agentId} matricule={matricule} />
           </div>
         </details>
       )}
@@ -161,7 +163,7 @@ function PrestationRow({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-sc-blue px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-sc-blue-dark"
               >
-                📄 {item.documentGenerated ? "Note générée" : "Document signé"}
+                {item.documentGenerated ? "📝 Note (Word)" : "📄 Document signé"}
               </a>
               <span
                 className={
@@ -213,17 +215,18 @@ function PrestationRow({
   );
 }
 
-function AddPrestationForm({ agentId }: { agentId: string }) {
+function AddPrestationForm({
+  agentId,
+  matricule,
+}: {
+  agentId: string;
+  matricule: string;
+}) {
   const action = createPrestationInvoice.bind(null, agentId);
   const [state, formAction, pending] = useActionState<
     PrestationFormState | undefined,
     FormData
   >(action, undefined);
-
-  // Aperçu live de la retenue et du net
-  const [gross, setGross] = useState<number>(0);
-  const withholding = Math.round(gross * 0.05);
-  const net = gross - withholding;
 
   const err = (k: string) => state?.errors?.[k as never]?.[0];
   const cleared = state?.ok;
@@ -231,6 +234,26 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
 
   const now = new Date();
   const defaultPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // Référence auto {matricule}/{MM}-{YYYY}, recalculée quand le mois change.
+  const autoRef = (period: string) => {
+    const [year, month] = period.split("-");
+    return year && month ? `${matricule}/${month}-${year}` : "";
+  };
+
+  const [period, setPeriod] = useState<string>(v("period") || defaultPeriod);
+  const [reference, setReference] = useState<string>(
+    v("reference") || autoRef(v("period") || defaultPeriod),
+  );
+
+  // Montant brut : saisie avec séparateurs de milliers, stockée en chiffres bruts.
+  const [grossRaw, setGrossRaw] = useState<string>(
+    (v("grossAmount") as string).replace(/\D/g, ""),
+  );
+  const gross = Number(grossRaw) || 0;
+  const withholding = Math.round(gross * 0.05);
+  const net = gross - withholding;
+  const grossDisplay = grossRaw ? FCFA.format(gross) : "";
 
   return (
     <form action={formAction} className="space-y-3">
@@ -254,7 +277,11 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
             id="period"
             name="period"
             type="month"
-            defaultValue={v("period") || defaultPeriod}
+            value={period}
+            onChange={(e) => {
+              setPeriod(e.target.value);
+              setReference(autoRef(e.target.value));
+            }}
             required
             className={inputCls}
           />
@@ -265,12 +292,13 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
         <div className="flex flex-col gap-1">
           <label htmlFor="reference" className="text-[12px] font-medium text-sc-blue-darker">
             N° de note{" "}
-            <span className="text-[10.5px] text-gray-400">(ex: 004/PP/06/2025)</span>
+            <span className="text-[10.5px] text-gray-400">(auto, modifiable)</span>
           </label>
           <input
             id="reference"
             name="reference"
-            defaultValue={v("reference")}
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
             className={inputCls}
           />
         </div>
@@ -308,12 +336,11 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
         <input
           id="grossAmount"
           name="grossAmount"
-          type="number"
-          min={1}
-          step={1000}
-          defaultValue={v("grossAmount")}
-          onChange={(e) => setGross(Number(e.target.value) || 0)}
-          placeholder="Ex : 1578947"
+          type="text"
+          inputMode="numeric"
+          value={grossDisplay}
+          onChange={(e) => setGrossRaw(e.target.value.replace(/\D/g, ""))}
+          placeholder="Ex : 1 578 947"
           required
           className={inputCls}
         />
@@ -372,7 +399,7 @@ function GenerateButton({
         disabled={pending}
         className="inline-flex items-center gap-1.5 rounded-lg border border-sc-blue/30 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg disabled:opacity-60"
       >
-        {pending ? "…" : hasDocument ? "↻ Régénérer la note" : "⚙ Générer la note (PDF)"}
+        {pending ? "…" : hasDocument ? "↻ Régénérer la note" : "⚙ Générer la note (Word)"}
       </button>
       {state && !state.ok && (
         <span className="ml-1 text-[10.5px] text-sc-danger">{state.error}</span>

@@ -11,10 +11,22 @@ import {
   savePrestationDocument,
   savePrestationBuffer,
 } from "@/lib/prestation-storage";
-import { generateHonorairesPdf } from "@/lib/honoraires-pdf";
+import { buildHonorairesNoteDocx } from "@/lib/docx/honoraires-note";
 
 // Taux de retenue à la source sur honoraires (BRS Sénégal, résidents).
 const WITHHOLDING_RATE = 0.05;
+
+const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/**
+ * Référence automatique d'une note d'honoraires : {matricule}/{MM}-{YYYY}.
+ * Ex : matricule 3146, période "2026-06" → "3146/06-2026".
+ */
+export function defaultReference(matricule: string, period: string): string {
+  const [year, month] = period.split("-");
+  return `${matricule}/${month}-${year}`;
+}
 
 const periodString = z
   .string()
@@ -29,7 +41,11 @@ const dateString = z
 const PrestationSchema = z.object({
   period: periodString,
   grossAmount: z.preprocess(
-    (v) => (v === "" || v === null || v === undefined ? 0 : Number(v)),
+    // Retire les séparateurs de milliers (espaces, insécables, points) avant conversion.
+    (v) => {
+      const digits = String(v ?? "").replace(/\D/g, "");
+      return digits === "" ? 0 : Number(digits);
+    },
     z.number().int().min(1, "Montant brut requis").max(50_000_000),
   ),
   designation: z.string().trim().max(160).optional().or(z.literal("")),
@@ -86,18 +102,21 @@ export async function createPrestationInvoice(
 
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { id: true, firstName: true, lastName: true },
+    select: { id: true, firstName: true, lastName: true, matricule: true },
   });
   if (!agent) {
     return { errors: { _form: ["Agent introuvable."] }, values: raw };
   }
+
+  // Référence : saisie manuelle si fournie, sinon auto {matricule}/{MM}-{YYYY}
+  const reference = data.reference || defaultReference(agent.matricule, data.period);
 
   try {
     await prisma.prestationInvoice.create({
       data: {
         agentId,
         period: data.period,
-        reference: data.reference || null,
+        reference,
         designation: data.designation || null,
         grossAmount: data.grossAmount,
         withholding,
@@ -187,8 +206,9 @@ export async function updatePrestationInvoice(
 }
 
 // ============================================================
-//  GÉNÉRER LA NOTE D'HONORAIRES (PDF) — DRH + DIRECTION
-//  Produit le PDF au format SCIMD et le stocke comme document.
+//  GÉNÉRER LA NOTE D'HONORAIRES (WORD) — DRH + DIRECTION
+//  Produit un .docx au format SCIMD (avec papier en-tête) et le stocke.
+//  Le document peut être téléchargé, signé, puis re-téléversé.
 // ============================================================
 export async function generateHonorairesNote(
   invoiceId: string,
@@ -200,18 +220,28 @@ export async function generateHonorairesNote(
   const invoice = await prisma.prestationInvoice.findUnique({
     where: { id: invoiceId },
     include: {
-      agent: { select: { firstName: true, lastName: true, gender: true, jobTitle: true } },
+      agent: {
+        select: {
+          firstName: true,
+          lastName: true,
+          gender: true,
+          jobTitle: true,
+          matricule: true,
+        },
+      },
     },
   });
   if (!invoice) return { ok: false, error: "Note introuvable." };
 
   const org = await getOrganization();
 
-  const title = invoice.agent.gender === Gender.FEMME ? "Mme" : "Mr";
+  const civility = invoice.agent.gender === Gender.FEMME ? "Madame" : "Monsieur";
   const fullName = `${invoice.agent.lastName.toUpperCase()} ${invoice.agent.firstName}`;
+  const reference =
+    invoice.reference || defaultReference(invoice.agent.matricule, invoice.period);
 
   try {
-    const buffer = await generateHonorairesPdf({
+    const bytes = await buildHonorairesNoteDocx({
       organization: {
         name: org.name,
         shortName: org.shortName,
@@ -219,9 +249,9 @@ export async function generateHonorairesNote(
         bp: org.bp,
         address: org.address,
       },
-      beneficiary: { title, fullName },
+      beneficiary: { civility, fullName },
       note: {
-        reference: invoice.reference || `${invoice.period}`,
+        reference,
         date: invoice.noteDate ?? new Date(),
         designation: invoice.designation || invoice.agent.jobTitle,
         grossAmount: invoice.grossAmount,
@@ -229,13 +259,15 @@ export async function generateHonorairesNote(
         netAmount: invoice.amount,
       },
     });
+    const buffer = Buffer.from(bytes);
 
-    const filename = `note-honoraires-${invoice.period}.pdf`;
+    const filename = `note-honoraires-${invoice.period}.docx`;
     const saved = await savePrestationBuffer({
       agentId: invoice.agentId,
       period: invoice.period,
       filename,
       buffer,
+      contentType: DOCX_MIME,
     });
     if (!saved.ok) return { ok: false, error: saved.error };
 
@@ -263,7 +295,7 @@ export async function generateHonorairesNote(
   });
 
   revalidatePath(`/personnel/${invoice.agentId}`);
-  return { ok: true, message: "Note d'honoraires générée (PDF)." };
+  return { ok: true, message: "Note d'honoraires générée (Word)." };
 }
 
 // ============================================================

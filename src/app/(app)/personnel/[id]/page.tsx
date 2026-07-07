@@ -412,6 +412,7 @@ export default async function AgentDetailPage({
           </p>
           <PrestationSection
             agentId={agent.id}
+            matricule={agent.matricule}
             canEdit={canEdit}
             items={prestations.map(
               (p): PrestationItem => ({

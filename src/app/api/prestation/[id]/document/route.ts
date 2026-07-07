@@ -51,6 +51,7 @@ export async function GET(
   // Devine le type MIME à partir de l'extension du nom stocké.
   const name = invoice.documentName ?? "document";
   const ext = name.split(".").pop()?.toLowerCase();
+  const isDocx = ext === "docx";
   const mime =
     ext === "png"
       ? "image/png"
@@ -58,15 +59,19 @@ export async function GET(
         ? "image/jpeg"
         : ext === "webp"
           ? "image/webp"
-          : "application/pdf";
+          : isDocx
+            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            : "application/pdf";
 
   const downloadName = `prestation-${invoice.agent.matricule}-${invoice.period}-${name}`;
+  // Word ne s'affiche pas dans le navigateur → téléchargement ; le reste en aperçu.
+  const disposition = isDocx ? "attachment" : "inline";
 
   return new Response(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": mime,
-      "Content-Disposition": `inline; filename="${downloadName}"`,
+      "Content-Disposition": `${disposition}; filename="${downloadName}"`,
       "Content-Length": String(buffer.byteLength),
       "Cache-Control": "private, no-store",
     },
