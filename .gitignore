@@ -72,3 +72,8 @@ Papier*.docx
 
 # Tout document Word déposé à la racine = document interne sensible → jamais committé
 *.docx
+
+# Tout tableur métier (contient noms/téléphones/salaires — PII)
+*.xlsx
+*.xlsm
+*.xls

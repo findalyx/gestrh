@@ -35,17 +35,36 @@ export function ImportPayslipsForm() {
 
     try {
       // Étape 1 : demander l'URL signée
-      const signed = await getPayslipUploadUrl(file.name);
+      let signed;
+      try {
+        signed = await getPayslipUploadUrl(file.name);
+      } catch (err) {
+        setState({ ok: false, error: friendlyError(err, "URL de dépôt") });
+        setPhase("idle");
+        return;
+      }
       if (!signed.ok) {
-        setState({ ok: false, error: signed.error });
+        setState({
+          ok: false,
+          error: `Impossible d'initialiser l'upload : ${signed.error}. Vérifie que le stockage Supabase est bien configuré (bucket "gestrh-files" créé).`,
+        });
         setPhase("idle");
         return;
       }
 
       // Étape 2 : PUT direct vers Supabase (via XHR pour la barre de progression)
-      await putFileWithProgress(signed.signedUrl, file, (pct) =>
-        setProgress(pct),
-      );
+      try {
+        await putFileWithProgress(signed.signedUrl, file, (pct) =>
+          setProgress(pct),
+        );
+      } catch (err) {
+        setState({
+          ok: false,
+          error: friendlyError(err, "upload vers le stockage"),
+        });
+        setPhase("idle");
+        return;
+      }
 
       // Étape 3 : demande au serveur de traiter le fichier depuis Storage
       setPhase("processing");
@@ -54,13 +73,17 @@ export function ImportPayslipsForm() {
       fd.append("filename", file.name);
 
       startTransition(async () => {
-        const result = await importPayslipsFromPath(undefined, fd);
-        setState(result);
-        setPhase("idle");
+        try {
+          const result = await importPayslipsFromPath(undefined, fd);
+          setState(result);
+        } catch (err) {
+          setState({ ok: false, error: friendlyError(err, "traitement PDF") });
+        } finally {
+          setPhase("idle");
+        }
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setState({ ok: false, error: `Upload échoué : ${msg}` });
+      setState({ ok: false, error: friendlyError(err, "upload") });
       setPhase("idle");
     }
   }
@@ -216,6 +239,41 @@ export function ImportPayslipsForm() {
       )}
     </div>
   );
+}
+
+/**
+ * Traduit une erreur brute (fetch, Server Action, etc.) en message
+ * utilisateur clair et actionnable.
+ */
+function friendlyError(err: unknown, phase: string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("networkerror")
+  ) {
+    return `Connexion perdue pendant ${phase}. Vérifie ta connexion internet et réessaie.`;
+  }
+  if (lower.includes("413") || lower.includes("payload too large")) {
+    return `Fichier trop volumineux (limite serveur). Compresse-le ou découpe-le en 2 fichiers.`;
+  }
+  if (
+    lower.includes("401") ||
+    lower.includes("403") ||
+    lower.includes("unauthorized") ||
+    lower.includes("forbidden")
+  ) {
+    return `Session expirée pendant ${phase}. Reconnecte-toi et réessaie.`;
+  }
+  if (lower.includes("timeout") || lower.includes("504")) {
+    return `Le serveur a mis trop de temps à répondre. Réessaie dans quelques secondes.`;
+  }
+  if (lower.includes("500") || lower.includes("internal server")) {
+    return `Erreur interne côté serveur pendant ${phase}. Réessaie ; si ça persiste transmets ce détail : « ${raw.slice(0, 120)} ».`;
+  }
+  return `Échec pendant ${phase} : ${raw.slice(0, 200)}`;
 }
 
 /**

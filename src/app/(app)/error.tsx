@@ -3,10 +3,11 @@
 import { AppErrorPage } from "@/components/AppErrorPage";
 
 /**
- * Error boundary spécifique au module Personnel — remplacée par le composant
- * partagé pour cohérence visuelle avec le reste de l'app.
+ * Error boundary du groupe (app) — attrape toute erreur non gérée dans une
+ * page authentifiée (paie, congés, personnel, etc.) et affiche un écran
+ * lisible plutôt que le message générique de Next.js.
  */
-export default function PersonnelError({
+export default function AppError({
   error,
   reset,
 }: {
