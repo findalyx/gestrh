@@ -546,20 +546,25 @@ model PayrollRecord {
   @@index([period])
 }
 
-/// Prestation mensuelle d'un prestataire de services.
-/// Chaque mois, le prestataire signe un document (bon de commande / facture /
-/// attestation de service fait) qui sert de base au paiement et tient lieu de
-/// bulletin. Le PDF signé est stocké sur Supabase Storage.
+/// Note d'honoraires mensuelle d'un prestataire de services.
+/// Chaque mois : honoraires brut → retenue à la source 5% → net à payer.
+/// La note est générée au format SCIMD, signée par le prestataire, et tient
+/// lieu de bulletin. Le PDF (généré ou scan signé) est sur Supabase Storage.
 model PrestationInvoice {
   id           String           @id @default(cuid())
   period       String           // "2026-05"
-  amount       Int              // montant de la prestation du mois, en FCFA
-  label        String?          // ex: "Vacations mars", "Enseignement + jury"
+  reference    String?          // n° de note, ex "004/PP/06/2025"
+  designation  String?          // intervention, ex "Coordonnateur pédagogique pharmacie"
+  grossAmount  Int              @default(0) // honoraires brut FCFA
+  withholding  Int              @default(0) // retenue à la source (5%)
+  amount       Int              // net à payer FCFA (= grossAmount - withholding)
+  noteDate     DateTime?        // date figurant sur la note
   status       PrestationStatus @default(EN_ATTENTE)
-  // Document mensuel signé — chemin Supabase = prestations/{agentId}/{filename}
-  documentName String?
-  documentPath String?
-  documentSize Int?
+  // Document mensuel (note générée ou scan signé) — prestations/{agentId}/{filename}
+  documentName      String?
+  documentPath      String?
+  documentSize      Int?
+  documentGenerated Boolean     @default(false) // true = note auto-générée, false = scan signé
   paidAt       DateTime?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt

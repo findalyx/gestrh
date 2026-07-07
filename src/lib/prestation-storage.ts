@@ -66,6 +66,25 @@ export async function savePrestationDocument(args: {
   return { ok: true, filename, path, size: file.size };
 }
 
+/** Variante pour une note d'honoraires générée (déjà un Buffer, pas de File). */
+export async function savePrestationBuffer(args: {
+  agentId: string;
+  period: string;
+  filename: string;
+  buffer: Buffer;
+}): Promise<PrestationDocResult> {
+  const filename = sanitizeFilename(args.filename);
+  const path = pathFor(args.agentId, args.period, filename);
+  const put = await putObject({
+    path,
+    buffer: args.buffer,
+    contentType: "application/pdf",
+    upsert: true,
+  });
+  if (!put.ok) return { ok: false, error: put.error };
+  return { ok: true, filename, path, size: args.buffer.length };
+}
+
 export async function readPrestationDocument(
   path: string,
 ): Promise<Buffer | null> {

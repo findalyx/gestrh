@@ -4,10 +4,10 @@ import { useActionState, useState } from "react";
 import { PrestationStatus } from "@prisma/client";
 import {
   createPrestationInvoice,
-  updatePrestationInvoice,
   uploadPrestationDocument,
   setPrestationStatus,
   deletePrestationInvoice,
+  generateHonorairesNote,
   type PrestationFormState,
   type PrestationActionState,
 } from "../_lib/prestation-actions";
@@ -19,21 +19,21 @@ const inputCls =
 
 export type PrestationItem = {
   id: string;
-  period: string; // YYYY-MM
-  amount: number;
-  label: string | null;
+  period: string;
+  reference: string | null;
+  designation: string | null;
+  grossAmount: number;
+  withholding: number;
+  amount: number; // net
   status: PrestationStatus;
-  documentName: string | null;
   hasDocument: boolean;
+  documentGenerated: boolean;
   paidAt: string | null;
 };
 
-const STATUS_META: Record<
-  PrestationStatus,
-  { label: string; cls: string }
-> = {
+const STATUS_META: Record<PrestationStatus, { label: string; cls: string }> = {
   EN_ATTENTE: {
-    label: "En attente de document",
+    label: "En attente",
     cls: "bg-sc-warning-light text-[#854f0b]",
   },
   SIGNE: { label: "Signé", cls: "bg-sc-blue-light text-sc-blue" },
@@ -58,35 +58,32 @@ export function PrestationSection({
   items: PrestationItem[];
   canEdit: boolean;
 }) {
-  const total = items.reduce((s, i) => s + i.amount, 0);
-  const paid = items
+  const totalNet = items.reduce((s, i) => s + i.amount, 0);
+  const paidNet = items
     .filter((i) => i.status === "PAYE")
     .reduce((s, i) => s + i.amount, 0);
 
   return (
     <div className="space-y-3">
-      {/* Synthèse */}
       {items.length > 0 && (
         <div className="flex flex-wrap gap-4 rounded-lg border border-sc-border bg-sc-blue-bg/30 px-4 py-2.5 text-[12.5px]">
           <span>
-            <strong>{items.length}</strong> prestation
-            {items.length > 1 ? "s" : ""}
+            <strong>{items.length}</strong> note{items.length > 1 ? "s" : ""}
           </span>
           <span className="text-gray-600">
-            Total : <strong className="font-mono">{FCFA.format(total)}</strong>{" "}
-            FCFA
+            Total net :{" "}
+            <strong className="font-mono">{FCFA.format(totalNet)}</strong> FCFA
           </span>
           <span className="text-sc-green-dark">
-            Payé : <strong className="font-mono">{FCFA.format(paid)}</strong>{" "}
+            Payé : <strong className="font-mono">{FCFA.format(paidNet)}</strong>{" "}
             FCFA
           </span>
         </div>
       )}
 
-      {/* Liste */}
       {items.length === 0 ? (
         <p className="text-[13px] text-gray-500">
-          Aucune prestation mensuelle enregistrée.
+          Aucune note d&apos;honoraires enregistrée.
         </p>
       ) : (
         <div className="space-y-2">
@@ -96,11 +93,10 @@ export function PrestationSection({
         </div>
       )}
 
-      {/* Ajouter */}
       {canEdit && (
         <details className="rounded-xl border border-sc-border bg-white">
           <summary className="cursor-pointer px-4 py-2.5 text-[13px] font-semibold text-sc-blue-darker">
-            + Ajouter une prestation mensuelle
+            + Ajouter une note d&apos;honoraires
           </summary>
           <div className="border-t border-sc-border p-4">
             <AddPrestationForm agentId={agentId} />
@@ -111,9 +107,6 @@ export function PrestationSection({
   );
 }
 
-// ============================================================
-//  Ligne d'une prestation
-// ============================================================
 function PrestationRow({
   item,
   canEdit,
@@ -130,30 +123,56 @@ function PrestationRow({
             <span className="font-medium text-sc-blue-darker">
               {formatPeriod(item.period)}
             </span>
+            {item.reference && (
+              <span className="font-mono text-[11px] text-gray-500">
+                N° {item.reference}
+              </span>
+            )}
             <span
               className={`inline-flex rounded-full px-2 py-[2px] text-[10.5px] font-semibold uppercase tracking-wider ${meta.cls}`}
             >
               {meta.label}
             </span>
           </div>
-          <p className="mt-0.5 font-mono text-[13px] text-sc-blue-darker">
-            {FCFA.format(item.amount)} FCFA
-          </p>
-          {item.label && (
-            <p className="text-[12px] text-gray-600">{item.label}</p>
+          {item.designation && (
+            <p className="mt-0.5 text-[12px] text-gray-600">{item.designation}</p>
           )}
+          <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-gray-700">
+            <span>
+              Brut{" "}
+              <span className="font-mono">{FCFA.format(item.grossAmount)}</span>
+            </span>
+            <span className="text-gray-500">
+              − retenue 5% {FCFA.format(item.withholding)}
+            </span>
+            <span className="font-semibold text-sc-blue-darker">
+              Net <span className="font-mono">{FCFA.format(item.amount)}</span>{" "}
+              FCFA
+            </span>
+          </p>
         </div>
 
         <div className="flex flex-col items-end gap-1.5">
           {item.hasDocument ? (
-            <a
-              href={`/api/prestation/${item.id}/document`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sc-blue px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-sc-blue-dark"
-            >
-              📄 Document signé
-            </a>
+            <>
+              <a
+                href={`/api/prestation/${item.id}/document`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-sc-blue px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-sc-blue-dark"
+              >
+                📄 {item.documentGenerated ? "Note générée" : "Document signé"}
+              </a>
+              <span
+                className={
+                  item.documentGenerated
+                    ? "text-[10px] text-gray-500"
+                    : "text-[10px] font-medium text-sc-green-dark"
+                }
+              >
+                {item.documentGenerated ? "à faire signer" : "✓ signé"}
+              </span>
+            </>
           ) : (
             <span className="text-[11px] text-gray-400">Aucun document</span>
           )}
@@ -162,23 +181,19 @@ function PrestationRow({
 
       {canEdit && (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-sc-border/60 pt-2.5">
-          {/* Joindre / remplacer le document */}
+          <GenerateButton invoiceId={item.id} hasDocument={item.hasDocument} />
+
           <details className="text-left">
             <summary className="cursor-pointer text-[11px] font-medium text-sc-blue hover:underline">
-              {item.hasDocument ? "Remplacer le document" : "Joindre le document"}
+              Téléverser le document signé
             </summary>
             <div className="mt-1.5">
               <UploadDocForm invoiceId={item.id} />
             </div>
           </details>
 
-          {/* Marquer signé / payé */}
           {item.status !== "SIGNE" && item.hasDocument && (
-            <StatusButton
-              invoiceId={item.id}
-              target="SIGNE"
-              label="Marquer signé"
-            />
+            <StatusButton invoiceId={item.id} target="SIGNE" label="Marquer signé" />
           )}
           {item.status !== "PAYE" && (
             <StatusButton invoiceId={item.id} target="PAYE" label="Marquer payé" />
@@ -187,7 +202,7 @@ function PrestationRow({
             <StatusButton
               invoiceId={item.id}
               target="SIGNE"
-              label="Annuler le paiement"
+              label="Annuler paiement"
             />
           )}
 
@@ -198,9 +213,6 @@ function PrestationRow({
   );
 }
 
-// ============================================================
-//  Formulaire d'ajout
-// ============================================================
 function AddPrestationForm({ agentId }: { agentId: string }) {
   const action = createPrestationInvoice.bind(null, agentId);
   const [state, formAction, pending] = useActionState<
@@ -208,11 +220,15 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
     FormData
   >(action, undefined);
 
+  // Aperçu live de la retenue et du net
+  const [gross, setGross] = useState<number>(0);
+  const withholding = Math.round(gross * 0.05);
+  const net = gross - withholding;
+
   const err = (k: string) => state?.errors?.[k as never]?.[0];
   const cleared = state?.ok;
   const v = (k: string) => (cleared ? "" : (state?.values?.[k] ?? ""));
 
-  // Mois courant par défaut (YYYY-MM)
   const now = new Date();
   const defaultPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -229,7 +245,7 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="flex flex-col gap-1">
           <label htmlFor="period" className="text-[12px] font-medium text-sc-blue-darker">
             Mois <span className="text-sc-danger">*</span>
@@ -247,55 +263,82 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
           )}
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="amount" className="text-[12px] font-medium text-sc-blue-darker">
-            Montant (FCFA) <span className="text-sc-danger">*</span>
+          <label htmlFor="reference" className="text-[12px] font-medium text-sc-blue-darker">
+            N° de note{" "}
+            <span className="text-[10.5px] text-gray-400">(ex: 004/PP/06/2025)</span>
           </label>
           <input
-            id="amount"
-            name="amount"
-            type="number"
-            min={1}
-            step={5000}
-            defaultValue={v("amount")}
-            placeholder="Ex : 500000"
-            required
+            id="reference"
+            name="reference"
+            defaultValue={v("reference")}
             className={inputCls}
           />
-          {err("amount") && (
-            <p className="text-[11.5px] text-sc-danger">{err("amount")}</p>
-          )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="noteDate" className="text-[12px] font-medium text-sc-blue-darker">
+            Date de la note
+          </label>
+          <input
+            id="noteDate"
+            name="noteDate"
+            type="date"
+            defaultValue={v("noteDate")}
+            className={inputCls}
+          />
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="label" className="text-[12px] font-medium text-sc-blue-darker">
-          Libellé <span className="text-[10.5px] text-gray-400">(optionnel)</span>
+        <label htmlFor="designation" className="text-[12px] font-medium text-sc-blue-darker">
+          Désignation de l&apos;intervention
         </label>
         <input
-          id="label"
-          name="label"
-          defaultValue={v("label")}
-          placeholder="Ex : Enseignement + jury de soutenance"
+          id="designation"
+          name="designation"
+          defaultValue={v("designation")}
+          placeholder="Ex : Coordonnateur pédagogique pharmacie"
           className={inputCls}
         />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="document" className="text-[12px] font-medium text-sc-blue-darker">
-          Document signé{" "}
-          <span className="text-[10.5px] text-gray-400">
-            (bon / facture / attestation — optionnel)
-          </span>
+        <label htmlFor="grossAmount" className="text-[12px] font-medium text-sc-blue-darker">
+          Honoraires brut (FCFA) <span className="text-sc-danger">*</span>
         </label>
         <input
-          id="document"
-          name="document"
-          type="file"
-          accept="application/pdf,image/png,image/jpeg,image/webp"
-          className="block w-full text-[12.5px] file:mr-3 file:rounded-lg file:border-0 file:bg-sc-blue file:px-3 file:py-1.5 file:text-[12px] file:font-medium file:text-white hover:file:bg-sc-blue-dark"
+          id="grossAmount"
+          name="grossAmount"
+          type="number"
+          min={1}
+          step={1000}
+          defaultValue={v("grossAmount")}
+          onChange={(e) => setGross(Number(e.target.value) || 0)}
+          placeholder="Ex : 1578947"
+          required
+          className={inputCls}
         />
-        <p className="text-[11px] text-gray-500">PDF, PNG, JPG ou WebP · 10 Mo max</p>
+        {err("grossAmount") && (
+          <p className="text-[11.5px] text-sc-danger">{err("grossAmount")}</p>
+        )}
       </div>
+
+      {/* Aperçu calcul */}
+      {gross > 0 && (
+        <div className="rounded-lg border border-sc-border bg-sc-blue-bg/30 px-3 py-2 text-[12px]">
+          <div className="flex justify-between">
+            <span>Total honoraires brut</span>
+            <span className="font-mono">{FCFA.format(gross)} FCFA</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>Retenue à la source 5%</span>
+            <span className="font-mono">− {FCFA.format(withholding)} FCFA</span>
+          </div>
+          <div className="mt-1 flex justify-between border-t border-sc-border pt-1 font-semibold text-sc-blue-darker">
+            <span>Net à payer</span>
+            <span className="font-mono">{FCFA.format(net)} FCFA</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end">
         <button
@@ -303,9 +346,37 @@ function AddPrestationForm({ agentId }: { agentId: string }) {
           disabled={pending}
           className="rounded-lg bg-sc-blue px-4 py-2 text-[13px] font-medium text-white transition hover:bg-sc-blue-dark disabled:opacity-60"
         >
-          {pending ? "Enregistrement…" : "Enregistrer la prestation"}
+          {pending ? "Enregistrement…" : "Enregistrer la note"}
         </button>
       </div>
+    </form>
+  );
+}
+
+function GenerateButton({
+  invoiceId,
+  hasDocument,
+}: {
+  invoiceId: string;
+  hasDocument: boolean;
+}) {
+  const action = generateHonorairesNote.bind(null, invoiceId);
+  const [state, formAction, pending] = useActionState<PrestationActionState, FormData>(
+    action,
+    undefined,
+  );
+  return (
+    <form action={formAction} className="inline">
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-sc-blue/30 bg-white px-2.5 py-1 text-[11.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg disabled:opacity-60"
+      >
+        {pending ? "…" : hasDocument ? "↻ Régénérer la note" : "⚙ Générer la note (PDF)"}
+      </button>
+      {state && !state.ok && (
+        <span className="ml-1 text-[10.5px] text-sc-danger">{state.error}</span>
+      )}
     </form>
   );
 }

@@ -2,30 +2,47 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { Prisma, PrestationStatus, Role } from "@prisma/client";
+import { Gender, Prisma, PrestationStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import { savePrestationDocument } from "@/lib/prestation-storage";
+import { getOrganization } from "@/lib/organization";
+import {
+  savePrestationDocument,
+  savePrestationBuffer,
+} from "@/lib/prestation-storage";
+import { generateHonorairesPdf } from "@/lib/honoraires-pdf";
 
-// Période au format YYYY-MM
+// Taux de retenue à la source sur honoraires (BRS Sénégal, résidents).
+const WITHHOLDING_RATE = 0.05;
+
 const periodString = z
   .string()
   .trim()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Période invalide (attendu AAAA-MM)");
 
+const dateString = z
+  .string()
+  .trim()
+  .refine((s) => s === "" || !Number.isNaN(Date.parse(s)), "Date invalide");
+
 const PrestationSchema = z.object({
   period: periodString,
-  amount: z.preprocess(
+  grossAmount: z.preprocess(
     (v) => (v === "" || v === null || v === undefined ? 0 : Number(v)),
-    z.number().int().min(1, "Montant requis").max(50_000_000),
+    z.number().int().min(1, "Montant brut requis").max(50_000_000),
   ),
-  label: z.string().trim().max(120).optional().or(z.literal("")),
+  designation: z.string().trim().max(160).optional().or(z.literal("")),
+  reference: z.string().trim().max(40).optional().or(z.literal("")),
+  noteDate: dateString.optional().or(z.literal("")),
 });
 
 export type PrestationFormState = {
   errors?: Partial<
-    Record<"period" | "amount" | "label" | "_form", string[]>
+    Record<
+      "period" | "grossAmount" | "designation" | "reference" | "noteDate" | "_form",
+      string[]
+    >
   >;
   values?: Record<string, string>;
   ok?: boolean;
@@ -37,9 +54,14 @@ export type PrestationActionState =
   | { ok: false; error: string }
   | undefined;
 
+/** Calcule retenue (5%) et net à partir du brut. */
+function computeAmounts(gross: number): { withholding: number; net: number } {
+  const withholding = Math.round(gross * WITHHOLDING_RATE);
+  return { withholding, net: gross - withholding };
+}
+
 // ============================================================
-//  CRÉER UNE PRESTATION MENSUELLE — DRH + DIRECTION
-//  Optionnellement avec le document signé joint dès la création.
+//  CRÉER UNE NOTE D'HONORAIRES — DRH + DIRECTION
 // ============================================================
 export async function createPrestationInvoice(
   agentId: string,
@@ -50,46 +72,24 @@ export async function createPrestationInvoice(
 
   const raw = {
     period: String(formData.get("period") ?? ""),
-    amount: String(formData.get("amount") ?? ""),
-    label: String(formData.get("label") ?? ""),
+    grossAmount: String(formData.get("grossAmount") ?? ""),
+    designation: String(formData.get("designation") ?? ""),
+    reference: String(formData.get("reference") ?? ""),
+    noteDate: String(formData.get("noteDate") ?? ""),
   };
   const parsed = PrestationSchema.safeParse(raw);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors, values: raw };
   }
   const data = parsed.data;
+  const { withholding, net } = computeAmounts(data.grossAmount);
 
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { id: true, firstName: true, lastName: true, category: true },
+    select: { id: true, firstName: true, lastName: true },
   });
   if (!agent) {
     return { errors: { _form: ["Agent introuvable."] }, values: raw };
-  }
-
-  // Document signé (optionnel)
-  const docFile = formData.get("document");
-  let docFields: {
-    documentName: string;
-    documentPath: string;
-    documentSize: number;
-  } | null = null;
-  let docWarning: string | null = null;
-  if (docFile instanceof File && docFile.size > 0) {
-    const saved = await savePrestationDocument({
-      agentId,
-      period: data.period,
-      file: docFile,
-    });
-    if (saved.ok) {
-      docFields = {
-        documentName: saved.filename,
-        documentPath: saved.path,
-        documentSize: saved.size,
-      };
-    } else {
-      docWarning = saved.error;
-    }
   }
 
   try {
@@ -97,20 +97,20 @@ export async function createPrestationInvoice(
       data: {
         agentId,
         period: data.period,
-        amount: data.amount,
-        label: data.label || null,
-        status: docFields ? PrestationStatus.SIGNE : PrestationStatus.EN_ATTENTE,
-        ...(docFields ?? {}),
+        reference: data.reference || null,
+        designation: data.designation || null,
+        grossAmount: data.grossAmount,
+        withholding,
+        amount: net,
+        noteDate: data.noteDate ? new Date(data.noteDate) : null,
+        status: PrestationStatus.EN_ATTENTE,
       },
     });
   } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return {
         errors: {
-          period: ["Une prestation existe déjà pour ce prestataire et ce mois."],
+          period: ["Une note existe déjà pour ce prestataire et ce mois."],
         },
         values: raw,
       };
@@ -122,20 +122,15 @@ export async function createPrestationInvoice(
     userId: me.id,
     action: "CREATE_PRESTATION",
     entity: "PrestationInvoice",
-    details: `${agent.firstName} ${agent.lastName} · ${data.period} · ${data.amount} FCFA`,
+    details: `${agent.firstName} ${agent.lastName} · ${data.period} · brut ${data.grossAmount} / net ${net} FCFA`,
   });
 
   revalidatePath(`/personnel/${agentId}`);
-  return {
-    ok: true,
-    message: docWarning
-      ? `Prestation créée. Document non joint : ${docWarning}`
-      : "Prestation enregistrée.",
-  };
+  return { ok: true, message: "Note d'honoraires enregistrée." };
 }
 
 // ============================================================
-//  MODIFIER MONTANT / LIBELLÉ D'UNE PRESTATION — DRH + DIRECTION
+//  MODIFIER UNE NOTE — DRH + DIRECTION
 // ============================================================
 export async function updatePrestationInvoice(
   invoiceId: string,
@@ -146,29 +141,36 @@ export async function updatePrestationInvoice(
 
   const raw = {
     period: String(formData.get("period") ?? ""),
-    amount: String(formData.get("amount") ?? ""),
-    label: String(formData.get("label") ?? ""),
+    grossAmount: String(formData.get("grossAmount") ?? ""),
+    designation: String(formData.get("designation") ?? ""),
+    reference: String(formData.get("reference") ?? ""),
+    noteDate: String(formData.get("noteDate") ?? ""),
   };
   const parsed = PrestationSchema.safeParse(raw);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors, values: raw };
   }
   const data = parsed.data;
+  const { withholding, net } = computeAmounts(data.grossAmount);
 
   const invoice = await prisma.prestationInvoice.findUnique({
     where: { id: invoiceId },
     select: { id: true, agentId: true },
   });
   if (!invoice) {
-    return { errors: { _form: ["Prestation introuvable."] }, values: raw };
+    return { errors: { _form: ["Note introuvable."] }, values: raw };
   }
 
   await prisma.prestationInvoice.update({
     where: { id: invoiceId },
     data: {
       period: data.period,
-      amount: data.amount,
-      label: data.label || null,
+      reference: data.reference || null,
+      designation: data.designation || null,
+      grossAmount: data.grossAmount,
+      withholding,
+      amount: net,
+      noteDate: data.noteDate ? new Date(data.noteDate) : null,
     },
   });
 
@@ -177,11 +179,91 @@ export async function updatePrestationInvoice(
     action: "UPDATE_PRESTATION",
     entity: "PrestationInvoice",
     entityId: invoiceId,
-    details: `${data.period} · ${data.amount} FCFA`,
+    details: `${data.period} · net ${net} FCFA`,
   });
 
   revalidatePath(`/personnel/${invoice.agentId}`);
-  return { ok: true, message: "Prestation mise à jour." };
+  return { ok: true, message: "Note mise à jour." };
+}
+
+// ============================================================
+//  GÉNÉRER LA NOTE D'HONORAIRES (PDF) — DRH + DIRECTION
+//  Produit le PDF au format SCIMD et le stocke comme document.
+// ============================================================
+export async function generateHonorairesNote(
+  invoiceId: string,
+  _prev: PrestationActionState,
+  _formData: FormData,
+): Promise<PrestationActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const invoice = await prisma.prestationInvoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      agent: { select: { firstName: true, lastName: true, gender: true, jobTitle: true } },
+    },
+  });
+  if (!invoice) return { ok: false, error: "Note introuvable." };
+
+  const org = await getOrganization();
+
+  const title = invoice.agent.gender === Gender.FEMME ? "Mme" : "Mr";
+  const fullName = `${invoice.agent.lastName.toUpperCase()} ${invoice.agent.firstName}`;
+
+  try {
+    const buffer = await generateHonorairesPdf({
+      organization: {
+        name: org.name,
+        shortName: org.shortName,
+        city: org.city,
+        bp: org.bp,
+        address: org.address,
+      },
+      beneficiary: { title, fullName },
+      note: {
+        reference: invoice.reference || `${invoice.period}`,
+        date: invoice.noteDate ?? new Date(),
+        designation: invoice.designation || invoice.agent.jobTitle,
+        grossAmount: invoice.grossAmount,
+        withholding: invoice.withholding,
+        netAmount: invoice.amount,
+      },
+    });
+
+    const filename = `note-honoraires-${invoice.period}.pdf`;
+    const saved = await savePrestationBuffer({
+      agentId: invoice.agentId,
+      period: invoice.period,
+      filename,
+      buffer,
+    });
+    if (!saved.ok) return { ok: false, error: saved.error };
+
+    await prisma.prestationInvoice.update({
+      where: { id: invoiceId },
+      data: {
+        documentName: saved.filename,
+        documentPath: saved.path,
+        documentSize: buffer.length,
+        documentGenerated: true,
+      },
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[generateHonorairesNote] échec:", e);
+    return { ok: false, error: `Échec de la génération : ${msg.slice(0, 150)}` };
+  }
+
+  await logAudit({
+    userId: me.id,
+    action: "GENERATE_HONORAIRES",
+    entity: "PrestationInvoice",
+    entityId: invoiceId,
+    details: `${invoice.period} · ${fullName}`,
+  });
+
+  revalidatePath(`/personnel/${invoice.agentId}`);
+  return { ok: true, message: "Note d'honoraires générée (PDF)." };
 }
 
 // ============================================================
@@ -203,7 +285,7 @@ export async function uploadPrestationDocument(
     where: { id: invoiceId },
     select: { id: true, agentId: true, period: true, status: true },
   });
-  if (!invoice) return { ok: false, error: "Prestation introuvable." };
+  if (!invoice) return { ok: false, error: "Note introuvable." };
 
   const saved = await savePrestationDocument({
     agentId: invoice.agentId,
@@ -218,7 +300,7 @@ export async function uploadPrestationDocument(
       documentName: saved.filename,
       documentPath: saved.path,
       documentSize: saved.size,
-      // Recevoir le document signé fait passer au statut SIGNE (sauf déjà payé).
+      documentGenerated: false, // scan signé téléversé
       status:
         invoice.status === PrestationStatus.PAYE
           ? PrestationStatus.PAYE
@@ -253,7 +335,7 @@ export async function setPrestationStatus(
     where: { id: invoiceId },
     select: { id: true, agentId: true, period: true },
   });
-  if (!invoice) return { ok: false, error: "Prestation introuvable." };
+  if (!invoice) return { ok: false, error: "Note introuvable." };
 
   await prisma.prestationInvoice.update({
     where: { id: invoiceId },
@@ -276,7 +358,7 @@ export async function setPrestationStatus(
 }
 
 // ============================================================
-//  SUPPRIMER UNE PRESTATION — DRH + DIRECTION
+//  SUPPRIMER UNE NOTE — DRH + DIRECTION
 // ============================================================
 export async function deletePrestationInvoice(
   invoiceId: string,
@@ -289,7 +371,7 @@ export async function deletePrestationInvoice(
     where: { id: invoiceId },
     select: { id: true, agentId: true, period: true },
   });
-  if (!invoice) return { ok: false, error: "Prestation introuvable." };
+  if (!invoice) return { ok: false, error: "Note introuvable." };
 
   await prisma.prestationInvoice.delete({ where: { id: invoiceId } });
 
@@ -302,5 +384,5 @@ export async function deletePrestationInvoice(
   });
 
   revalidatePath(`/personnel/${invoice.agentId}`);
-  return { ok: true, message: "Prestation supprimée." };
+  return { ok: true, message: "Note supprimée." };
 }

@@ -399,16 +399,16 @@ export default async function AgentDetailPage({
         )}
       </Section>
 
-      {/* Prestations mensuelles — prestataires uniquement */}
+      {/* Notes d'honoraires mensuelles — prestataires uniquement */}
       {isPrestataire && (
         <Section
           icon="payroll"
-          title={`Prestations mensuelles (${prestations.length})`}
+          title={`Notes d'honoraires (${prestations.length})`}
         >
           <p className="mb-3 text-[12px] text-gray-500">
-            Chaque mois, le prestataire signe un document (bon de commande,
-            facture ou attestation de service fait) qui sert de base au paiement
-            et tient lieu de bulletin.
+            Chaque mois : honoraires brut → retenue à la source 5% → net à payer.
+            La note est générée au format SCIMD, signée par le prestataire, et
+            tient lieu de bulletin.
           </p>
           <PrestationSection
             agentId={agent.id}
@@ -417,11 +417,14 @@ export default async function AgentDetailPage({
               (p): PrestationItem => ({
                 id: p.id,
                 period: p.period,
+                reference: p.reference,
+                designation: p.designation,
+                grossAmount: p.grossAmount,
+                withholding: p.withholding,
                 amount: p.amount,
-                label: p.label,
                 status: p.status,
-                documentName: p.documentName,
                 hasDocument: Boolean(p.documentPath),
+                documentGenerated: p.documentGenerated,
                 paidAt: p.paidAt ? p.paidAt.toISOString() : null,
               }),
             )}
