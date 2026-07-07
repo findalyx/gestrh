@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 
 export type ValidatorActionState =
-  | { ok: true; message: string }
+  | { ok: true; message: string; chain?: Record<number, string> }
   | { ok: false; error: string }
   | undefined;
 
@@ -164,8 +164,17 @@ export async function setLeaveChain(
 
   revalidatePath(`/personnel/${agentId}`);
   revalidatePath("/parametres");
+
+  // Renvoie la chaîne compactée (niveaux contigus) pour que le formulaire
+  // se synchronise sans dépendre du re-rendu serveur.
+  const chain: Record<number, string> = {};
+  picks.forEach((validatorId, i) => {
+    chain[i + 1] = validatorId;
+  });
+
   return {
     ok: true,
+    chain,
     message:
       picks.length === 0
         ? "Chaîne effacée (repli sur le Directeur Général)."

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   setLeaveChain,
   type ValidatorActionState,
@@ -55,6 +55,20 @@ function LeaveChainFormInner({
     3: currentChain[3] ?? "",
     4: currentChain[4] ?? "",
   });
+
+  // Après un enregistrement réussi, l'action renvoie la chaîne compactée :
+  // on synchronise l'affichage dessus (indépendant du re-rendu serveur).
+  useEffect(() => {
+    if (state?.ok && state.chain) {
+      const c = state.chain;
+      setPicks({
+        1: c[1] ?? "",
+        2: c[2] ?? "",
+        3: c[3] ?? "",
+        4: c[4] ?? "",
+      });
+    }
+  }, [state]);
 
   if (validators.length === 0) {
     return (
