@@ -115,6 +115,35 @@ export async function removePrefix(prefix: string): Promise<void> {
 }
 
 /**
+ * Génère une URL signée que le navigateur peut utiliser pour PUT un fichier
+ * directement dans Supabase Storage, sans repasser par Vercel.
+ * Utile pour contourner la limite de 4.5 Mo des Server Actions Vercel.
+ * La signature expire par défaut au bout de 2 heures.
+ */
+export type SignedUploadUrl =
+  | { ok: true; signedUrl: string; token: string; path: string }
+  | { ok: false; error: string };
+
+export async function createSignedUploadUrl(
+  path: string,
+): Promise<SignedUploadUrl> {
+  const sb = getSupabaseAdmin();
+  const { data, error } = await sb.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUploadUrl(path);
+  if (error) {
+    console.error("[supabase-storage] createSignedUploadUrl error:", error);
+    return { ok: false, error: error.message };
+  }
+  return {
+    ok: true,
+    signedUrl: data.signedUrl,
+    token: data.token,
+    path: data.path,
+  };
+}
+
+/**
  * Liste tous les fichiers sous un préfixe (renvoie juste les noms).
  */
 export async function listPrefix(prefix: string): Promise<string[]> {

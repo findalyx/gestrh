@@ -1,13 +1,71 @@
 "use client";
 
-import { useActionState } from "react";
-import { importPayslips, type ImportPayslipsState } from "../_lib/import-actions";
+import { useState, useTransition } from "react";
+import {
+  getPayslipUploadUrl,
+  importPayslipsFromPath,
+  type ImportPayslipsState,
+} from "../_lib/import-actions";
 
+/**
+ * Formulaire d'import des bulletins de paie.
+ *
+ * Flux en 2 étapes pour bypasser la limite Vercel Server Actions (4,5 Mo) :
+ *   1. Client demande au serveur une URL signée d'upload direct sur Supabase
+ *   2. Client PUT le fichier directement sur cette URL (aucune limite Vercel)
+ *   3. Client appelle une Server Action qui lit le PDF depuis Supabase et le traite
+ *
+ * L'utilisateur voit 2 étapes : "Upload…" puis "Import…", avec une barre
+ * de progression pour la première.
+ */
 export function ImportPayslipsForm() {
-  const [state, action, pending] = useActionState<ImportPayslipsState, FormData>(
-    importPayslips,
-    undefined,
-  );
+  const [file, setFile] = useState<File | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "processing">("idle");
+  const [state, setState] = useState<ImportPayslipsState>(undefined);
+  const [pending, startTransition] = useTransition();
+
+  async function handleUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+
+    setState(undefined);
+    setPhase("uploading");
+    setProgress(0);
+
+    try {
+      // Étape 1 : demander l'URL signée
+      const signed = await getPayslipUploadUrl(file.name);
+      if (!signed.ok) {
+        setState({ ok: false, error: signed.error });
+        setPhase("idle");
+        return;
+      }
+
+      // Étape 2 : PUT direct vers Supabase (via XHR pour la barre de progression)
+      await putFileWithProgress(signed.signedUrl, file, (pct) =>
+        setProgress(pct),
+      );
+
+      // Étape 3 : demande au serveur de traiter le fichier depuis Storage
+      setPhase("processing");
+      const fd = new FormData();
+      fd.append("path", signed.path);
+      fd.append("filename", file.name);
+
+      startTransition(async () => {
+        const result = await importPayslipsFromPath(undefined, fd);
+        setState(result);
+        setPhase("idle");
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setState({ ok: false, error: `Upload échoué : ${msg}` });
+      setPhase("idle");
+    }
+  }
+
+  const busy = phase !== "idle" || pending;
 
   return (
     <div>
@@ -20,32 +78,48 @@ export function ImportPayslipsForm() {
         par agent et par période (aucun doublon). C&apos;est ainsi qu&apos;on
         complète une période où des bulletins manquaient.
       </p>
-      <p className="mt-1 text-[11px] font-medium text-sc-warning">
-        ⓘ En version cloud, le PDF doit peser <strong>≤ 4 Mo</strong>. Pour un
-        PDF plus lourd, découpe-le ou compresse-le d&apos;abord (ex : <a
-          href="https://smallpdf.com/fr/compresser-pdf"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-sc-blue"
-        >smallpdf.com</a>).
+      <p className="mt-1 text-[11px] text-gray-500">
+        Taille maximale : <strong>25 Mo</strong>. Upload direct vers le stockage
+        sécurisé — sans passer par le serveur d&apos;application.
       </p>
 
-      <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
+      <form
+        onSubmit={handleUpload}
+        className="mt-3 flex flex-wrap items-center gap-3"
+      >
         <input
           name="pdf"
           type="file"
           accept="application/pdf"
           required
-          className="block text-[12px] file:mr-2 file:rounded-md file:border-0 file:bg-sc-blue-light file:px-3 file:py-1.5 file:text-[11.5px] file:font-semibold file:text-sc-blue"
+          disabled={busy}
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            setState(undefined);
+          }}
+          className="block text-[12px] file:mr-2 file:rounded-md file:border-0 file:bg-sc-blue-light file:px-3 file:py-1.5 file:text-[11.5px] file:font-semibold file:text-sc-blue disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={pending}
+          disabled={busy || !file}
           className="rounded-lg bg-sc-blue px-4 py-2 text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark disabled:opacity-60"
         >
-          {pending ? "Import en cours…" : "Importer"}
+          {phase === "uploading"
+            ? `Upload ${progress}%`
+            : phase === "processing" || pending
+              ? "Import en cours…"
+              : "Importer"}
         </button>
       </form>
+
+      {phase === "uploading" && (
+        <div className="mt-2 h-1.5 w-full max-w-md overflow-hidden rounded-full bg-gray-200">
+          <div
+            className="h-full bg-sc-blue transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
 
       {state && !state.ok && (
         <div className="mt-3 rounded-lg border border-sc-danger/30 bg-sc-danger-light px-3 py-2 text-[12.5px] text-sc-danger">
@@ -92,4 +166,35 @@ export function ImportPayslipsForm() {
       )}
     </div>
   );
+}
+
+/**
+ * PUT un fichier vers une URL signée Supabase Storage avec suivi de progression.
+ * Utilise XHR car fetch() n'expose pas encore `onprogress` de façon fiable.
+ */
+function putFileWithProgress(
+  url: string,
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", "application/pdf");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve();
+      } else {
+        reject(new Error(`Upload HTTP ${xhr.status} : ${xhr.responseText}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Erreur réseau pendant l'upload"));
+    xhr.send(file);
+  });
 }

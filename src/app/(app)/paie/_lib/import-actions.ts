@@ -5,7 +5,13 @@ import { PayrollStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import { putObject, sanitizeFilename } from "@/lib/supabase-storage";
+import {
+  createSignedUploadUrl,
+  getObject,
+  putObject,
+  removeObject,
+  sanitizeFilename,
+} from "@/lib/supabase-storage";
 import { parsePayslips } from "@/lib/payslip-parse";
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25 Mo (PDF multi-bulletins)
@@ -22,6 +28,68 @@ export type ImportPayslipsState =
   | { ok: false; error: string }
   | undefined;
 
+// ============================================================
+//  ÉTAPE 1 — Génère une URL signée pour upload direct navigateur → Supabase
+//  Utilisé pour les PDF > 4 Mo (limite Vercel Server Actions).
+// ============================================================
+export async function getPayslipUploadUrl(filename: string): Promise<
+  | { ok: true; signedUrl: string; token: string; path: string }
+  | { ok: false; error: string }
+> {
+  await requireRole(Role.DIRECTION, Role.DRH);
+
+  const sanitized = sanitizeFilename(filename) || "bulletins.pdf";
+  // Stocke temporairement dans un dossier _pending — supprimé après traitement
+  const path = `payslips/_pending/${Date.now()}-${sanitized}`;
+  const signed = await createSignedUploadUrl(path);
+  return signed;
+}
+
+// ============================================================
+//  ÉTAPE 2 — Traite un PDF déjà uploadé sur Supabase Storage
+//  Prend juste le chemin (pas de fichier dans le FormData).
+// ============================================================
+export async function importPayslipsFromPath(
+  _prev: ImportPayslipsState,
+  formData: FormData,
+): Promise<ImportPayslipsState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const storagePath = String(formData.get("path") ?? "").trim();
+  const originalName = String(formData.get("filename") ?? "bulletins.pdf");
+  if (!storagePath) {
+    return { ok: false, error: "Chemin de fichier manquant." };
+  }
+
+  const buffer = await getObject(storagePath);
+  if (!buffer) {
+    return { ok: false, error: "Impossible de récupérer le fichier uploadé." };
+  }
+  if (buffer.length > MAX_BYTES) {
+    await removeObject(storagePath);
+    return {
+      ok: false,
+      error: `Fichier trop volumineux (max ${MAX_BYTES / 1024 / 1024} Mo).`,
+    };
+  }
+
+  const result = await processPayslipsBuffer({
+    buffer,
+    originalName,
+    me,
+  });
+
+  // Nettoie le fichier temporaire une fois traité (l'archive et les bulletins
+  // individuels sont sauvegardés au bon endroit par processPayslipsBuffer).
+  await removeObject(storagePath);
+
+  return result;
+}
+
+// ============================================================
+//  Ancienne route : upload via FormData (limité à 4 Mo par Vercel)
+//  Conservée pour compatibilité mais renvoie vers processPayslipsBuffer.
+// ============================================================
 export async function importPayslips(
   _prev: ImportPayslipsState,
   formData: FormData,
@@ -40,6 +108,22 @@ export async function importPayslips(
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  return processPayslipsBuffer({ buffer, originalName: file.name, me });
+}
+
+// ============================================================
+//  Traitement commun : parse + archivage + upsert bulletins
+// ============================================================
+async function processPayslipsBuffer({
+  buffer,
+  originalName,
+  me,
+}: {
+  buffer: Buffer;
+  originalName: string;
+  me: { id: string };
+}): Promise<ImportPayslipsState> {
+  const file = { name: originalName };
 
   let parsed;
   try {
