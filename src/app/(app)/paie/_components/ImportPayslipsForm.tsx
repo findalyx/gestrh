@@ -20,6 +20,15 @@ export function ImportPayslipsForm() {
         par agent et par période (aucun doublon). C&apos;est ainsi qu&apos;on
         complète une période où des bulletins manquaient.
       </p>
+      <p className="mt-1 text-[11px] font-medium text-sc-warning">
+        ⓘ En version cloud, le PDF doit peser <strong>≤ 4 Mo</strong>. Pour un
+        PDF plus lourd, découpe-le ou compresse-le d&apos;abord (ex : <a
+          href="https://smallpdf.com/fr/compresser-pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-sc-blue"
+        >smallpdf.com</a>).
+      </p>
 
       <form action={action} className="mt-3 flex flex-wrap items-center gap-3">
         <input

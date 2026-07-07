@@ -6,6 +6,7 @@ import { Prisma, Role, StaffCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
+import { removePrefix } from "@/lib/supabase-storage";
 import { AgentFormSchema, type AgentFormState } from "./schema";
 
 /**
@@ -236,4 +237,103 @@ export async function updateAgent(
   revalidatePath("/personnel");
   revalidatePath(`/personnel/${agentId}`);
   redirect(`/personnel/${agentId}`);
+}
+
+// ============================================================
+//  SUPPRIMER UN AGENT — DIRECTION uniquement
+//  Utile quand un collaborateur a été ajouté par erreur.
+//
+//  Précautions :
+//  - Réservé DIRECTION (pas DRH) car acte irréversible
+//  - Impossible si l'agent a des bulletins de paie validés
+//  - Impossible si l'agent manage encore un service actif (au moins un autre agent)
+//  - Purge en cascade : contrats, congés, évaluations, formations, docs, user
+//  - Purge aussi les fichiers Supabase Storage (PDF contrats)
+// ============================================================
+export type DeleteAgentResult =
+  | { ok: true; message: string }
+  | { ok: false; error: string }
+  | undefined;
+
+export async function deleteAgent(
+  agentId: string,
+  _prev: DeleteAgentResult,
+  _formData: FormData,
+): Promise<DeleteAgentResult> {
+  const me = await requireRole(Role.DIRECTION);
+
+  // Charge le contexte minimal pour valider la suppression
+  const agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    include: {
+      contracts: { select: { id: true } },
+      _count: {
+        select: {
+          payrollRecords: true,
+          leaveRequests: true,
+        },
+      },
+      managedService: { select: { id: true, name: true } },
+      user: { select: { id: true } },
+    },
+  });
+  if (!agent) return { ok: false, error: "Agent introuvable." };
+
+  // Garde-fous : si l'agent a de la donnée métier importante, on refuse
+  // et on suggère plutôt de le passer en INACTIF.
+  if (agent._count.payrollRecords > 0) {
+    return {
+      ok: false,
+      error: `Suppression impossible : ${agent._count.payrollRecords} bulletin(s) de paie existent. Passe l'agent en statut INACTIF plutôt qu'une suppression.`,
+    };
+  }
+  if (agent._count.leaveRequests > 5) {
+    return {
+      ok: false,
+      error: `Suppression impossible : ${agent._count.leaveRequests} demandes de congés dans l'historique. Passe l'agent en statut INACTIF plutôt qu'une suppression.`,
+    };
+  }
+  if (agent.managedService) {
+    return {
+      ok: false,
+      error: `Suppression impossible : cet agent manage le service « ${agent.managedService.name} ». Réaffecte le manager du service avant.`,
+    };
+  }
+
+  // Purge Supabase Storage — les PDF de contrats de cet agent
+  for (const c of agent.contracts) {
+    await removePrefix(`contracts/${c.id}`);
+  }
+
+  // Suppression proprement dite. Cascade Prisma :
+  //  - contracts → PayrollRecord, Document, ContractRenewal, Resignation, ContractNotification
+  //  - leaveRequests, leaveBalances, careerEntries, evaluations, enrollments : tous en Cascade
+  //  - user (compte de connexion) : pas de cascade sur User.agentId → on le supprime avant
+  try {
+    if (agent.user) {
+      await prisma.user.delete({ where: { id: agent.user.id } });
+    }
+    await prisma.agent.delete({ where: { id: agentId } });
+  } catch (e) {
+    console.error("[deleteAgent] échec :", e);
+    return {
+      ok: false,
+      error: "Erreur lors de la suppression. Vérifie les dépendances de l'agent.",
+    };
+  }
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_AGENT",
+    entity: "Agent",
+    entityId: agentId,
+    details: `${agent.firstName} ${agent.lastName} (${agent.matricule})`,
+  });
+
+  revalidatePath("/personnel");
+  revalidatePath("/parametres");
+  return {
+    ok: true,
+    message: `Agent ${agent.firstName} ${agent.lastName} supprimé.`,
+  };
 }

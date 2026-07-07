@@ -17,6 +17,7 @@ import {
   UploadContractPdfForm,
 } from "../_components/ContractForm";
 import { AgentPhotoUploader } from "../_components/AgentPhotoUploader";
+import { DeleteAgentButton } from "../_components/DeleteAgentButton";
 
 export const dynamic = "force-dynamic";
 
@@ -188,6 +189,12 @@ export default async function AgentDetailPage({
                 <Icon name="settings" size={13} />
                 Modifier
               </Link>
+            )}
+            {me.role === Role.DIRECTION && (
+              <DeleteAgentButton
+                agentId={id}
+                agentLabel={`${agent.firstName} ${agent.lastName}`}
+              />
             )}
           </div>
           <p className="mt-1 text-[11px] uppercase tracking-wide text-gray-500">
