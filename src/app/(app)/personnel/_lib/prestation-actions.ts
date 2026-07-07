@@ -22,8 +22,10 @@ const DOCX_MIME =
 /**
  * Référence automatique d'une note d'honoraires : {matricule}/{MM}-{YYYY}.
  * Ex : matricule 3146, période "2026-06" → "3146/06-2026".
+ * NB : fonction locale (non exportée) — dans un fichier "use server", tout
+ * export doit être une Server Action async.
  */
-export function defaultReference(matricule: string, period: string): string {
+function defaultReference(matricule: string, period: string): string {
   const [year, month] = period.split("-");
   return `${matricule}/${month}-${year}`;
 }
