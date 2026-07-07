@@ -338,5 +338,6 @@ export async function triggerMonthlyAccrual(
 
 // Helper
 function isRole(v: string): v is Role {
-  return v === "DIRECTION" || v === "DRH" || v === "MANAGER" || v === "AGENT";
+  // Couvre tous les rôles de l'enum (dont RECTEUR et DOYEN, qui valident des congés).
+  return (Object.values(Role) as string[]).includes(v);
 }
