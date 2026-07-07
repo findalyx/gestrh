@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   setLeaveChain,
   type ValidatorActionState,
@@ -16,18 +16,32 @@ export type ChainValidatorOption = {
 };
 
 /**
- * Configure la chaîne de validation des congés d'un agent : 4 niveaux,
- * chacun rattaché à un validateur (ou vide). Les niveaux vides sont ignorés
- * et la chaîne est compactée côté serveur.
+ * Configure la chaîne de validation des congés d'un agent (4 niveaux).
+ *
+ * Le wrapper applique une `key` dérivée de la chaîne serveur : quand le serveur
+ * renvoie une nouvelle chaîne (après enregistrement + revalidatePath), le
+ * composant interne se re-monte et ré-initialise ses `select` contrôlés sur les
+ * valeurs réellement enregistrées (compactées). Pendant l'édition, la chaîne
+ * serveur ne change pas → pas de re-montage, les choix en cours sont conservés.
  */
-export function LeaveChainForm({
+export function LeaveChainForm(props: {
+  agentId: string;
+  validators: ChainValidatorOption[];
+  currentChain: Record<number, string>;
+}) {
+  const signature = [1, 2, 3, 4]
+    .map((l) => props.currentChain[l] ?? "")
+    .join("|");
+  return <LeaveChainFormInner key={signature} {...props} />;
+}
+
+function LeaveChainFormInner({
   agentId,
   validators,
   currentChain,
 }: {
   agentId: string;
   validators: ChainValidatorOption[];
-  /** Map niveau (1..4) → validatorId actuel. */
   currentChain: Record<number, string>;
 }) {
   const action = setLeaveChain.bind(null, agentId);
@@ -35,6 +49,14 @@ export function LeaveChainForm({
     action,
     undefined,
   );
+
+  // Sélections contrôlées, initialisées depuis la chaîne enregistrée.
+  const [picks, setPicks] = useState<Record<number, string>>({
+    1: currentChain[1] ?? "",
+    2: currentChain[2] ?? "",
+    3: currentChain[3] ?? "",
+    4: currentChain[4] ?? "",
+  });
 
   if (validators.length === 0) {
     return (
@@ -47,6 +69,9 @@ export function LeaveChainForm({
       </p>
     );
   }
+
+  const setLevel = (level: number, value: string) =>
+    setPicks((p) => ({ ...p, [level]: value }));
 
   return (
     <form action={formAction} className="space-y-3">
@@ -64,7 +89,8 @@ export function LeaveChainForm({
             </span>
             <select
               name={`level${level}`}
-              defaultValue={currentChain[level] ?? ""}
+              value={picks[level]}
+              onChange={(e) => setLevel(level, e.target.value)}
               className={selectCls}
             >
               <option value="">— Aucun —</option>
