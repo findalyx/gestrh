@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { LeaveStatus, Role, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +7,7 @@ import { getLeaveScopeWhere, getMyPendingApprovalsWhere } from "@/lib/leave-acce
 import { Icon } from "@/components/Icon";
 import { LeaveStatusBadge, LeaveTypeBadge } from "./_components/LeaveBadges";
 import { ApproveButton, CancelButton, RejectButton } from "./_components/LeaveActions";
+import { LeaveTimeline } from "./_components/LeaveTimeline";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,17 @@ const requestInclude = {
     },
   },
   approver: { select: { firstName: true, lastName: true } },
+  approvals: {
+    orderBy: { decidedAt: "asc" },
+    include: {
+      decidedBy: {
+        select: {
+          email: true,
+          agent: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  },
 } satisfies Prisma.LeaveRequestInclude;
 
 type LeaveRow = Prisma.LeaveRequestGetPayload<{ include: typeof requestInclude }>;
@@ -111,7 +124,8 @@ function RequestsTable({
               !isMine &&
               (isDirection || r.currentApproverAgentId === meAgentId);
             return (
-              <tr key={r.id} className="border-t border-sc-border">
+              <Fragment key={r.id}>
+              <tr className="border-t border-sc-border">
                 {showAgent && (
                   <td className="px-4 py-2.5">
                     <Link
@@ -166,6 +180,26 @@ function RequestsTable({
                   </div>
                 </td>
               </tr>
+              <tr>
+                <td
+                  colSpan={showAgent ? 7 : 6}
+                  className="px-4 pb-3 pt-0"
+                >
+                  <details>
+                    <summary className="cursor-pointer text-[11.5px] font-medium text-sc-blue hover:underline">
+                      🕑 Historique de validation
+                      {r.approvals.length > 0 ? ` (${r.approvals.length})` : ""}
+                    </summary>
+                    <LeaveTimeline
+                      createdAt={r.createdAt}
+                      approvals={r.approvals}
+                      status={r.status}
+                      currentLevel={r.currentLevel}
+                    />
+                  </details>
+                </td>
+              </tr>
+              </Fragment>
             );
           })}
         </tbody>
