@@ -7,6 +7,14 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import { deleteContractFolder, saveContractPdf } from "@/lib/contract-storage";
+import { createSignedUploadUrl, sanitizeFilename } from "@/lib/supabase-storage";
+
+function guessMime(filename: string): string {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (ext === "png") return "image/png";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  return "application/pdf";
+}
 
 const dateString = z
   .string()
@@ -266,6 +274,66 @@ export async function uploadContractPdf(
 
   revalidatePath(`/personnel/${contract.agentId}`);
   return { ok: true, message: "Document signé mis à jour." };
+}
+
+// ============================================================
+//  UPLOAD DIRECT (gros fichiers jusqu'à 20 Mo) — contourne Vercel
+//  1) URL signée  2) le navigateur PUT sur Supabase  3) finalisation
+// ============================================================
+export async function requestContractUpload(
+  contractId: string,
+  filename: string,
+): Promise<
+  { ok: true; signedUrl: string; path: string } | { ok: false; error: string }
+> {
+  await requireRole(Role.DIRECTION, Role.DRH);
+  const contract = await prisma.contract.findUnique({
+    where: { id: contractId },
+    select: { id: true },
+  });
+  if (!contract) return { ok: false, error: "Contrat introuvable." };
+
+  // Un seul document par contrat → on nettoie l'ancien avant de signer.
+  await deleteContractFolder(contractId);
+  const clean = sanitizeFilename(filename) || "document.pdf";
+  const signed = await createSignedUploadUrl(`contracts/${contractId}/${clean}`);
+  return signed;
+}
+
+export async function finalizeContractUpload(
+  contractId: string,
+  _path: string,
+  filename: string,
+  size: number,
+): Promise<ContractActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const contract = await prisma.contract.findUnique({
+    where: { id: contractId },
+    select: { id: true, reference: true, agentId: true },
+  });
+  if (!contract) return { ok: false, error: "Contrat introuvable." };
+
+  const clean = sanitizeFilename(filename) || "document.pdf";
+  await prisma.contract.update({
+    where: { id: contractId },
+    data: {
+      pdfFilename: clean,
+      pdfMimeType: guessMime(clean),
+      pdfSize: size,
+      pdfGenerated: false,
+    },
+  });
+
+  await logAudit({
+    userId: me.id,
+    action: "UPLOAD_CONTRACT_DOCUMENT",
+    entity: "Contract",
+    entityId: contractId,
+    details: `${contract.reference} · ${clean} (${Math.round(size / 1024)} Ko)`,
+  });
+
+  revalidatePath(`/personnel/${contract.agentId}`);
+  return { ok: true, message: "Document signé enregistré." };
 }
 
 // ============================================================

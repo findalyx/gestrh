@@ -5,11 +5,13 @@ import { ContractStatus, ContractType } from "@prisma/client";
 import {
   createContract,
   updateContract,
-  uploadContractPdf,
+  requestContractUpload,
+  finalizeContractUpload,
   deleteContractPdf,
   type ContractActionState,
   type ContractFormState,
 } from "../_lib/contract-actions";
+import { DirectFileUpload } from "@/components/DirectFileUpload";
 
 const inputCls =
   "w-full rounded-lg border border-sc-border bg-gray-50 px-3 py-2 text-[13px] outline-none transition focus:border-sc-blue focus:bg-white focus:ring-[3px] focus:ring-sc-blue/10";
@@ -248,32 +250,18 @@ export function NewContractForm({
 }
 
 export function UploadContractPdfForm({ contractId }: { contractId: string }) {
-  const action = uploadContractPdf.bind(null, contractId);
-  const [state, formAction, pending] = useActionState<ContractActionState, FormData>(
-    action,
-    undefined,
-  );
+  // Upload direct navigateur → Supabase (jusqu'à 20 Mo, contourne Vercel).
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
-      <input
-        name="pdf"
-        type="file"
-        accept="application/pdf,image/png,image/jpeg"
-        required
-        className="block text-[11.5px] file:mr-2 file:rounded file:border-0 file:bg-sc-blue file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-white hover:file:bg-sc-blue-dark"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-sc-blue px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-sc-blue-dark disabled:opacity-60"
-      >
-        {pending ? "…" : "Envoyer"}
-      </button>
-      {state?.ok && <span className="text-[11px] text-sc-green-dark">✓ OK</span>}
-      {state && !state.ok && (
-        <span className="text-[11px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
+    <DirectFileUpload
+      accept="application/pdf,image/png,image/jpeg"
+      maxMb={20}
+      getUploadUrl={requestContractUpload.bind(null, contractId)}
+      finalize={(path, filename, size) =>
+        finalizeContractUpload(contractId, path, filename, size).then((r) =>
+          r ? r : { ok: false, error: "Échec." },
+        )
+      }
+    />
   );
 }
 

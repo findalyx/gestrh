@@ -2,9 +2,11 @@
 
 import { useActionState, useState } from "react";
 import { PrestationStatus } from "@prisma/client";
+import { DirectFileUpload } from "@/components/DirectFileUpload";
 import {
   createPrestationInvoice,
-  uploadPrestationDocument,
+  requestPrestationUpload,
+  finalizePrestationUpload,
   setPrestationStatus,
   deletePrestationInvoice,
   generateHonorairesNote,
@@ -409,32 +411,18 @@ function GenerateButton({
 }
 
 function UploadDocForm({ invoiceId }: { invoiceId: string }) {
-  const action = uploadPrestationDocument.bind(null, invoiceId);
-  const [state, formAction, pending] = useActionState<PrestationActionState, FormData>(
-    action,
-    undefined,
-  );
+  // Upload direct navigateur → Supabase (jusqu'à 20 Mo, contourne Vercel).
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
-      <input
-        name="document"
-        type="file"
-        accept="application/pdf,image/png,image/jpeg,image/webp"
-        required
-        className="block text-[11.5px] file:mr-2 file:rounded file:border-0 file:bg-sc-blue file:px-2 file:py-1 file:text-[11px] file:font-medium file:text-white hover:file:bg-sc-blue-dark"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-sc-blue px-2.5 py-1 text-[11.5px] font-medium text-white transition hover:bg-sc-blue-dark disabled:opacity-60"
-      >
-        {pending ? "…" : "Envoyer"}
-      </button>
-      {state?.ok && <span className="text-[11px] text-sc-green-dark">✓ OK</span>}
-      {state && !state.ok && (
-        <span className="text-[11px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
+    <DirectFileUpload
+      accept="application/pdf,image/png,image/jpeg,image/webp"
+      maxMb={20}
+      getUploadUrl={requestPrestationUpload.bind(null, invoiceId)}
+      finalize={(path, filename, size) =>
+        finalizePrestationUpload(invoiceId, path, filename, size).then((r) =>
+          r ? r : { ok: false, error: "Échec." },
+        )
+      }
+    />
   );
 }
 

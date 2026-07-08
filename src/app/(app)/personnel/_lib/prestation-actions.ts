@@ -11,6 +11,7 @@ import {
   savePrestationDocument,
   savePrestationBuffer,
 } from "@/lib/prestation-storage";
+import { createSignedUploadUrl, sanitizeFilename } from "@/lib/supabase-storage";
 import { buildHonorairesNoteDocx } from "@/lib/docx/honoraires-note";
 
 // Taux de retenue à la source sur honoraires (BRS Sénégal, résidents).
@@ -348,6 +349,67 @@ export async function uploadPrestationDocument(
     entity: "PrestationInvoice",
     entityId: invoiceId,
     details: `${invoice.period} · ${saved.filename}`,
+  });
+
+  revalidatePath(`/personnel/${invoice.agentId}`);
+  return { ok: true, message: "Document signé enregistré." };
+}
+
+// ============================================================
+//  UPLOAD DIRECT (jusqu'à 20 Mo) — contourne la limite Vercel
+// ============================================================
+export async function requestPrestationUpload(
+  invoiceId: string,
+  filename: string,
+): Promise<
+  { ok: true; signedUrl: string; path: string } | { ok: false; error: string }
+> {
+  await requireRole(Role.DIRECTION, Role.DRH);
+  const invoice = await prisma.prestationInvoice.findUnique({
+    where: { id: invoiceId },
+    select: { agentId: true, period: true },
+  });
+  if (!invoice) return { ok: false, error: "Note introuvable." };
+
+  const clean = sanitizeFilename(filename) || "document.pdf";
+  const path = `prestations/${invoice.agentId}/${invoice.period}-${clean}`;
+  return createSignedUploadUrl(path);
+}
+
+export async function finalizePrestationUpload(
+  invoiceId: string,
+  path: string,
+  filename: string,
+  size: number,
+): Promise<PrestationActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const invoice = await prisma.prestationInvoice.findUnique({
+    where: { id: invoiceId },
+    select: { id: true, agentId: true, period: true, status: true },
+  });
+  if (!invoice) return { ok: false, error: "Note introuvable." };
+
+  const clean = sanitizeFilename(filename) || "document.pdf";
+  await prisma.prestationInvoice.update({
+    where: { id: invoiceId },
+    data: {
+      documentName: clean,
+      documentPath: path,
+      documentSize: size,
+      documentGenerated: false,
+      status:
+        invoice.status === PrestationStatus.PAYE
+          ? PrestationStatus.PAYE
+          : PrestationStatus.SIGNE,
+    },
+  });
+
+  await logAudit({
+    userId: me.id,
+    action: "UPLOAD_PRESTATION_DOC",
+    entity: "PrestationInvoice",
+    entityId: invoiceId,
+    details: `${invoice.period} · ${clean} (${Math.round(size / 1024)} Ko)`,
   });
 
   revalidatePath(`/personnel/${invoice.agentId}`);
