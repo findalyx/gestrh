@@ -87,7 +87,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
     }),
     prisma.leaveRequest.count({
       where: {
-        status: LeaveStatus.EN_ATTENTE_CHEF,
+        status: LeaveStatus.EN_ATTENTE,
         agent: { serviceId: service.id },
       },
     }),
@@ -188,7 +188,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
   // Pending leaves pour la table
   const pendingLeaves = await prisma.leaveRequest.findMany({
     where: {
-      status: LeaveStatus.EN_ATTENTE_CHEF,
+      status: LeaveStatus.EN_ATTENTE,
       agent: { serviceId: service.id },
     },
     orderBy: { createdAt: "asc" },

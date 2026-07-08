@@ -123,7 +123,7 @@ export async function DirectionDashboard() {
     prisma.leaveRequest.count({
       where: {
         status: {
-          in: [LeaveStatus.EN_ATTENTE_CHEF, LeaveStatus.EN_ATTENTE_DOYEN, LeaveStatus.EN_ATTENTE_DG],
+          in: [LeaveStatus.EN_ATTENTE],
         },
       },
     }),

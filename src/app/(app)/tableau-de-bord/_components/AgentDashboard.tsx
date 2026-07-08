@@ -95,12 +95,7 @@ export async function AgentDashboard({ agentId, firstName }: Props) {
       where: {
         agentId,
         status: {
-          in: [
-            LeaveStatus.EN_ATTENTE_CHEF,
-            LeaveStatus.EN_ATTENTE_DOYEN,
-            LeaveStatus.EN_ATTENTE_DG,
-            LeaveStatus.AUTORISE,
-          ],
+          in: [LeaveStatus.EN_ATTENTE, LeaveStatus.AUTORISE],
         },
         endDate: { gte: new Date() },
       },
