@@ -118,11 +118,11 @@ function RequestsTable({
               isMine &&
               (PENDING_STATUSES.includes(r.status) ||
                 (r.status === LeaveStatus.AUTORISE && r.startDate > new Date()));
-            // Boutons de décision : je suis le validateur courant, ou le DG (override).
+            // Boutons de décision : uniquement si je suis le validateur courant.
             const canDecideRow =
               r.status === LeaveStatus.EN_ATTENTE &&
               !isMine &&
-              (isDirection || r.currentApproverAgentId === meAgentId);
+              r.currentApproverAgentId === meAgentId;
             return (
               <Fragment key={r.id}>
               <tr className="border-t border-sc-border">

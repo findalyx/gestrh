@@ -72,19 +72,18 @@ export async function buildRequestChain(
 
 /**
  * L'utilisateur courant peut-il décider sur cette demande, à son niveau courant ?
- *   - le validateur désigné au niveau courant, OU
- *   - la Direction (DG) — pouvoir de secours / override.
+ * Uniquement le validateur désigné au niveau courant. Le DG ne fait pas
+ * exception : il ne décide que s'il est lui-même le validateur courant (repli
+ * chaîne vide, ou présence explicite dans la chaîne).
  */
 export function canDecideStep(args: {
   chain: ChainStep[];
   currentLevel: number | null;
   userAgentId: string | null;
-  userRole: Role;
 }): boolean {
   if (args.currentLevel == null) return false;
   const step = args.chain[args.currentLevel - 1];
   if (!step) return false;
-  if (args.userRole === Role.DIRECTION) return true; // DG override
   return args.userAgentId != null && args.userAgentId === step.validatorAgentId;
 }
 
