@@ -11,6 +11,7 @@ import {
   ContractType,
   Gender,
   AgentStatus,
+  type Prisma,
 } from "@prisma/client";
 import { KpiCard, KPI_ICON_STYLE, type KpiColor } from "./KpiCard";
 import { CategoryDonut } from "./charts/CategoryDonut";
@@ -21,6 +22,11 @@ import { PayrollEvolution } from "./charts/PayrollEvolution";
 import { PayrollByGenderDonut } from "./charts/PayrollByGenderDonut";
 import { GenderDonut } from "./charts/GenderDonut";
 import { PresenceHeatmap } from "./PresenceHeatmap";
+
+// Effectif « présent » : on exclut les partants (INACTIF, RETRAITE) des stats.
+const ACTIVE_AGENT_WHERE: Prisma.AgentWhereInput = {
+  status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+};
 
 const QUICK_MODULES: {
   href: string;
@@ -101,10 +107,10 @@ export async function DirectionDashboard() {
     agentsByGender,
     payrollByGender,
   ] = await Promise.all([
-    prisma.agent.count(),
-    prisma.agent.count({ where: { category: StaffCategory.PER } }),
-    prisma.agent.count({ where: { category: StaffCategory.PATS } }),
-    prisma.agent.count({ where: { category: StaffCategory.PRESTATAIRE } }),
+    prisma.agent.count({ where: ACTIVE_AGENT_WHERE }),
+    prisma.agent.count({ where: { ...ACTIVE_AGENT_WHERE, category: StaffCategory.PER } }),
+    prisma.agent.count({ where: { ...ACTIVE_AGENT_WHERE, category: StaffCategory.PATS } }),
+    prisma.agent.count({ where: { ...ACTIVE_AGENT_WHERE, category: StaffCategory.PRESTATAIRE } }),
     prisma.leaveRequest.count({
       where: {
         status: LeaveStatus.AUTORISE,
@@ -153,12 +159,12 @@ export async function DirectionDashboard() {
         endDate: { gte: yearStart, lte: today },
       },
     }),
-    // Services + count d'agents
+    // Services + count d'agents (présents uniquement)
     prisma.service.findMany({
       orderBy: { name: "asc" },
       select: {
         name: true,
-        _count: { select: { agents: true } },
+        _count: { select: { agents: { where: ACTIVE_AGENT_WHERE } } },
       },
     }),
     // Agents avec birthDate + gender pour la pyramide des âges
@@ -182,9 +188,10 @@ export async function DirectionDashboard() {
       orderBy: { period: "asc" },
       take: 12,
     }),
-    // Effectif par sexe (répartition genre)
+    // Effectif par sexe (répartition genre, présents uniquement)
     prisma.agent.groupBy({
       by: ["gender"],
+      where: ACTIVE_AGENT_WHERE,
       _count: { _all: true },
     }),
     // Masse salariale nette par sexe — calcul via raw query parce que

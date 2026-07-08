@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  AgentStatus,
   ContractStatus,
   ContractType,
   StaffCategory,
@@ -78,7 +79,11 @@ function HBar({
 
 export default async function StatistiquesPage() {
   const activeContracts = await prisma.contract.findMany({
-    where: { status: ContractStatus.ACTIF },
+    where: {
+      status: ContractStatus.ACTIF,
+      // Exclut les agents partants (INACTIF / RETRAITE) des statistiques.
+      agent: { status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] } },
+    },
     select: {
       type: true,
       baseSalary: true,

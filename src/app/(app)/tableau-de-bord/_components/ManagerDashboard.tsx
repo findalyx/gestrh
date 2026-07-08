@@ -70,12 +70,25 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
     expiringContracts,
     upcomingLeaves,
   ] = await Promise.all([
-    prisma.agent.count({ where: { serviceId: service.id } }),
     prisma.agent.count({
-      where: { serviceId: service.id, category: StaffCategory.PER },
+      where: {
+        serviceId: service.id,
+        status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+      },
     }),
     prisma.agent.count({
-      where: { serviceId: service.id, category: StaffCategory.PATS },
+      where: {
+        serviceId: service.id,
+        category: StaffCategory.PER,
+        status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+      },
+    }),
+    prisma.agent.count({
+      where: {
+        serviceId: service.id,
+        category: StaffCategory.PATS,
+        status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+      },
     }),
     prisma.leaveRequest.count({
       where: {
