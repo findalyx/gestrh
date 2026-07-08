@@ -50,8 +50,14 @@ export function DeleteAgentButton({
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-sc-danger/30 bg-sc-danger-light/50 p-3">
       <p className="text-[12.5px] text-sc-danger">
-        Supprimer définitivement <strong>{agentLabel}</strong> ? Toutes ses
-        données (contrats, congés, formations, évaluations) seront perdues.
+        ⚠ Supprimer définitivement <strong>{agentLabel}</strong> ?{" "}
+        <strong>Toutes ses informations seront perdues</strong> : contrats,
+        bulletins de paie, congés, formations, évaluations, notes d&apos;honoraires
+        et documents. Cette action est irréversible.
+      </p>
+      <p className="text-[11.5px] text-gray-600">
+        Astuce : pour garder l&apos;historique, préfère passer l&apos;agent en
+        statut <strong>INACTIF</strong> (via « Modifier ») plutôt que le supprimer.
       </p>
       <form action={formAction} className="flex items-center gap-2">
         <button

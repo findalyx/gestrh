@@ -6,7 +6,7 @@ import { Prisma, Role, StaffCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import { removePrefix } from "@/lib/supabase-storage";
+import { removeObject, removePrefix } from "@/lib/supabase-storage";
 import { deletePrestationFolder } from "@/lib/prestation-storage";
 import { AgentFormSchema, type AgentFormState } from "./schema";
 
@@ -263,64 +263,61 @@ export async function deleteAgent(
 ): Promise<DeleteAgentResult> {
   const me = await requireRole(Role.DIRECTION);
 
-  // Charge le contexte minimal pour valider la suppression
+  // Charge le contexte : fichiers à purger + compte de connexion.
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     include: {
       contracts: { select: { id: true } },
-      _count: {
-        select: {
-          payrollRecords: true,
-          leaveRequests: true,
-        },
-      },
-      managedService: { select: { id: true, name: true } },
+      payrollRecords: { select: { pdfUrl: true } },
       user: { select: { id: true } },
     },
   });
   if (!agent) return { ok: false, error: "Agent introuvable." };
 
-  // Garde-fous : si l'agent a de la donnée métier importante, on refuse
-  // et on suggère plutôt de le passer en INACTIF.
-  if (agent._count.payrollRecords > 0) {
-    return {
-      ok: false,
-      error: `Suppression impossible : ${agent._count.payrollRecords} bulletin(s) de paie existent. Passe l'agent en statut INACTIF plutôt qu'une suppression.`,
-    };
-  }
-  if (agent._count.leaveRequests > 5) {
-    return {
-      ok: false,
-      error: `Suppression impossible : ${agent._count.leaveRequests} demandes de congés dans l'historique. Passe l'agent en statut INACTIF plutôt qu'une suppression.`,
-    };
-  }
-  if (agent.managedService) {
-    return {
-      ok: false,
-      error: `Suppression impossible : cet agent manage le service « ${agent.managedService.name} ». Réaffecte le manager du service avant.`,
-    };
-  }
+  // Suppression désormais TOUJOURS autorisée (l'avertissement est côté UI).
+  // Tout l'historique de la personne est perdu : contrats, bulletins, congés,
+  // évaluations, formations, notes d'honoraires, documents.
 
-  // Purge Supabase Storage — PDF de contrats + documents de prestation
+  // 1) Purge Supabase Storage : PDF de contrats, prestations, bulletins.
   for (const c of agent.contracts) {
     await removePrefix(`contracts/${c.id}`);
   }
   await deletePrestationFolder(agentId);
+  for (const p of agent.payrollRecords) {
+    if (p.pdfUrl) await removeObject(p.pdfUrl);
+  }
 
-  // Suppression proprement dite. Cascade Prisma :
-  //  - contracts → PayrollRecord, Document, ContractRenewal, Resignation, ContractNotification
-  //  - leaveRequests, leaveBalances, careerEntries, evaluations, enrollments : tous en Cascade
-  //  - user (compte de connexion) : pas de cascade sur User.agentId → on le supprime avant
+  // 2) Suppression en base — on détache d'abord les références NON cascade
+  //    (sinon la contrainte FK bloque), puis on supprime le compte et l'agent.
+  //    Le reste (contrats→bulletins, congés, évaluations reçues, formations,
+  //    chaîne de validation, validateur…) part en cascade.
   try {
-    if (agent.user) {
-      await prisma.user.delete({ where: { id: agent.user.id } });
-    }
-    await prisma.agent.delete({ where: { id: agentId } });
+    await prisma.$transaction(async (tx) => {
+      // Services que l'agent manageait → sans manager
+      await tx.service.updateMany({
+        where: { managerId: agentId },
+        data: { managerId: null },
+      });
+      // Demandes de congé qu'il a décidées → validateur détaché
+      await tx.leaveRequest.updateMany({
+        where: { approverId: agentId },
+        data: { approverId: null },
+      });
+      // Évaluations qu'il a menées → évaluateur détaché
+      await tx.evaluation.updateMany({
+        where: { evaluatorId: agentId },
+        data: { evaluatorId: null },
+      });
+      if (agent.user) {
+        await tx.user.delete({ where: { id: agent.user.id } });
+      }
+      await tx.agent.delete({ where: { id: agentId } });
+    });
   } catch (e) {
     console.error("[deleteAgent] échec :", e);
     return {
       ok: false,
-      error: "Erreur lors de la suppression. Vérifie les dépendances de l'agent.",
+      error: "Erreur lors de la suppression. Réessaie ou contacte le support.",
     };
   }
 
