@@ -71,12 +71,10 @@ export async function buildRequestChain(
 }
 
 /**
- * L'utilisateur courant peut-il décider sur cette demande, à son niveau courant ?
- * Uniquement le validateur désigné au niveau courant. Le DG ne fait pas
- * exception : il ne décide que s'il est lui-même le validateur courant (repli
- * chaîne vide, ou présence explicite dans la chaîne).
+ * L'utilisateur courant est-il le validateur DÉSIGNÉ au niveau courant ?
+ * (le vrai maillon de la chaîne, hors pouvoir de Direction).
  */
-export function canDecideStep(args: {
+export function isDesignatedValidator(args: {
   chain: ChainStep[];
   currentLevel: number | null;
   userAgentId: string | null;
@@ -85,6 +83,22 @@ export function canDecideStep(args: {
   const step = args.chain[args.currentLevel - 1];
   if (!step) return false;
   return args.userAgentId != null && args.userAgentId === step.validatorAgentId;
+}
+
+/**
+ * L'utilisateur courant peut-il décider sur cette demande ?
+ *   - le validateur désigné au niveau courant, OU
+ *   - la Direction (DG) — pouvoir de secours, avec avertissement côté UI.
+ */
+export function canDecideStep(args: {
+  chain: ChainStep[];
+  currentLevel: number | null;
+  userAgentId: string | null;
+  userRole: Role;
+}): boolean {
+  if (args.currentLevel == null) return false;
+  if (args.userRole === Role.DIRECTION) return true; // override DG (averti dans l'UI)
+  return isDesignatedValidator(args);
 }
 
 /** Le validateur (agentId) attendu au niveau courant, ou null. */

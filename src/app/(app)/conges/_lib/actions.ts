@@ -232,6 +232,7 @@ export async function approveLeaveRequest(
       chain,
       currentLevel: level,
       userAgentId: me.agent?.id ?? null,
+      userRole: me.role,
     })
   ) {
     return {
@@ -358,6 +359,7 @@ export async function rejectLeaveRequest(
       chain,
       currentLevel: level,
       userAgentId: me.agent?.id ?? null,
+      userRole: me.role,
     })
   ) {
     return {

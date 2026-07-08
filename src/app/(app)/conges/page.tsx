@@ -118,11 +118,26 @@ function RequestsTable({
               isMine &&
               (PENDING_STATUSES.includes(r.status) ||
                 (r.status === LeaveStatus.AUTORISE && r.startDate > new Date()));
-            // Boutons de décision : uniquement si je suis le validateur courant.
+            // Boutons de décision : validateur courant, OU la Direction (override, averti).
+            const isDesignated = r.currentApproverAgentId === meAgentId;
             const canDecideRow =
               r.status === LeaveStatus.EN_ATTENTE &&
               !isMine &&
-              r.currentApproverAgentId === meAgentId;
+              (isDesignated || isDirection);
+            // La Direction agit hors chaîne quand elle n'est pas le validateur désigné.
+            const isOverride = canDecideRow && !isDesignated;
+            // Dernière note laissée par un validateur (visible par le suivant).
+            const lastNoted = [...r.approvals]
+              .reverse()
+              .find((a) => a.comment);
+            const previousNote = lastNoted
+              ? {
+                  by: lastNoted.decidedBy?.agent
+                    ? `${lastNoted.decidedBy.agent.firstName} ${lastNoted.decidedBy.agent.lastName.toUpperCase()}`
+                    : (lastNoted.decidedBy?.email ?? "validateur"),
+                  comment: lastNoted.comment as string,
+                }
+              : null;
             return (
               <Fragment key={r.id}>
               <tr className="border-t border-sc-border">
@@ -173,8 +188,16 @@ function RequestsTable({
                     {canCancel && <CancelButton requestId={r.id} />}
                     {canDecideRow && (
                       <>
-                        <ApproveButton requestId={r.id} />
-                        <RejectButton requestId={r.id} />
+                        <ApproveButton
+                          requestId={r.id}
+                          isOverride={isOverride}
+                          previousNote={previousNote}
+                        />
+                        <RejectButton
+                          requestId={r.id}
+                          isOverride={isOverride}
+                          previousNote={previousNote}
+                        />
                       </>
                     )}
                   </div>
