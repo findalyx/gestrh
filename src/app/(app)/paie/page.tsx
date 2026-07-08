@@ -9,6 +9,8 @@ import { PayrollStatusBadge } from "./_components/PayrollBadge";
 import {
   MarkPeriodPaidBatchButton,
   ValidatePeriodBatchButton,
+  DeletePayrollButton,
+  DeletePeriodButton,
 } from "./_components/PayrollActions";
 import { ImportPayslipsForm } from "./_components/ImportPayslipsForm";
 
@@ -158,6 +160,12 @@ export default async function PaiePage({
   );
 
   const isAdmin = scope === "ALL";
+
+  // Total de bulletins de la période sélectionnée (pour la suppression en lot).
+  const periodCount =
+    isAdmin && selectedPeriod
+      ? await prisma.payrollRecord.count({ where: { period: selectedPeriod } })
+      : 0;
 
   const generatedCount = sp.generated ? Number(sp.generated) : 0;
 
@@ -365,6 +373,23 @@ export default async function PaiePage({
         </div>
       )}
 
+      {/* Zone de suppression — période précise (utile après un import partiel) */}
+      {isAdmin && selectedPeriod && periodCount > 0 && (
+        <details className="rounded-xl border border-sc-danger/20 bg-white">
+          <summary className="cursor-pointer px-4 py-2.5 text-[12.5px] font-medium text-sc-danger">
+            ⚠ Supprimer les bulletins de {formatPeriod(selectedPeriod)}
+          </summary>
+          <div className="border-t border-sc-danger/20 px-4 py-3">
+            <p className="mb-2 text-[12px] text-gray-600">
+              Supprime <strong>tous</strong> les bulletins de cette période et
+              leurs PDF (source + individuels). À utiliser pour corriger un import
+              incomplet avant de ré-importer le bon fichier.
+            </p>
+            <DeletePeriodButton period={selectedPeriod} count={periodCount} />
+          </div>
+        </details>
+      )}
+
       {/* Liste */}
       {records.length === 0 ? (
         <div className="rounded-xl border border-dashed border-sc-border bg-white p-8 text-center">
@@ -449,6 +474,7 @@ export default async function PaiePage({
                         >
                           Voir →
                         </Link>
+                        {isAdmin && <DeletePayrollButton payrollId={r.id} />}
                       </div>
                     </td>
                   </tr>

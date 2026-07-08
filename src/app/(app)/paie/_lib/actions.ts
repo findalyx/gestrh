@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import { computeNetSalary } from "@/lib/payroll-access";
+import { removeObject, removePrefix } from "@/lib/supabase-storage";
 
 export type PayrollActionState =
   | { ok: true; message: string }
@@ -248,5 +249,90 @@ export async function markPeriodPaidBatch(
   return {
     ok: true,
     message: `${result.count} bulletin(s) marqué(s) comme payé(s) pour ${period}.`,
+  };
+}
+
+// ============================================================
+//  SUPPRIMER UN BULLETIN — DIRECTION + DRH
+//  Retire aussi le PDF individuel sur Supabase Storage.
+// ============================================================
+export async function deletePayrollRecord(
+  recordId: string,
+  _prev: PayrollActionState,
+  _formData: FormData,
+): Promise<PayrollActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const record = await prisma.payrollRecord.findUnique({
+    where: { id: recordId },
+    select: {
+      id: true,
+      period: true,
+      pdfUrl: true,
+      agent: { select: { firstName: true, lastName: true, matricule: true } },
+    },
+  });
+  if (!record) return { ok: false, error: "Bulletin introuvable." };
+
+  if (record.pdfUrl) {
+    await removeObject(record.pdfUrl);
+  }
+  await prisma.payrollRecord.delete({ where: { id: recordId } });
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_PAYROLL_RECORD",
+    entity: "PayrollRecord",
+    entityId: recordId,
+    details: `${record.agent.lastName} ${record.agent.firstName} (${record.agent.matricule}) · ${record.period}`,
+  });
+
+  revalidatePath("/paie");
+  revalidatePath("/tableau-de-bord");
+  return { ok: true, message: "Bulletin supprimé." };
+}
+
+// ============================================================
+//  SUPPRIMER TOUS LES BULLETINS D'UNE PÉRIODE — DIRECTION + DRH
+//  Purge les PDF individuels + le PDF source archivé de la période.
+//  Utile pour corriger un import partiel avant de ré-importer.
+// ============================================================
+export async function deletePeriodPayroll(
+  period: string,
+  _prev: PayrollActionState,
+  _formData: FormData,
+): Promise<PayrollActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  if (!PERIOD_RE.test(period)) {
+    return { ok: false, error: "Période invalide." };
+  }
+
+  const records = await prisma.payrollRecord.findMany({
+    where: { period },
+    select: { id: true, pdfUrl: true },
+  });
+  if (records.length === 0) {
+    return { ok: false, error: "Aucun bulletin sur cette période." };
+  }
+
+  // Supprime les fichiers : PDF individuels + tout le dossier de la période
+  // (inclut le PDF source archivé lors de l'import).
+  await removePrefix(`payslips/${period}`);
+
+  const result = await prisma.payrollRecord.deleteMany({ where: { period } });
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_PAYROLL_PERIOD",
+    entity: "PayrollRecord",
+    details: `Période ${period} · ${result.count} bulletins supprimés`,
+  });
+
+  revalidatePath("/paie");
+  revalidatePath("/tableau-de-bord");
+  return {
+    ok: true,
+    message: `${result.count} bulletin(s) supprimé(s) pour ${period}.`,
   };
 }

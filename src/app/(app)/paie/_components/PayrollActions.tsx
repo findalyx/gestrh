@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   validatePayroll,
   markPayrollPaid,
   generateMonthlyPayroll,
   validatePeriodBatch,
   markPeriodPaidBatch,
+  deletePayrollRecord,
+  deletePeriodPayroll,
   type PayrollActionState,
 } from "../_lib/actions";
 
@@ -109,6 +111,106 @@ export function MarkPeriodPaidBatchButton({
       </button>
       {state && !state.ok && (
         <p className="mt-1 text-[11px] text-sc-danger">{state.error}</p>
+      )}
+    </form>
+  );
+}
+
+// ============================================================
+//  Suppression d'un bulletin (avec confirmation)
+// ============================================================
+export function DeletePayrollButton({ payrollId }: { payrollId: string }) {
+  const [confirm, setConfirm] = useState(false);
+  const action = deletePayrollRecord.bind(null, payrollId);
+  const [state, formAction, pending] = useActionState<PayrollActionState, FormData>(
+    action,
+    undefined,
+  );
+  if (!confirm) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirm(true)}
+        className="text-[12px] font-medium text-gray-500 transition hover:text-sc-danger"
+        title="Supprimer ce bulletin"
+      >
+        Supprimer
+      </button>
+    );
+  }
+  return (
+    <form action={formAction} className="inline-flex items-center gap-1.5">
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-lg bg-sc-danger px-2.5 py-1 text-[11.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+      >
+        {pending ? "…" : "Confirmer"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirm(false)}
+        className="text-[11px] text-gray-500 hover:text-sc-blue-darker"
+      >
+        Annuler
+      </button>
+      {state && !state.ok && (
+        <span className="text-[11px] text-sc-danger">{state.error}</span>
+      )}
+    </form>
+  );
+}
+
+// ============================================================
+//  Suppression de toute une période (double confirmation)
+// ============================================================
+export function DeletePeriodButton({
+  period,
+  count,
+}: {
+  period: string;
+  count: number;
+}) {
+  const [confirm, setConfirm] = useState(false);
+  const action = deletePeriodPayroll.bind(null, period);
+  const [state, formAction, pending] = useActionState<PayrollActionState, FormData>(
+    action,
+    undefined,
+  );
+  if (count === 0) return null;
+  if (!confirm) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirm(true)}
+        className="rounded-lg border border-sc-danger/30 bg-white px-3 py-1.5 text-[12px] font-medium text-sc-danger transition hover:bg-sc-danger-light"
+        title="Supprimer tous les bulletins de cette période (utile pour ré-importer)"
+      >
+        Supprimer les {count} bulletins de la période
+      </button>
+    );
+  }
+  return (
+    <form action={formAction} className="inline-flex items-center gap-2">
+      <span className="text-[12px] text-sc-danger">
+        Supprimer définitivement {count} bulletin(s) ?
+      </span>
+      <button
+        type="submit"
+        disabled={pending}
+        className="rounded-lg bg-sc-danger px-3 py-1.5 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+      >
+        {pending ? "Suppression…" : "Oui, tout supprimer"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirm(false)}
+        className="text-[11.5px] text-gray-500 hover:text-sc-blue-darker"
+      >
+        Annuler
+      </button>
+      {state && !state.ok && (
+        <p className="basis-full text-[11px] text-sc-danger">{state.error}</p>
       )}
     </form>
   );
