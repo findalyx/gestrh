@@ -51,7 +51,7 @@ export default async function AppLayout({
     return { id: "__none__" };
   })();
 
-  const [pendingLeaves, openPostings, alerts] = await Promise.all([
+  const [pendingLeaves, openPostings, alerts, dbNotifications] = await Promise.all([
     prisma.leaveRequest.count({ where: pendingLeavesWhere }),
     currentUser.role === Role.DIRECTION || currentUser.role === Role.DRH
       ? prisma.jobPosting.count({ where: { status: JobStatus.OUVERT } })
@@ -61,21 +61,41 @@ export default async function AppLayout({
       role: currentUser.role,
       agent: currentUser.agent ? { id: currentUser.agent.id } : null,
     }),
+    // Notifications événementielles non lues (validations de congés, etc.)
+    prisma.notification.findMany({
+      where: { userId: currentUser.id, isRead: false },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+    }),
   ]);
 
   const badges: Record<string, number> = {};
   if (pendingLeaves > 0) badges["/conges"] = pendingLeaves;
   if (openPostings > 0) badges["/recrutement"] = openPostings;
 
-  // Les notifications de la topbar sont désormais des alertes calculées en
-  // temps réel, avec un lien pour aller régler le problème.
-  const topbarNotifications: TopbarNotification[] = alerts.map((a) => ({
-    id: a.id,
-    variant: a.variant,
-    title: a.title,
-    message: a.message,
-    link: a.link,
-  }));
+  // La cloche cumule : notifications événementielles (base) + alertes calculées.
+  const NOTIF_VARIANT: Record<string, TopbarNotification["variant"]> = {
+    ALERTE: "danger",
+    RAPPEL: "warning",
+    INFO: "info",
+    VALIDATION: "info",
+  };
+  const topbarNotifications: TopbarNotification[] = [
+    ...dbNotifications.map((n) => ({
+      id: n.id,
+      variant: NOTIF_VARIANT[n.type] ?? "info",
+      title: n.title,
+      message: n.message,
+      link: n.link ?? "/tableau-de-bord",
+    })),
+    ...alerts.map((a) => ({
+      id: a.id,
+      variant: a.variant,
+      title: a.title,
+      message: a.message,
+      link: a.link,
+    })),
+  ];
 
   const user = {
     name: currentUser.agent

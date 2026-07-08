@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { logout } from "@/app/login/actions";
+import { markMyNotificationsRead } from "@/lib/notification-actions";
 
 export type TopbarNotification = {
   id: string;
@@ -48,6 +49,21 @@ export function Topbar({
   const pathname = usePathname();
   const [notifOpen, setNotifOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [, startMarkRead] = useTransition();
+
+  // Ouvre la cloche et marque les notifications comme lues (le compteur se
+  // videra à la navigation suivante).
+  const toggleNotif = () => {
+    setNotifOpen((v) => {
+      const next = !v;
+      if (next && notifications.length > 0) {
+        startMarkRead(() => {
+          void markMyNotificationsRead();
+        });
+      }
+      return next;
+    });
+  };
   const notifRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -136,7 +152,7 @@ export function Topbar({
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setNotifOpen((v) => !v)}
+            onClick={toggleNotif}
             aria-label="Notifications"
             className="relative flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-sc-border bg-gray-50 text-gray-700 transition hover:border-sc-blue hover:bg-sc-blue-light hover:text-sc-blue"
           >
@@ -152,7 +168,7 @@ export function Topbar({
             <div className="absolute right-0 top-[calc(100%+8px)] w-[360px] overflow-hidden rounded-xl border border-sc-border bg-white shadow-[0_10px_30px_rgba(51,89,164,0.12)]">
               <div className="flex items-center justify-between border-b border-sc-border bg-sc-blue-bg px-[18px] py-3.5">
                 <h4 className="font-serif text-sm font-semibold text-sc-blue-darker">
-                  Alertes RH
+                  Notifications
                 </h4>
                 {notifications.length > 0 && (
                   <span className="rounded-full bg-sc-danger px-2 py-[2px] text-[11px] font-semibold text-white">
