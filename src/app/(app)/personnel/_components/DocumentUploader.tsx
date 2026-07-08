@@ -1,8 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState, useTransition } from "react";
 import { DocumentType } from "@prisma/client";
-import { uploadAgentDocument } from "../_lib/document-actions";
+import {
+  requestDocumentUpload,
+  finalizeDocumentUpload,
+} from "../_lib/document-actions";
 
 const TYPE_LABEL: Record<DocumentType, string> = {
   CONTRAT: "Contrat",
@@ -24,7 +27,6 @@ const TYPE_LABEL: Record<DocumentType, string> = {
   AUTRE: "Autre",
 };
 
-// Types qu'on ne dépose pas via cet uploader (gérés par les workflows dédiés).
 const HIDDEN: DocumentType[] = [
   DocumentType.CONTRAT_SIGNE,
   DocumentType.AVENANT_SIGNE,
@@ -32,127 +34,196 @@ const HIDDEN: DocumentType[] = [
   DocumentType.DEMISSION,
 ];
 
+const MAX_MB = 20;
+
 export function DocumentUploader({ agentId }: { agentId: string }) {
   const [open, setOpen] = useState(false);
+  const [docType, setDocType] = useState("");
+  const [title, setTitle] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "uploading" | "processing">("idle");
+  const [pending, startTransition] = useTransition();
 
-  // Limite pratique d'envoi via Server Action sur l'hébergeur (~4,5 Mo).
-  const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+  const busy = phase !== "idle" || pending;
 
-  async function action(formData: FormData) {
+  function reset() {
+    setDocType("");
+    setTitle("");
+    setFile(null);
+    setProgress(0);
+    setPhase("idle");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
-    const file = formData.get("file");
-    if (file instanceof File && file.size > MAX_UPLOAD_BYTES) {
-      setError(
-        `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(1)} Mo). ` +
-          "Maximum ~4 Mo : compressez le PDF ou réduisez l'image avant l'envoi.",
+    if (!docType) return setError("Choisissez un type de document.");
+    if (!file) return setError("Choisissez un fichier.");
+    if (file.size > MAX_MB * 1024 * 1024) {
+      return setError(
+        `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(1)} Mo). Maximum ${MAX_MB} Mo.`,
       );
-      return;
     }
-    setPending(true);
+
+    setPhase("uploading");
+    setProgress(0);
     try {
-      const res = await uploadAgentDocument(agentId, formData);
-      if (!res.ok) {
-        setError(res.error);
+      const signed = await requestDocumentUpload(agentId, docType, title, file.name);
+      if (!signed.ok) {
+        setError(signed.error);
+        setPhase("idle");
         return;
       }
-      formRef.current?.reset();
-      setOpen(false);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Erreur d'upload.";
-      setError(msg);
-    } finally {
-      setPending(false);
+      await putWithProgress(signed.signedUrl, file, setProgress);
+
+      setPhase("processing");
+      startTransition(async () => {
+        const res = await finalizeDocumentUpload(signed.documentId, file.size);
+        if (res.ok) {
+          reset();
+          setOpen(false);
+        } else {
+          setError(res.error);
+          setPhase("idle");
+        }
+      });
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      setError(
+        /network|fetch|failed/i.test(raw)
+          ? "Connexion perdue pendant l'upload. Réessaie."
+          : `Échec : ${raw.slice(0, 150)}`,
+      );
+      setPhase("idle");
     }
   }
 
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 rounded-md bg-sc-blue px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-sc-blue-darker"
+      >
+        + Téléverser un document
+      </button>
+    );
+  }
+
   return (
-    <div>
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-1.5 rounded-md bg-sc-blue px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-sc-blue-darker"
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-wrap items-end gap-2 rounded-md border border-sc-border bg-sc-blue-bg p-3"
+    >
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+          Type
+        </span>
+        <select
+          value={docType}
+          onChange={(e) => setDocType(e.target.value)}
+          required
+          disabled={busy}
+          className="rounded-md border border-sc-border bg-white px-3 py-1.5 text-[12px]"
         >
-          + Téléverser un document
-        </button>
-      ) : (
-        <form
-          ref={formRef}
-          action={action}
-          className="flex flex-wrap items-end gap-2 rounded-md border border-sc-border bg-sc-blue-bg p-3"
-        >
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-600">
-              Type
-            </span>
-            <select
-              name="docType"
-              required
-              defaultValue=""
-              className="rounded-md border border-sc-border bg-white px-3 py-1.5 text-[12px]"
-            >
-              <option value="" disabled>
-                Sélectionner…
+          <option value="" disabled>
+            Sélectionner…
+          </option>
+          {Object.values(DocumentType)
+            .filter((t) => !HIDDEN.includes(t))
+            .map((t) => (
+              <option key={t} value={t}>
+                {TYPE_LABEL[t]}
               </option>
-              {Object.values(DocumentType)
-                .filter((t) => !HIDDEN.includes(t))
-                .map((t) => (
-                  <option key={t} value={t}>
-                    {TYPE_LABEL[t]}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="block flex-1">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-600">
-              Titre (optionnel)
-            </span>
-            <input
-              type="text"
-              name="title"
-              placeholder="Auto si vide"
-              className="w-full rounded-md border border-sc-border bg-white px-3 py-1.5 text-[12px]"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-600">
-              Fichier
-            </span>
-            <input
-              type="file"
-              name="file"
-              required
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
-              className="block text-[12px] file:mr-2 file:rounded-md file:border-0 file:bg-sc-blue-light file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-sc-blue"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-md bg-sc-blue px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-sc-blue-darker disabled:opacity-50"
-          >
-            {pending ? "Envoi…" : "Téléverser"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setError(null);
-            }}
-            className="rounded-md border border-sc-border bg-white px-3 py-1.5 text-[12px] font-semibold text-sc-blue-darker"
-          >
-            Annuler
-          </button>
-          {error && (
-            <div className="w-full rounded-md border border-sc-danger bg-sc-danger-light px-3 py-1.5 text-[11px] font-semibold text-sc-danger">
-              {error}
-            </div>
-          )}
-        </form>
+            ))}
+        </select>
+      </label>
+      <label className="block flex-1">
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+          Titre (optionnel)
+        </span>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Auto si vide"
+          disabled={busy}
+          className="w-full rounded-md border border-sc-border bg-white px-3 py-1.5 text-[12px]"
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-600">
+          Fichier (max {MAX_MB} Mo)
+        </span>
+        <input
+          type="file"
+          required
+          disabled={busy}
+          accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            setError(null);
+          }}
+          className="block text-[12px] file:mr-2 file:rounded-md file:border-0 file:bg-sc-blue-light file:px-2 file:py-1 file:text-[11px] file:font-semibold file:text-sc-blue"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={busy}
+        className="rounded-md bg-sc-blue px-3 py-1.5 text-[12px] font-semibold text-white shadow-sm hover:bg-sc-blue-darker disabled:opacity-50"
+      >
+        {phase === "uploading"
+          ? `${progress}%`
+          : phase === "processing" || pending
+            ? "Enregistrement…"
+            : "Téléverser"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(false);
+          reset();
+          setError(null);
+        }}
+        disabled={busy}
+        className="rounded-md border border-sc-border bg-white px-3 py-1.5 text-[12px] font-semibold text-sc-blue-darker disabled:opacity-50"
+      >
+        Annuler
+      </button>
+      {phase === "uploading" && (
+        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-200">
+          <div className="h-full bg-sc-blue transition-all" style={{ width: `${progress}%` }} />
+        </div>
       )}
-    </div>
+      {error && (
+        <div className="w-full rounded-md border border-sc-danger bg-sc-danger-light px-3 py-1.5 text-[11px] font-semibold text-sc-danger">
+          {error}
+        </div>
+      )}
+    </form>
   );
+}
+
+/** PUT un fichier vers une URL signée Supabase avec suivi de progression. */
+function putWithProgress(
+  url: string,
+  file: File,
+  onProgress: (pct: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? (onProgress(100), resolve())
+        : reject(new Error(`HTTP ${xhr.status}`));
+    xhr.onerror = () => reject(new Error("network error"));
+    xhr.send(file);
+  });
 }

@@ -76,7 +76,8 @@ export async function getAgentDetail(id: string) {
           notifications: { orderBy: { sentAt: "desc" } },
         },
       },
-      documents: { orderBy: { createdAt: "desc" } },
+      // size > 0 : on masque les lignes d'upload direct non finalisées (annulé).
+      documents: { where: { size: { gt: 0 } }, orderBy: { createdAt: "desc" } },
       careerEntries: { orderBy: { startDate: "desc" } },
     },
   });
