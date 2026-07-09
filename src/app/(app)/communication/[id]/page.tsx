@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icon";
 import { AnnouncementForm } from "../_components/AnnouncementForm";
 import { DeleteAnnouncementButton } from "../_components/DeleteAnnouncementButton";
 import { DeleteAttachmentButton } from "../_components/DeleteAttachmentButton";
+import { AttachmentUploadForm } from "../_components/AttachmentUploadForm";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,13 @@ export default async function AnnouncementDetailPage({
               </ul>
             </div>
           )}
+
+          <div className="mt-4 border-t border-sc-border pt-4">
+            <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-gray-500">
+              Ajouter une pièce jointe (jusqu&apos;à 20 Mo)
+            </h3>
+            <AttachmentUploadForm announcementId={ann.id} />
+          </div>
         </section>
       ) : (
         <article className="rounded-xl border border-sc-border bg-white p-6 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">

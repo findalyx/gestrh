@@ -6,7 +6,82 @@ import { ApplicationStage, JobStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
-import { saveCvFile } from "@/lib/cv-storage";
+import { deleteCvFolder, saveCvFile } from "@/lib/cv-storage";
+import { createSignedUploadUrl, sanitizeFilename } from "@/lib/supabase-storage";
+
+function guessCvMime(filename: string): string {
+  switch (filename.split(".").pop()?.toLowerCase()) {
+    case "pdf":
+      return "application/pdf";
+    case "doc":
+      return "application/msword";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+export type CvUploadState =
+  | { ok: true; message: string }
+  | { ok: false; error: string };
+
+// ============================================================
+//  UPLOAD DIRECT DU CV (jusqu'à 20 Mo) — sur une candidature existante
+// ============================================================
+export async function requestCvUpload(
+  applicationId: string,
+  filename: string,
+): Promise<
+  { ok: true; signedUrl: string; path: string } | { ok: false; error: string }
+> {
+  await requireRole(Role.DIRECTION, Role.DRH);
+  const app = await prisma.application.findUnique({
+    where: { id: applicationId },
+    select: { id: true },
+  });
+  if (!app) return { ok: false, error: "Candidature introuvable." };
+
+  await deleteCvFolder(applicationId); // un seul CV par candidature
+  const clean = sanitizeFilename(filename) || "cv.pdf";
+  return createSignedUploadUrl(`cvs/${applicationId}/${clean}`);
+}
+
+export async function finalizeCvUpload(
+  applicationId: string,
+  _path: string,
+  filename: string,
+  size: number,
+): Promise<CvUploadState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const app = await prisma.application.findUnique({
+    where: { id: applicationId },
+    select: { id: true, jobPostingId: true },
+  });
+  if (!app) return { ok: false, error: "Candidature introuvable." };
+
+  const clean = sanitizeFilename(filename) || "cv.pdf";
+  await prisma.application.update({
+    where: { id: applicationId },
+    data: { cvFilename: clean, cvMimeType: guessCvMime(clean), cvSize: size },
+  });
+
+  await logAudit({
+    userId: me.id,
+    action: "UPLOAD_CV",
+    entity: "Application",
+    entityId: applicationId,
+    details: `${clean} (${Math.round(size / 1024)} Ko)`,
+  });
+
+  revalidatePath(`/recrutement/${app.jobPostingId}/candidat/${applicationId}`);
+  return { ok: true, message: "CV enregistré." };
+}
 import {
   ApplicationSchema,
   JobPostingSchema,

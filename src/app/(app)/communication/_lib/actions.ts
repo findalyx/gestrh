@@ -12,6 +12,35 @@ import {
   deleteAnnouncementFolder,
   saveAnnouncementAttachment,
 } from "@/lib/attachment-storage";
+import { createSignedUploadUrl, sanitizeFilename } from "@/lib/supabase-storage";
+
+function guessAttachMime(filename: string): string {
+  switch (filename.split(".").pop()?.toLowerCase()) {
+    case "pdf":
+      return "application/pdf";
+    case "doc":
+      return "application/msword";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "xls":
+      return "application/vnd.ms-excel";
+    case "xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    case "txt":
+      return "text/plain";
+    default:
+      return "application/octet-stream";
+  }
+}
 
 const AnnouncementSchema = z.object({
   title: z.string().trim().min(2, "Titre trop court").max(140),
@@ -208,6 +237,64 @@ export async function deleteAnnouncement(
 
   revalidatePath("/communication");
   redirect("/communication");
+}
+
+// ============================================================
+//  UPLOAD DIRECT D'UNE PIÈCE JOINTE (jusqu'à 20 Mo) — annonce existante
+// ============================================================
+export async function requestAttachmentUpload(
+  announcementId: string,
+  filename: string,
+): Promise<
+  { ok: true; signedUrl: string; path: string } | { ok: false; error: string }
+> {
+  await requireRole(Role.DIRECTION, Role.DRH);
+  const ann = await prisma.announcement.findUnique({
+    where: { id: announcementId },
+    select: { id: true },
+  });
+  if (!ann) return { ok: false, error: "Annonce introuvable." };
+
+  const clean = sanitizeFilename(filename) || "fichier";
+  // Nom unique pour éviter toute collision dans le dossier de l'annonce.
+  const unique = `${Date.now()}-${clean}`;
+  return createSignedUploadUrl(`announcements/${announcementId}/${unique}`);
+}
+
+export async function finalizeAttachmentUpload(
+  announcementId: string,
+  path: string,
+  _filename: string,
+  size: number,
+): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const ann = await prisma.announcement.findUnique({
+    where: { id: announcementId },
+    select: { id: true },
+  });
+  if (!ann) return { ok: false, error: "Annonce introuvable." };
+
+  // Le nom réellement stocké = dernier segment du chemin (avec préfixe unique).
+  const storedName = path.split("/").pop() || sanitizeFilename(_filename);
+  await prisma.announcementAttachment.create({
+    data: {
+      announcementId,
+      filename: storedName,
+      mimeType: guessAttachMime(storedName),
+      size,
+    },
+  });
+
+  await logAudit({
+    userId: me.id,
+    action: "UPLOAD_ANNOUNCEMENT_ATTACHMENT",
+    entity: "AnnouncementAttachment",
+    details: `annonce ${announcementId} · ${storedName} (${Math.round(size / 1024)} Ko)`,
+  });
+
+  revalidatePath(`/communication/${announcementId}`);
+  revalidatePath("/communication");
+  return { ok: true, message: "Pièce jointe ajoutée." };
 }
 
 // ============================================================

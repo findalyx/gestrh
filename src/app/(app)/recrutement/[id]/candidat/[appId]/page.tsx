@@ -13,6 +13,7 @@ import {
   InterviewDateForm,
   RejectButton,
 } from "../../../_components/PipelineActions";
+import { CvUploadForm } from "../../../_components/CvUploadForm";
 import {
   ApplicationNoteForm,
   DeleteNoteButton,
@@ -260,6 +261,12 @@ export default async function ApplicationDetailPage({
               Aucun CV joint à cette candidature.
             </p>
           )}
+          <div className="mt-3 border-t border-sc-border pt-3">
+            <p className="mb-1.5 text-[11.5px] font-medium text-sc-blue-darker">
+              {application.cvFilename ? "Remplacer le CV" : "Ajouter un CV"}
+            </p>
+            <CvUploadForm applicationId={application.id} />
+          </div>
         </Section>
       </div>
 
