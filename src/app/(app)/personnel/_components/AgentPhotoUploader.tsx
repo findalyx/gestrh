@@ -49,6 +49,7 @@ export function AgentPhotoUploader({
   }
 
   async function onDelete() {
+    if (!window.confirm("Supprimer la photo de cet agent ?")) return;
     setError(null);
     setPending(true);
     try {

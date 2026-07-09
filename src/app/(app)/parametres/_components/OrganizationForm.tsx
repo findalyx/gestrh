@@ -114,6 +114,10 @@ function LogoBlock({
                   <button
                     type="submit"
                     disabled={deletePending}
+                    onClick={(e) => {
+                      if (!window.confirm("Supprimer le logo de l'organisation ?"))
+                        e.preventDefault();
+                    }}
                     className="rounded-lg border border-sc-danger/30 bg-white px-3 py-1.5 text-[12px] font-medium text-sc-danger transition hover:bg-sc-danger-light disabled:opacity-60"
                   >
                     {deletePending ? "…" : "Supprimer"}

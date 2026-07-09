@@ -64,6 +64,10 @@ export function LetterheadForm({ exists }: { exists: boolean }) {
             type="submit"
             formAction={delAction}
             disabled={delPending}
+            onClick={(e) => {
+              if (!window.confirm("Supprimer le papier en-tête officiel ?"))
+                e.preventDefault();
+            }}
             className="rounded-lg border border-sc-border bg-white px-4 py-2 text-[12.5px] font-medium text-gray-700 transition hover:text-sc-danger disabled:opacity-60"
           >
             {delPending ? "Suppression…" : "Supprimer"}

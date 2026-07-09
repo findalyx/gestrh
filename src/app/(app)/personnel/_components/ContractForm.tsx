@@ -12,6 +12,7 @@ import {
   type ContractFormState,
 } from "../_lib/contract-actions";
 import { DirectFileUpload } from "@/components/DirectFileUpload";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 
 const inputCls =
   "w-full rounded-lg border border-sc-border bg-gray-50 px-3 py-2 text-[13px] outline-none transition focus:border-sc-blue focus:bg-white focus:ring-[3px] focus:ring-sc-blue/10";
@@ -266,24 +267,11 @@ export function UploadContractPdfForm({ contractId }: { contractId: string }) {
 }
 
 export function DeleteContractPdfButton({ contractId }: { contractId: string }) {
-  const action = deleteContractPdf.bind(null, contractId);
-  const [state, formAction, pending] = useActionState<ContractActionState, FormData>(
-    action,
-    undefined,
-  );
   return (
-    <form action={formAction} className="inline">
-      <button
-        type="submit"
-        disabled={pending}
-        className="text-[11px] text-gray-500 transition hover:text-sc-danger disabled:opacity-60"
-        title="Supprimer le PDF"
-      >
-        {pending ? "…" : "Supprimer PDF"}
-      </button>
-      {state && !state.ok && (
-        <span className="ml-1 text-[10.5px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
+    <ConfirmSubmitButton
+      action={deleteContractPdf.bind(null, contractId) as never}
+      label="Supprimer le document"
+      confirmText="Supprimer le document du contrat ?"
+    />
   );
 }

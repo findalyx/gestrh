@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import {
   validatePayroll,
   markPayrollPaid,
@@ -117,47 +118,15 @@ export function MarkPeriodPaidBatchButton({
 }
 
 // ============================================================
-//  Suppression d'un bulletin (avec confirmation)
+//  Suppression d'un bulletin — icône discrète + confirmation
 // ============================================================
 export function DeletePayrollButton({ payrollId }: { payrollId: string }) {
-  const [confirm, setConfirm] = useState(false);
-  const action = deletePayrollRecord.bind(null, payrollId);
-  const [state, formAction, pending] = useActionState<PayrollActionState, FormData>(
-    action,
-    undefined,
-  );
-  if (!confirm) {
-    return (
-      <button
-        type="button"
-        onClick={() => setConfirm(true)}
-        className="text-[12px] font-medium text-gray-500 transition hover:text-sc-danger"
-        title="Supprimer ce bulletin"
-      >
-        Supprimer
-      </button>
-    );
-  }
   return (
-    <form action={formAction} className="inline-flex items-center gap-1.5">
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-sc-danger px-2.5 py-1 text-[11.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-      >
-        {pending ? "…" : "Confirmer"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setConfirm(false)}
-        className="text-[11px] text-gray-500 hover:text-sc-blue-darker"
-      >
-        Annuler
-      </button>
-      {state && !state.ok && (
-        <span className="text-[11px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
+    <ConfirmSubmitButton
+      action={deletePayrollRecord.bind(null, payrollId) as never}
+      title="Supprimer ce bulletin"
+      confirmText="Supprimer ce bulletin ?"
+    />
   );
 }
 

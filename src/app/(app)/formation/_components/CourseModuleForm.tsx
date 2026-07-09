@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { addCourseModule, deleteCourseModule } from "../_lib/actions";
 import type {
   CourseModuleFormState,
@@ -82,24 +83,11 @@ export function CourseModuleForm({ courseId }: { courseId: string }) {
 }
 
 export function DeleteModuleButton({ moduleId }: { moduleId: string }) {
-  const action = deleteCourseModule.bind(null, moduleId);
-  const [state, formAction, pending] = useActionState<TrainingActionState, FormData>(
-    action,
-    undefined,
-  );
   return (
-    <form action={formAction} className="inline">
-      <button
-        type="submit"
-        disabled={pending}
-        title="Supprimer ce module"
-        className="text-[11px] text-gray-400 transition hover:text-sc-danger disabled:opacity-60"
-      >
-        {pending ? "…" : "Supprimer"}
-      </button>
-      {state && !state.ok && (
-        <span className="ml-1 text-[10.5px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
+    <ConfirmSubmitButton
+      action={deleteCourseModule.bind(null, moduleId) as never}
+      label="Supprimer"
+      confirmText="Supprimer ce module ?"
+    />
   );
 }

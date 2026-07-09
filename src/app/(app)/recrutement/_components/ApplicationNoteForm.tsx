@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useEffect } from "react";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import {
   addApplicationNote,
   deleteApplicationNote,
@@ -50,24 +51,11 @@ export function ApplicationNoteForm({ applicationId }: { applicationId: string }
 }
 
 export function DeleteNoteButton({ noteId }: { noteId: string }) {
-  const action = deleteApplicationNote.bind(null, noteId);
-  const [state, formAction, pending] = useActionState<RecruitmentActionState, FormData>(
-    action,
-    undefined,
-  );
   return (
-    <form action={formAction} className="inline">
-      <button
-        type="submit"
-        disabled={pending}
-        title="Supprimer cette note"
-        className="text-[10.5px] text-gray-400 transition hover:text-sc-danger disabled:opacity-60"
-      >
-        {pending ? "…" : "✕"}
-      </button>
-      {state && !state.ok && (
-        <span className="ml-1 text-[10.5px] text-sc-danger">{state.error}</span>
-      )}
-    </form>
+    <ConfirmSubmitButton
+      action={deleteApplicationNote.bind(null, noteId) as never}
+      title="Supprimer cette note"
+      confirmText="Supprimer cette note ?"
+    />
   );
 }
