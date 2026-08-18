@@ -35,8 +35,6 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
           responsive: true,
           maintainAspectRatio: false,
           cutout: "65%",
-          // Marge pour laisser la place aux étiquettes posées hors de l'anneau.
-          layout: { padding: { top: 12, bottom: 12, left: 26, right: 26 } },
           plugins: {
             legend: {
               position: "bottom",
@@ -56,23 +54,18 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
               },
             },
             datalabels: {
-              // Étiquette placée À L'EXTÉRIEUR de l'anneau, dans la couleur de la
-              // part → toujours lisible sur le fond blanc. (Le texte blanc au
-              // milieu d'un anneau fin débordait sur le blanc et disparaissait.)
-              anchor: "end",
-              align: "end",
-              offset: 4,
               display: (ctx) => {
                 const v = Number(ctx.dataset.data[ctx.dataIndex]) || 0;
                 return total > 0 && v / total >= 0.05;
               },
-              color: (ctx) => (ctx.dataIndex === 0 ? MEN_COLOR : WOMEN_COLOR),
+              color: "#ffffff",
               font: {
                 family: COMMON_FONT_FAMILY,
                 weight: "bold",
                 size: 13,
               },
-              // Seulement le pourcentage ; le nombre exact reste au survol (tooltip).
+              // Uniquement le pourcentage (config identique à « Masse salariale
+              // par sexe » qui s'affiche correctement). Le nombre reste au survol.
               formatter: (value) => {
                 const v = Number(value) || 0;
                 if (total === 0) return "";
