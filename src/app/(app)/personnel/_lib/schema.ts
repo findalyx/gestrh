@@ -87,6 +87,15 @@ export const AgentFormSchema = z
       });
     }
 
+    // Un agent parti (Inactif / Retraité) DOIT avoir une date de départ.
+    if (DEPARTED_STATUSES.includes(data.status) && !data.departureDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["departureDate"],
+        message: "La date de départ est obligatoire pour un agent parti",
+      });
+    }
+
     // Date de départ : cohérente avec l'embauche (jamais avant l'entrée).
     if (data.departureDate) {
       const dep = new Date(data.departureDate);

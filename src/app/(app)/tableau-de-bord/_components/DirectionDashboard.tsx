@@ -314,13 +314,20 @@ export async function DirectionDashboard() {
   return (
     <div className="space-y-6">
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard
           color="blue"
           icon="users"
           label="Effectif salarié"
           value={String(employeeCount)}
-          hint={`PER + PATS · ${prestataireCount} prestataire${prestataireCount > 1 ? "s" : ""} à part`}
+          hint="PER + PATS présents"
+        />
+        <KpiCard
+          color="warning"
+          icon="users"
+          label="Prestataires"
+          value={String(prestataireCount)}
+          hint="Hors effectif salarié"
         />
         <KpiCard
           color="purple"

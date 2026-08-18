@@ -386,6 +386,7 @@ export function AgentForm({
             <Field
               label="Date de départ"
               name="departureDate"
+              required
               error={err("departureDate")}
             >
               <input
@@ -393,6 +394,7 @@ export function AgentForm({
                 name="departureDate"
                 type="date"
                 defaultValue={v("departureDate") as string}
+                required
                 className={inputCls}
               />
             </Field>
