@@ -141,12 +141,22 @@ export default async function StatistiquesPage() {
     VACATAIRE: 0,
     PRESTATION: 0,
   };
-  // Répartition par catégorie
-  const byCategory: Record<StaffCategory, number> = {
+  // Effectif présent par catégorie — compté par AGENT (Actif / Suspendu), pas
+  // par contrat : reflète les personnes réellement en poste, même celles sans
+  // contrat actif enregistré (ex. enseignants sans contrat saisi).
+  const agentCategoryRows = await prisma.agent.groupBy({
+    by: ["category"],
+    where: { status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] } },
+    _count: { _all: true },
+  });
+  const headByCategory: Record<StaffCategory, number> = {
     PER: 0,
     PATS: 0,
     PRESTATAIRE: 0,
   };
+  for (const r of agentCategoryRows) headByCategory[r.category] = r._count._all;
+  const headTotal =
+    headByCategory.PER + headByCategory.PATS + headByCategory.PRESTATAIRE;
   // Par service
   const byService = new Map<string, { name: string; count: number; mass: number }>();
 
@@ -154,7 +164,6 @@ export default async function StatistiquesPage() {
     const salary = salaryOf(c.agent.id);
     byType[c.type]++;
     massByType[c.type] += salary;
-    byCategory[c.agent.category]++;
     const s = byService.get(c.agent.service.id) ?? {
       name: c.agent.service.name,
       count: 0,
@@ -226,39 +235,49 @@ export default async function StatistiquesPage() {
         </Card>
 
         <Card title="Catégorie de personnel (PER / PATS / Prestataires)">
+          <p className="mb-3 text-[11.5px] text-gray-500">
+            Effectif <strong>présent</strong> compté par agent (Actif / Suspendu)
+            — indépendant du nombre de contrats.
+          </p>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-md bg-sc-blue-light p-4 text-center">
               <div className="text-[28px] font-bold leading-none text-sc-blue">
-                {byCategory.PER}
+                {headByCategory.PER}
               </div>
               <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-sc-blue">
                 PER
               </div>
               <div className="mt-2 text-[11px] text-gray-600">
-                {total > 0 ? Math.round((byCategory.PER / total) * 100) : 0} %
+                {headTotal > 0
+                  ? Math.round((headByCategory.PER / headTotal) * 100)
+                  : 0}{" "}
+                %
               </div>
             </div>
             <div className="rounded-md bg-sc-purple-light p-4 text-center">
               <div className="text-[28px] font-bold leading-none text-sc-purple">
-                {byCategory.PATS}
+                {headByCategory.PATS}
               </div>
               <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-sc-purple">
                 PATS
               </div>
               <div className="mt-2 text-[11px] text-gray-600">
-                {total > 0 ? Math.round((byCategory.PATS / total) * 100) : 0} %
+                {headTotal > 0
+                  ? Math.round((headByCategory.PATS / headTotal) * 100)
+                  : 0}{" "}
+                %
               </div>
             </div>
             <div className="rounded-md bg-sc-warning-light p-4 text-center">
               <div className="text-[28px] font-bold leading-none text-[#854f0b]">
-                {byCategory.PRESTATAIRE}
+                {headByCategory.PRESTATAIRE}
               </div>
               <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[#854f0b]">
                 Prestataires
               </div>
               <div className="mt-2 text-[11px] text-gray-600">
-                {total > 0
-                  ? Math.round((byCategory.PRESTATAIRE / total) * 100)
+                {headTotal > 0
+                  ? Math.round((headByCategory.PRESTATAIRE / headTotal) * 100)
                   : 0}{" "}
                 %
               </div>
