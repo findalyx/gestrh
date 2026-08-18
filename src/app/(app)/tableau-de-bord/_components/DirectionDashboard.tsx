@@ -28,6 +28,13 @@ const ACTIVE_AGENT_WHERE: Prisma.AgentWhereInput = {
   status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
 };
 
+// Effectif « salarié » : PER + PATS présents, hors prestataires (un prestataire
+// n'est pas une embauche). Base de l'effectif, des entrées et des départs.
+const EMPLOYEE_AGENT_WHERE: Prisma.AgentWhereInput = {
+  status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+  category: { in: [StaffCategory.PER, StaffCategory.PATS] },
+};
+
 const QUICK_MODULES: {
   href: string;
   icon: IconName;
@@ -85,6 +92,7 @@ export async function DirectionDashboard() {
 
   const [
     totalAgents,
+    employeeCount,
     perCount,
     patsCount,
     prestataireCount,
@@ -108,6 +116,7 @@ export async function DirectionDashboard() {
     payrollByGender,
   ] = await Promise.all([
     prisma.agent.count({ where: ACTIVE_AGENT_WHERE }),
+    prisma.agent.count({ where: EMPLOYEE_AGENT_WHERE }),
     prisma.agent.count({ where: { ...ACTIVE_AGENT_WHERE, category: StaffCategory.PER } }),
     prisma.agent.count({ where: { ...ACTIVE_AGENT_WHERE, category: StaffCategory.PATS } }),
     prisma.agent.count({ where: { ...ACTIVE_AGENT_WHERE, category: StaffCategory.PRESTATAIRE } }),
@@ -145,16 +154,22 @@ export async function DirectionDashboard() {
           _sum: { netSalary: true },
         })
       : Promise.resolve({ _sum: { netSalary: 0 } }),
-    // Entrées de l'année : agents réellement embauchés depuis le 1er janvier
-    // (compté par date d'embauche → reflète les embauches réelles, tous
-    // statuts confondus, indépendamment du pipeline de recrutement).
+    // Entrées de l'année : salariés (PER + PATS) embauchés depuis le 1er janvier,
+    // comptés par date d'embauche réelle. Les prestataires sont exclus (ce ne
+    // sont pas des embauches) ; tous statuts confondus sinon.
     prisma.agent.count({
-      where: { hireDate: { gte: yearStart, lte: today } },
+      where: {
+        category: { in: [StaffCategory.PER, StaffCategory.PATS] },
+        hireDate: { gte: yearStart, lte: today },
+      },
     }),
-    // Départs de l'année : agents dont la date de départ tombe cette année
+    // Départs de l'année : salariés dont la date de départ tombe cette année
     // (renseignée sur la fiche ou via une démission devenue effective).
     prisma.agent.count({
-      where: { departureDate: { gte: yearStart, lte: today } },
+      where: {
+        category: { in: [StaffCategory.PER, StaffCategory.PATS] },
+        departureDate: { gte: yearStart, lte: today },
+      },
     }),
     // Services + count d'agents (présents uniquement)
     prisma.service.findMany({
@@ -206,8 +221,8 @@ export async function DirectionDashboard() {
   const announcementCount = await prisma.announcement.count();
 
   const presenceRate =
-    totalAgents > 0
-      ? Math.round(((totalAgents - onLeaveToday) / totalAgents) * 100)
+    employeeCount > 0
+      ? Math.round(((employeeCount - onLeaveToday) / employeeCount) * 100)
       : 0;
   const perPct = totalAgents > 0 ? ((perCount / totalAgents) * 100).toFixed(1) : "0";
   const patsPct = totalAgents > 0 ? ((patsCount / totalAgents) * 100).toFixed(1) : "0";
@@ -303,9 +318,9 @@ export async function DirectionDashboard() {
         <KpiCard
           color="blue"
           icon="users"
-          label="Effectif total"
-          value={String(totalAgents)}
-          hint="Agents enregistrés"
+          label="Effectif salarié"
+          value={String(employeeCount)}
+          hint={`PER + PATS · ${prestataireCount} prestataire${prestataireCount > 1 ? "s" : ""} à part`}
         />
         <KpiCard
           color="purple"
