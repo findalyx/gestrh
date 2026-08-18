@@ -69,13 +69,14 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
               font: {
                 family: COMMON_FONT_FAMILY,
                 weight: "bold",
-                size: 11,
+                size: 13,
               },
-              // Une seule ligne « 35 · 60% » → tient dans l'épaisseur de l'anneau.
+              // Seulement le pourcentage (court → jamais rogné). Le nombre exact
+              // reste visible au survol (tooltip).
               formatter: (value) => {
                 const v = Number(value) || 0;
                 if (total === 0) return "";
-                return `${v} · ${((v / total) * 100).toFixed(0)}%`;
+                return `${((v / total) * 100).toFixed(0)}%`;
               },
             },
           },
