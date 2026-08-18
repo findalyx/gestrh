@@ -69,13 +69,13 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
               font: {
                 family: COMMON_FONT_FAMILY,
                 weight: "bold",
-                size: 12,
+                size: 11,
               },
-              // Affiche « 31 · 58% » sur chaque part
+              // Une seule ligne « 35 · 60% » → tient dans l'épaisseur de l'anneau.
               formatter: (value) => {
                 const v = Number(value) || 0;
                 if (total === 0) return "";
-                return `${v}\n${((v / total) * 100).toFixed(0)}%`;
+                return `${v} · ${((v / total) * 100).toFixed(0)}%`;
               },
             },
           },

@@ -314,20 +314,13 @@ export async function DirectionDashboard() {
   return (
     <div className="space-y-6">
       {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
           color="blue"
           icon="users"
-          label="Effectif salarié"
-          value={String(employeeCount)}
-          hint="PER + PATS présents"
-        />
-        <KpiCard
-          color="warning"
-          icon="users"
-          label="Prestataires"
-          value={String(prestataireCount)}
-          hint="Hors effectif salarié"
+          label="Effectif total"
+          value={String(totalAgents)}
+          hint="Agents présents"
         />
         <KpiCard
           color="purple"
@@ -363,7 +356,7 @@ export async function DirectionDashboard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard
           title="Répartition du personnel"
-          subtitle={`${employeeCount} salariés + ${prestataireCount} prestataires = ${totalAgents} agents`}
+          subtitle="PER · PATS · Prestataires"
         >
           <CategoryDonut
             per={perCount}
