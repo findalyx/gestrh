@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { ContractStatus, ContractType, Role } from "@prisma/client";
+import {
+  AgentStatus,
+  ContractStatus,
+  ContractType,
+  DepartureReason,
+  Role,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
@@ -171,9 +177,30 @@ export async function createContract(
   };
 }
 
+/**
+ * Statuts de contrat correspondant à une fin de contrat, avec le motif de
+ * départ associé côté agent. Les autres statuts ne déclenchent aucun départ.
+ */
+function departureReasonForContract(
+  status: ContractStatus,
+): DepartureReason | null {
+  switch (status) {
+    case ContractStatus.EXPIRE:
+      return DepartureReason.FIN_CDD;
+    case ContractStatus.RESILIE:
+      return DepartureReason.LICENCIEMENT;
+    case ContractStatus.ROMPU:
+      return DepartureReason.DEMISSION;
+    default:
+      return null;
+  }
+}
+
 // ============================================================
 //  MODIFIER UN CONTRAT — DRH + DIRECTION
 //  Modifie type/statut/dates/grade/salaire (pas la référence ni le document).
+//  Fin de contrat (Expiré/Résilié/Rompu) → l'agent est marqué parti (Inactif)
+//  avec cette date, sauf s'il conserve un autre contrat actif.
 // ============================================================
 export async function updateContract(
   contractId: string,
@@ -217,6 +244,51 @@ export async function updateContract(
     },
   });
 
+  // Auto-lien : fin de contrat (Expiré / Résilié / Rompu) → départ de l'agent.
+  let departedOn: string | null = null;
+  const depReason = departureReasonForContract(data.status);
+  if (depReason) {
+    // Uniquement si l'agent ne conserve AUCUN autre contrat actif.
+    const otherActive = await prisma.contract.count({
+      where: {
+        agentId: contract.agentId,
+        status: ContractStatus.ACTIF,
+        id: { not: contractId },
+      },
+    });
+    if (otherActive === 0) {
+      const agent = await prisma.agent.findUnique({
+        where: { id: contract.agentId },
+        select: { status: true },
+      });
+      // On ne bascule que s'il est encore présent — sans écraser un départ
+      // déjà renseigné (agent déjà Inactif / Retraité).
+      if (
+        agent &&
+        (agent.status === AgentStatus.ACTIF ||
+          agent.status === AgentStatus.SUSPENDU)
+      ) {
+        const departureDate = data.endDate ? new Date(data.endDate) : new Date();
+        await prisma.agent.update({
+          where: { id: contract.agentId },
+          data: {
+            status: AgentStatus.INACTIF,
+            departureDate,
+            departureReason: depReason,
+          },
+        });
+        departedOn = departureDate.toLocaleDateString("fr-FR");
+        await logAudit({
+          userId: me.id,
+          action: "AUTO_DEPART_AGENT",
+          entity: "Agent",
+          entityId: contract.agentId,
+          details: `Contrat ${contract.reference} ${data.status} → agent Inactif au ${departureDate.toISOString().slice(0, 10)}`,
+        });
+      }
+    }
+  }
+
   await logAudit({
     userId: me.id,
     action: "UPDATE_CONTRACT",
@@ -226,7 +298,17 @@ export async function updateContract(
   });
 
   revalidatePath(`/personnel/${contract.agentId}`);
-  return { ok: true, message: "Contrat mis à jour." };
+  if (departedOn) {
+    revalidatePath("/tableau-de-bord");
+    revalidatePath("/personnel/statistiques");
+    revalidatePath("/personnel");
+  }
+  return {
+    ok: true,
+    message: departedOn
+      ? `Contrat mis à jour. Agent marqué comme parti (Inactif) au ${departedOn}.`
+      : "Contrat mis à jour.",
+  };
 }
 
 // ============================================================
