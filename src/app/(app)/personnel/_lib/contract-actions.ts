@@ -259,22 +259,24 @@ export async function updateContract(
     if (otherActive === 0) {
       const agent = await prisma.agent.findUnique({
         where: { id: contract.agentId },
-        select: { status: true },
+        select: { status: true, departureDate: true },
       });
-      // On ne bascule que s'il est encore présent — sans écraser un départ
-      // déjà renseigné (agent déjà Inactif / Retraité).
-      if (
-        agent &&
-        (agent.status === AgentStatus.ACTIF ||
-          agent.status === AgentStatus.SUSPENDU)
-      ) {
+      // On agit tant qu'aucune date de départ n'est posée (jamais d'écrasement).
+      if (agent && !agent.departureDate) {
         const departureDate = data.endDate ? new Date(data.endDate) : new Date();
+        const stillPresent =
+          agent.status === AgentStatus.ACTIF ||
+          agent.status === AgentStatus.SUSPENDU;
         await prisma.agent.update({
           where: { id: contract.agentId },
           data: {
-            status: AgentStatus.INACTIF,
             departureDate,
-            departureReason: depReason,
+            // Encore présent → on le bascule Inactif + motif du contrat.
+            // Déjà parti (ex. Retraité) → on garde son statut et son motif, on
+            // ne fait que compléter la date de départ manquante.
+            ...(stillPresent
+              ? { status: AgentStatus.INACTIF, departureReason: depReason }
+              : {}),
           },
         });
         departedOn = departureDate.toLocaleDateString("fr-FR");
@@ -283,7 +285,7 @@ export async function updateContract(
           action: "AUTO_DEPART_AGENT",
           entity: "Agent",
           entityId: contract.agentId,
-          details: `Contrat ${contract.reference} ${data.status} → agent Inactif au ${departureDate.toISOString().slice(0, 10)}`,
+          details: `Contrat ${contract.reference} ${data.status} → départ agent au ${departureDate.toISOString().slice(0, 10)}`,
         });
       }
     }
@@ -306,7 +308,7 @@ export async function updateContract(
   return {
     ok: true,
     message: departedOn
-      ? `Contrat mis à jour. Agent marqué comme parti (Inactif) au ${departedOn}.`
+      ? `Contrat mis à jour. Départ de l'agent enregistré au ${departedOn}.`
       : "Contrat mis à jour.",
   };
 }
