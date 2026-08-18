@@ -1,7 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ContractStatus, ResignationStatus, Role } from "@prisma/client";
+import {
+  AgentStatus,
+  ContractStatus,
+  DepartureReason,
+  ResignationStatus,
+  Role,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
@@ -240,6 +246,7 @@ export async function markResignationEffective(
       status: true,
       contractId: true,
       signedFileName: true,
+      effectiveDate: true,
       contract: { select: { agentId: true } },
     },
   });
@@ -261,6 +268,15 @@ export async function markResignationEffective(
     prisma.contract.update({
       where: { id: r.contractId },
       data: { status: ContractStatus.ROMPU },
+    }),
+    // Le départ se reflète sur la fiche agent : statut Inactif + date/motif.
+    prisma.agent.update({
+      where: { id: r.contract.agentId },
+      data: {
+        status: AgentStatus.INACTIF,
+        departureDate: r.effectiveDate,
+        departureReason: DepartureReason.DEMISSION,
+      },
     }),
   ]);
 

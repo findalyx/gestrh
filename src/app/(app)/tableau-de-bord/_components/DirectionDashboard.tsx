@@ -98,7 +98,7 @@ export async function DirectionDashboard() {
     evalsDone,
     payrollThisPeriod,
     massLatestPeriod,
-    recruitedThisYear,
+    hiresThisYear,
     departuresThisYear,
     services,
     agentsForAgePyramid,
@@ -145,19 +145,16 @@ export async function DirectionDashboard() {
           _sum: { netSalary: true },
         })
       : Promise.resolve({ _sum: { netSalary: 0 } }),
-    // Recrutements de l'année (candidats passés à RECRUTE depuis le 1er janvier)
-    prisma.application.count({
-      where: {
-        stage: ApplicationStage.RECRUTE,
-        updatedAt: { gte: yearStart },
-      },
+    // Entrées de l'année : agents réellement embauchés depuis le 1er janvier
+    // (compté par date d'embauche → reflète les embauches réelles, tous
+    // statuts confondus, indépendamment du pipeline de recrutement).
+    prisma.agent.count({
+      where: { hireDate: { gte: yearStart, lte: today } },
     }),
-    // Départs de l'année : contrats expirés/résiliés cette année
-    prisma.contract.count({
-      where: {
-        status: { in: [ContractStatus.EXPIRE, ContractStatus.RESILIE] },
-        endDate: { gte: yearStart, lte: today },
-      },
+    // Départs de l'année : agents dont la date de départ tombe cette année
+    // (renseignée sur la fiche ou via une démission devenue effective).
+    prisma.agent.count({
+      where: { departureDate: { gte: yearStart, lte: today } },
     }),
     // Services + count d'agents (présents uniquement)
     prisma.service.findMany({
@@ -334,8 +331,8 @@ export async function DirectionDashboard() {
         <KpiCard
           color="warning"
           icon="recruitment"
-          label={`Recrutements ${today.getFullYear()}`}
-          value={String(recruitedThisYear)}
+          label={`Entrées ${today.getFullYear()}`}
+          value={String(hiresThisYear)}
           hint={`vs ${departuresThisYear} départ${departuresThisYear > 1 ? "s" : ""}`}
         />
       </div>

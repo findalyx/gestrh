@@ -10,7 +10,12 @@ import {
   ContractTypeLabel,
 } from "@/components/Badges";
 import { Icon } from "@/components/Icon";
-import { Role, type Gender, type StaffSubCategory } from "@prisma/client";
+import {
+  Role,
+  type DepartureReason,
+  type Gender,
+  type StaffSubCategory,
+} from "@prisma/client";
 import {
   DeleteContractPdfButton,
   NewContractForm,
@@ -37,6 +42,17 @@ const SUB_CATEGORY_LABEL: Record<StaffSubCategory, string> = {
 const GENDER_LABEL: Record<Gender, string> = {
   HOMME: "Homme",
   FEMME: "Femme",
+};
+
+const DEPARTURE_REASON_LABEL: Record<DepartureReason, string> = {
+  DEMISSION: "Démission",
+  FIN_CDD: "Fin de contrat (CDD)",
+  LICENCIEMENT: "Licenciement",
+  RETRAITE: "Départ à la retraite",
+  RUPTURE_CONVENTIONNELLE: "Rupture d'un commun accord",
+  ABANDON_POSTE: "Abandon de poste",
+  DECES: "Décès",
+  AUTRE: "Autre motif",
 };
 
 const FCFA = new Intl.NumberFormat("fr-FR");
@@ -136,7 +152,7 @@ export default async function AgentDetailPage({
 
   const initials = `${agent.firstName[0]}${agent.lastName[0]}`.toUpperCase();
   const activeContract = agent.contracts.find((c) => c.status === "ACTIF");
-  const seniority = yearsBetween(agent.hireDate, null);
+  const seniority = yearsBetween(agent.hireDate, agent.departureDate);
 
   return (
     <div className="space-y-6">
@@ -236,6 +252,14 @@ export default async function AgentDetailPage({
           <p className="text-[11.5px] text-gray-500">
             Embauché le {formatDate(agent.hireDate)}
           </p>
+          {agent.departureDate && (
+            <p className="text-[11.5px] font-medium text-sc-danger">
+              Parti le {formatDate(agent.departureDate)}
+              {agent.departureReason
+                ? ` · ${DEPARTURE_REASON_LABEL[agent.departureReason]}`
+                : ""}
+            </p>
+          )}
         </div>
       </div>
 

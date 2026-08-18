@@ -1,10 +1,17 @@
 import { z } from "zod";
 import {
   AgentStatus,
+  DepartureReason,
   Gender,
   StaffCategory,
   StaffSubCategory,
 } from "@prisma/client";
+
+// Statuts correspondant à un agent qui a quitté l'organisation.
+export const DEPARTED_STATUSES: AgentStatus[] = [
+  AgentStatus.INACTIF,
+  AgentStatus.RETRAITE,
+];
 
 const SUB_BY_CATEGORY: Record<StaffCategory, StaffSubCategory[]> = {
   PER: [StaffSubCategory.PER_ENSEIGNEMENT, StaffSubCategory.PER_RECHERCHE],
@@ -53,6 +60,12 @@ export const AgentFormSchema = z
     serviceId: z.string().trim().min(1, "Le service est requis"),
     status: z.nativeEnum(AgentStatus).default(AgentStatus.ACTIF),
     hireDate: dateString.min(1, "La date d'embauche est requise"),
+    // Sortie de l'agent (renseignée quand le statut est Inactif / Retraité).
+    departureDate: dateString.optional().or(z.literal("")),
+    departureReason: z
+      .nativeEnum(DepartureReason)
+      .optional()
+      .or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     // Cohérence catégorie / sous-catégorie
@@ -72,6 +85,22 @@ export const AgentFormSchema = z
         path: ["hireDate"],
         message: "La date d'embauche ne peut pas être future",
       });
+    }
+
+    // Date de départ : cohérente avec l'embauche (jamais avant l'entrée).
+    if (data.departureDate) {
+      const dep = new Date(data.departureDate);
+      if (
+        !Number.isNaN(dep.getTime()) &&
+        !Number.isNaN(hire.getTime()) &&
+        dep.getTime() < hire.getTime()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["departureDate"],
+          message: "La date de départ ne peut pas précéder l'embauche",
+        });
+      }
     }
 
     // Date de naissance plausible

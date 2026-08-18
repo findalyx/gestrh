@@ -2,7 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Prisma, Role, StaffCategory } from "@prisma/client";
+import {
+  AgentStatus,
+  DepartureReason,
+  Prisma,
+  Role,
+  StaffCategory,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
@@ -53,6 +59,27 @@ function rawFormValues(formData: FormData) {
     serviceId: String(formData.get("serviceId") ?? ""),
     status: String(formData.get("status") ?? "ACTIF"),
     hireDate: String(formData.get("hireDate") ?? ""),
+    departureDate: String(formData.get("departureDate") ?? ""),
+    departureReason: String(formData.get("departureReason") ?? ""),
+  };
+}
+
+/**
+ * Normalise la sortie : la date et le motif de départ n'ont de sens que si
+ * l'agent a réellement quitté (statut Inactif / Retraité). Pour un agent
+ * Actif / Suspendu on force les deux à null pour éviter toute incohérence.
+ */
+function resolveDeparture(data: {
+  status: AgentStatus;
+  departureDate?: string;
+  departureReason?: string;
+}): { departureDate: Date | null; departureReason: DepartureReason | null } {
+  const hasLeft =
+    data.status === AgentStatus.INACTIF || data.status === AgentStatus.RETRAITE;
+  if (!hasLeft) return { departureDate: null, departureReason: null };
+  return {
+    departureDate: data.departureDate ? new Date(data.departureDate) : null,
+    departureReason: (data.departureReason as DepartureReason) || null,
   };
 }
 
@@ -122,6 +149,7 @@ export async function createAgent(
           serviceId: data.serviceId,
           status: data.status,
           hireDate: new Date(data.hireDate),
+          ...resolveDeparture(data),
         },
         select: { id: true, matricule: true },
       });
@@ -187,10 +215,38 @@ export async function updateAgent(
     };
   }
 
+  // Matricule désormais modifiable (certains ont été mal générés).
+  //  - champ laissé vide  → on conserve le matricule actuel ;
+  //  - champ renseigné    → on impose l'unicité avant d'écrire.
+  const current = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { matricule: true },
+  });
+  if (!current) {
+    return { errors: { _form: ["Cet agent n'existe plus"] }, values: raw };
+  }
+  const wantedMatricule = (data.matricule ?? "").trim();
+  const newMatricule = wantedMatricule || current.matricule;
+  if (newMatricule !== current.matricule) {
+    const clash = await prisma.agent.findUnique({
+      where: { matricule: newMatricule },
+      select: { id: true },
+    });
+    if (clash && clash.id !== agentId) {
+      return {
+        errors: {
+          matricule: ["Ce matricule est déjà utilisé par un autre agent"],
+        },
+        values: raw,
+      };
+    }
+  }
+
   try {
     await prisma.agent.update({
       where: { id: agentId },
       data: {
+        matricule: newMatricule,
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
@@ -207,6 +263,7 @@ export async function updateAgent(
         serviceId: data.serviceId,
         status: data.status,
         hireDate: new Date(data.hireDate),
+        ...resolveDeparture(data),
       },
     });
 
@@ -219,6 +276,14 @@ export async function updateAgent(
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      if (e.code === "P2002") {
+        return {
+          errors: {
+            matricule: ["Ce matricule est déjà utilisé par un autre agent"],
+          },
+          values: raw,
+        };
+      }
       if (e.code === "P2025") {
         return {
           errors: { _form: ["Cet agent n'existe plus"] },

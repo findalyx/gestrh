@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import {
   AgentStatus,
+  DepartureReason,
   Gender,
   StaffCategory,
   StaffSubCategory,
@@ -31,6 +32,8 @@ export type AgentFormDefaults = {
   serviceId?: string;
   status?: AgentStatus;
   hireDate?: string; // YYYY-MM-DD
+  departureDate?: string; // YYYY-MM-DD
+  departureReason?: DepartureReason | "";
 };
 
 type Service = { id: string; name: string; code: string };
@@ -59,6 +62,24 @@ const STATUS_LABEL: Record<AgentStatus, string> = {
   INACTIF: "Inactif",
 };
 
+const DEPARTURE_REASON_LABEL: Record<DepartureReason, string> = {
+  DEMISSION: "Démission",
+  FIN_CDD: "Fin de contrat (CDD)",
+  LICENCIEMENT: "Licenciement",
+  RETRAITE: "Départ à la retraite",
+  RUPTURE_CONVENTIONNELLE: "Rupture d'un commun accord",
+  ABANDON_POSTE: "Abandon de poste",
+  DECES: "Décès",
+  AUTRE: "Autre motif",
+};
+
+// Statuts qui correspondent à un agent ayant quitté l'organisation :
+// la section « Départ » n'apparaît que pour ceux-là.
+const DEPARTED_STATUSES: AgentStatus[] = [
+  AgentStatus.INACTIF,
+  AgentStatus.RETRAITE,
+];
+
 export function AgentForm({
   services,
   defaults,
@@ -80,6 +101,14 @@ export function AgentForm({
       StaffCategory.PER,
   );
 
+  // Le statut pilote l'affichage de la section « Départ » (date + motif).
+  const [status, setStatus] = useState<AgentStatus>(
+    (state?.values?.status as AgentStatus) ??
+      defaults.status ??
+      AgentStatus.ACTIF,
+  );
+  const hasLeft = DEPARTED_STATUSES.includes(status);
+
   const v = (key: keyof AgentFormDefaults) =>
     state?.values?.[key] ?? defaults[key] ?? "";
 
@@ -93,30 +122,34 @@ export function AgentForm({
         </div>
       )}
 
-      {matricule ? (
-        <div className="rounded-lg border border-sc-border bg-sc-blue-bg px-4 py-2.5 text-[12.5px]">
-          Matricule : <span className="font-mono font-semibold">{matricule}</span>{" "}
-          <span className="text-gray-500">— ne peut pas être modifié</span>
-        </div>
-      ) : (
-        <FieldGroup title="Immatriculation">
-          <Field label="Matricule (optionnel)" name="matricule" error={err("matricule")}>
-            <input
-              id="matricule"
-              name="matricule"
-              defaultValue={v("matricule") as string}
-              placeholder="Auto si vide — ex. 3110"
-              className={inputCls}
-            />
-          </Field>
+      <FieldGroup title="Immatriculation">
+        <Field
+          label={matricule ? "Matricule" : "Matricule (optionnel)"}
+          name="matricule"
+          error={err("matricule")}
+        >
+          <input
+            id="matricule"
+            name="matricule"
+            defaultValue={(v("matricule") as string) || matricule || ""}
+            placeholder={matricule ? "" : "Auto si vide — ex. 3110"}
+            className={`${inputCls} font-mono`}
+          />
+        </Field>
+        {matricule ? (
+          <p className="text-[11.5px] text-gray-500">
+            Modifiable pour corriger un matricule mal attribué. Il sert à
+            rattacher les bulletins de paie importés — conservez le numéro réel
+            de l&apos;agent (ex. <span className="font-mono">3110</span>).
+          </p>
+        ) : (
           <p className="text-[11.5px] text-gray-500">
             Laissez vide pour une attribution automatique. Renseignez le
-            matricule réel (ex.{" "}
-            <span className="font-mono">3110</span>) pour rattacher à cette fiche
-            des bulletins de paie déjà importés.
+            matricule réel (ex. <span className="font-mono">3110</span>) pour
+            rattacher à cette fiche des bulletins de paie déjà importés.
           </p>
-        </FieldGroup>
-      )}
+        )}
+      </FieldGroup>
 
       <FieldGroup title="Identité">
         <Row>
@@ -324,7 +357,8 @@ export function AgentForm({
             <select
               id="status"
               name="status"
-              defaultValue={(v("status") as string) || AgentStatus.ACTIF}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as AgentStatus)}
               required
               className={inputCls}
             >
@@ -337,6 +371,59 @@ export function AgentForm({
           </Field>
         </Row>
       </FieldGroup>
+
+      {/* Section « Départ » — visible seulement pour un agent parti
+          (statut Inactif ou Retraité). Alimente les statistiques de départs. */}
+      {hasLeft && (
+        <FieldGroup title="Départ de l'agent">
+          <p className="text-[11.5px] text-gray-500">
+            Cet agent est marqué comme{" "}
+            <span className="font-semibold">{STATUS_LABEL[status]}</span>.
+            Renseignez sa date de départ et le motif pour que les mouvements de
+            personnel (entrées / départs) reflètent la réalité.
+          </p>
+          <Row>
+            <Field
+              label="Date de départ"
+              name="departureDate"
+              error={err("departureDate")}
+            >
+              <input
+                id="departureDate"
+                name="departureDate"
+                type="date"
+                defaultValue={v("departureDate") as string}
+                className={inputCls}
+              />
+            </Field>
+            <Field
+              label="Motif du départ"
+              name="departureReason"
+              error={err("departureReason")}
+            >
+              <select
+                id="departureReason"
+                name="departureReason"
+                defaultValue={
+                  (v("departureReason") as string) ||
+                  (status === AgentStatus.RETRAITE
+                    ? DepartureReason.RETRAITE
+                    : DepartureReason.DEMISSION)
+                }
+                className={inputCls}
+              >
+                {(Object.keys(DEPARTURE_REASON_LABEL) as DepartureReason[]).map(
+                  (r) => (
+                    <option key={r} value={r}>
+                      {DEPARTURE_REASON_LABEL[r]}
+                    </option>
+                  ),
+                )}
+              </select>
+            </Field>
+          </Row>
+        </FieldGroup>
+      )}
 
       <div className="flex items-center justify-end gap-3 border-t border-sc-border pt-5">
         <Link

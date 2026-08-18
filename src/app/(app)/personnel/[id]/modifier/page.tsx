@@ -61,6 +61,7 @@ export default async function EditAgentPage({
         services={services}
         matricule={agent.matricule}
         defaults={{
+          matricule: agent.matricule,
           firstName: agent.firstName,
           lastName: agent.lastName,
           email: agent.email,
@@ -77,6 +78,8 @@ export default async function EditAgentPage({
           serviceId: agent.serviceId,
           status: agent.status,
           hireDate: toDateInput(agent.hireDate),
+          departureDate: toDateInput(agent.departureDate),
+          departureReason: agent.departureReason ?? "",
         }}
         submitLabel="Enregistrer"
         cancelHref={`/personnel/${id}`}
