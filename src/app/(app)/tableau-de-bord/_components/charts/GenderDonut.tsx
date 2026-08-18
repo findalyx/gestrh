@@ -35,6 +35,8 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
           responsive: true,
           maintainAspectRatio: false,
           cutout: "65%",
+          // Marge pour que les étiquettes (nombre + %) ne touchent pas le bord.
+          layout: { padding: { top: 10, bottom: 10, left: 16, right: 16 } },
           plugins: {
             legend: {
               position: "bottom",
@@ -54,6 +56,11 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
               },
             },
             datalabels: {
+              // Ancre au milieu de l'anneau et bornée au cadre → jamais rognée.
+              anchor: "center",
+              align: "center",
+              clamp: true,
+              textAlign: "center",
               display: (ctx) => {
                 const v = Number(ctx.dataset.data[ctx.dataIndex]) || 0;
                 return total > 0 && v / total >= 0.05;
@@ -62,7 +69,7 @@ export function GenderDonut({ men, women }: { men: number; women: number }) {
               font: {
                 family: COMMON_FONT_FAMILY,
                 weight: "bold",
-                size: 13,
+                size: 12,
               },
               // Affiche « 31 · 58% » sur chaque part
               formatter: (value) => {
