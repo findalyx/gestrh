@@ -16,6 +16,7 @@ export type ParsedPayslip = {
   brut: number | null;
   net: number | null;
   cotisation: number | null; // cotisations salariales (1er montant après « Total cotisation »)
+  patronale: number | null; // charges patronales (2e montant après « Total cotisation »)
 };
 
 const MONTHS: Record<string, string> = {
@@ -62,6 +63,29 @@ function firstAmount(s: string | undefined | null): number | null {
   return digits ? Number.parseInt(digits, 10) : null;
 }
 
+/**
+ * Reconstruit le DEUXIÈME nombre français d'une suite « 14 048 46 463 » : on
+ * saute le 1er nombre (token initial + groupes de 3 chiffres), puis on lit le
+ * nombre suivant de la même façon. Sert à extraire la part PATRONALE alignée
+ * après la part salariale sur la ligne « Total cotisation ».
+ */
+function secondAmount(s: string | undefined | null): number | null {
+  if (!s) return null;
+  const tokens = s.trim().split(/[\s   ]+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+  // Fin du 1er nombre : on avance tant que les tokens sont des groupes de 3 chiffres.
+  let i = 1;
+  while (i < tokens.length && /^\d{3}$/.test(tokens[i])) i++;
+  if (i >= tokens.length) return null; // pas de 2e nombre
+  let acc = tokens[i];
+  for (let j = i + 1; j < tokens.length; j++) {
+    if (/^\d{3}$/.test(tokens[j])) acc += tokens[j];
+    else break;
+  }
+  const digits = acc.replace(/[^0-9]/g, "");
+  return digits ? Number.parseInt(digits, 10) : null;
+}
+
 function parsePeriod(text: string): string | null {
   const m = text.match(
     /\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})/i,
@@ -91,6 +115,8 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
     net: toInt(net?.[1]),
     // 1er nombre uniquement (salarial), pas salarial+patronal collés.
     cotisation: firstAmount(cotis?.[1]),
+    // 2e nombre = charges patronales (part employeur).
+    patronale: secondAmount(cotis?.[1]),
   };
 }
 

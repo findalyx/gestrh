@@ -544,7 +544,8 @@ model PayrollRecord {
   baseSalary  Int           // FCFA
   bonuses     Int           @default(0) // primes & indemnités
   allowances  Int           @default(0) // allocations
-  deductions  Int           @default(0) // cotisations CSS / IPRES / IPM
+  deductions  Int           @default(0) // cotisations salariales (part employé)
+  chargesPatronales Int      @default(0) // charges patronales (part employeur)
   netSalary   Int
   status      PayrollStatus @default(BROUILLON)
   pdfUrl      String?

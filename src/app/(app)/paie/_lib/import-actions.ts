@@ -231,6 +231,12 @@ async function processPayslipsBuffer({
       p.cotisation != null && p.cotisation > 0 && p.cotisation < brut
         ? p.cotisation
         : Math.max(0, brut - p.net);
+    // Charges patronales (2e montant du « Total cotisation »). Garde-fou :
+    // strictement positif et < brut (rejette une extraction douteuse).
+    const chargesPatronales =
+      p.patronale != null && p.patronale > 0 && p.patronale < brut
+        ? p.patronale
+        : 0;
     const pdfUrl = await saveIndividualBulletin(p.page, p.period, agent.id);
 
     const existing = await prisma.payrollRecord.findUnique({
@@ -244,6 +250,7 @@ async function processPayslipsBuffer({
         period: p.period,
         baseSalary: brut,
         deductions,
+        chargesPatronales,
         netSalary: p.net,
         status: PayrollStatus.PAYE,
         pdfUrl,
@@ -251,6 +258,7 @@ async function processPayslipsBuffer({
       update: {
         baseSalary: brut,
         deductions,
+        chargesPatronales,
         netSalary: p.net,
         status: PayrollStatus.PAYE,
         ...(pdfUrl ? { pdfUrl } : {}),

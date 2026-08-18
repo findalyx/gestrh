@@ -147,14 +147,24 @@ export async function DirectionDashboard() {
     prisma.evaluation.count(),
     prisma.evaluation.count({ where: { status: EvaluationStatus.TERMINEE } }),
     prisma.payrollRecord.count({ where: { period: latestPeriod?.period ?? "" } }),
-    // Masse salariale brute de la dernière période (base + primes + allocations)
+    // Coût employeur de la dernière période (brut + charges patronales)
     latestPeriod
       ? prisma.payrollRecord.aggregate({
           where: { period: latestPeriod.period },
-          _sum: { baseSalary: true, bonuses: true, allowances: true },
+          _sum: {
+            baseSalary: true,
+            bonuses: true,
+            allowances: true,
+            chargesPatronales: true,
+          },
         })
       : Promise.resolve({
-          _sum: { baseSalary: 0, bonuses: 0, allowances: 0 },
+          _sum: {
+            baseSalary: 0,
+            bonuses: 0,
+            allowances: 0,
+            chargesPatronales: 0,
+          },
         }),
     // Entrées de l'année : salariés (PER + PATS) embauchés depuis le 1er janvier,
     // comptés par date d'embauche réelle. Les prestataires sont exclus (ce ne
@@ -194,11 +204,16 @@ export async function DirectionDashboard() {
       by: ["stage"],
       _count: { _all: true },
     }),
-    // Masse salariale brute par période (12 dernières périodes réelles)
+    // Coût employeur par période (12 dernières périodes réelles)
     prisma.payrollRecord.groupBy({
       by: ["period"],
       where: { netSalary: { gt: 0 } },
-      _sum: { baseSalary: true, bonuses: true, allowances: true },
+      _sum: {
+        baseSalary: true,
+        bonuses: true,
+        allowances: true,
+        chargesPatronales: true,
+      },
       orderBy: { period: "asc" },
       take: 12,
     }),
@@ -208,14 +223,15 @@ export async function DirectionDashboard() {
       where: ACTIVE_AGENT_WHERE,
       _count: { _all: true },
     }),
-    // Masse salariale brute par sexe — agrégée en mémoire après (groupBy ne
-    // supporte pas de join direct sur le genre de l'agent).
+    // Coût employeur par sexe — agrégé en mémoire après (groupBy ne supporte
+    // pas de join direct sur le genre de l'agent).
     prisma.payrollRecord.findMany({
       where: { period: latestPeriod?.period ?? "" },
       select: {
         baseSalary: true,
         bonuses: true,
         allowances: true,
+        chargesPatronales: true,
         agent: { select: { gender: true } },
       },
     }),
@@ -256,22 +272,24 @@ export async function DirectionDashboard() {
     count: stageCount.get(s) ?? 0,
   }));
 
-  // Masse salariale brute par période
+  // Coût employeur par période (brut + charges patronales)
   const payrollData = payrollsByPeriod.map((p) => ({
     period: p.period,
     total:
       (p._sum.baseSalary ?? 0) +
       (p._sum.bonuses ?? 0) +
-      (p._sum.allowances ?? 0),
+      (p._sum.allowances ?? 0) +
+      (p._sum.chargesPatronales ?? 0),
   }));
 
-  // Masse salariale brute par sexe (période courante)
+  // Coût employeur par sexe (période courante)
   let menPayroll = 0;
   let womenPayroll = 0;
   for (const r of payrollByGender) {
-    const brut = r.baseSalary + r.bonuses + r.allowances;
-    if (r.agent.gender === Gender.HOMME) menPayroll += brut;
-    else womenPayroll += brut;
+    const cout =
+      r.baseSalary + r.bonuses + r.allowances + r.chargesPatronales;
+    if (r.agent.gender === Gender.HOMME) menPayroll += cout;
+    else womenPayroll += cout;
   }
 
   // Répartition par sexe (effectif)
@@ -290,10 +308,11 @@ export async function DirectionDashboard() {
 
   // Mise en forme compacte FCFA
   const FCFA = new Intl.NumberFormat("fr-FR");
-  const massBrut =
+  const massCout =
     (massLatestPeriod._sum.baseSalary ?? 0) +
     (massLatestPeriod._sum.bonuses ?? 0) +
-    (massLatestPeriod._sum.allowances ?? 0);
+    (massLatestPeriod._sum.allowances ?? 0) +
+    (massLatestPeriod._sum.chargesPatronales ?? 0);
   const compactFcfa = (n: number): string => {
     if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} Md`;
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;
@@ -343,9 +362,9 @@ export async function DirectionDashboard() {
         <KpiCard
           color="green"
           icon="payroll"
-          label="Masse salariale"
-          value={compactFcfa(massBrut)}
-          hint={`Brut · ${periodLabel}`}
+          label="Coût employeur"
+          value={compactFcfa(massCout)}
+          hint={`Chargé · ${periodLabel}`}
         />
         <KpiCard
           color="teal"
@@ -432,7 +451,7 @@ export async function DirectionDashboard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <ChartCard
-            title="Masse salariale brute"
+            title="Coût employeur (chargé)"
             subtitle="Évolution mensuelle (FCFA)"
           >
             {payrollData.length >= 2 ? (
@@ -446,8 +465,8 @@ export async function DirectionDashboard() {
         </div>
 
         <ChartCard
-          title="Masse salariale par sexe"
-          subtitle="Répartition du brut (période courante)"
+          title="Coût employeur par sexe"
+          subtitle="Répartition (période courante)"
         >
           <PayrollByGenderDonut men={menPayroll} women={womenPayroll} />
         </ChartCard>
