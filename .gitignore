@@ -77,3 +77,5 @@ Papier*.docx
 *.xlsx
 *.xlsm
 *.xls
+# Exception : gabarit ESG vierge (structure + exemples génériques, aucune donnée réelle)
+!src/app/(app)/esg/_lib/esg-template.xlsx

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Role, EsgReportStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
+import { Icon } from "@/components/Icon";
 import { EsgReportEditor } from "../_components/EsgReportEditor";
 import {
   RefreshAutoButton,
@@ -75,6 +76,12 @@ export default async function EsgReportPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <RefreshAutoButton reportId={report.id} />
+          <a
+            href={`/api/esg/${report.id}/export`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sc-green px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-sc-green-dark"
+          >
+            <Icon name="export" size={13} /> Exporter en Excel
+          </a>
           <StatusButton reportId={report.id} status={report.status} />
           <DeleteReportButton reportId={report.id} />
         </div>
