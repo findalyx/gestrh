@@ -32,20 +32,46 @@ function cellValue(m: EsgMetric, raw: string): string | number | null {
   return v;
 }
 
+function parsePct(v: string | undefined): number | null {
+  const n = Number.parseFloat((v || "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 /** % dérivé calculé depuis deux réponses (numérateur / dénominateur). */
 function derivedValue(
   m: EsgMetric,
   answers: EsgReportData["answers"],
 ): number | null {
   if (!m.derived) return null;
-  const num = Number.parseFloat(
-    (answers[m.derived.num]?.value || "").replace(",", "."),
-  );
-  const den = Number.parseFloat(
-    (answers[m.derived.den]?.value || "").replace(",", "."),
-  );
-  if (!Number.isFinite(num) || !Number.isFinite(den) || den <= 0) return null;
+  const num = parsePct(answers[m.derived.num]?.value);
+  const den = parsePct(answers[m.derived.den]?.value);
+  if (num == null || den == null || den <= 0) return null;
   return Math.round((num / den) * 1000) / 10;
+}
+
+/**
+ * Écrit la valeur d'un indicateur dans une cellule.
+ * Les % sont écrits en FRACTION (0.476) avec format Excel « 0.0% » pour un
+ * affichage cohérent (« 47,6 % »), quel que soit le format d'origine du modèle.
+ */
+function writeCell(
+  ws: ExcelJS.Worksheet,
+  addr: string,
+  m: EsgMetric,
+  answers: EsgReportData["answers"],
+): void {
+  const cell = ws.getCell(addr);
+  if (m.type === "percent") {
+    const pct = m.derived ? derivedValue(m, answers) : parsePct(answers[m.key]?.value);
+    if (pct == null) {
+      cell.value = null;
+    } else {
+      cell.value = pct / 100;
+      cell.numFmt = "0.0%";
+    }
+    return;
+  }
+  cell.value = cellValue(m, answers[m.key]?.value ?? "");
 }
 
 /** "2026-Q2" → "Q2" */
@@ -89,26 +115,22 @@ export async function buildEsgExport(
     const row = m.row;
 
     // Trimestre courant (E) + commentaire (F)
-    if (m.derived) {
-      ws.getCell(`E${row}`).value = derivedValue(m, current.answers);
-    } else {
-      const a = current.answers[m.key];
-      ws.getCell(`E${row}`).value = cellValue(m, a?.value ?? "");
-      if (a?.comment) ws.getCell(`F${row}`).value = a.comment;
+    writeCell(ws, `E${row}`, m, current.answers);
+    if (!m.derived) {
+      const c = current.answers[m.key]?.comment;
+      if (c) ws.getCell(`F${row}`).value = c;
     }
 
     // Trimestres antérieurs (G/H/I/J)
     hist.forEach((h, i) => {
-      const col = HIST_COLS[i];
-      ws.getCell(`${col}${row}`).value = m.derived
-        ? derivedValue(m, h.answers)
-        : cellValue(m, h.answers[m.key]?.value ?? "");
+      writeCell(ws, `${HIST_COLS[i]}${row}`, m, h.answers);
     });
 
     // Commentaire (K) = celui du dernier trimestre historique (colonne J)
     const jReport = hist[3];
-    if (jReport && !m.derived && jReport.answers[m.key]?.comment) {
-      ws.getCell(`K${row}`).value = jReport.answers[m.key].comment;
+    if (jReport && !m.derived) {
+      const c = jReport.answers[m.key]?.comment;
+      if (c) ws.getCell(`K${row}`).value = c;
     }
   }
 
