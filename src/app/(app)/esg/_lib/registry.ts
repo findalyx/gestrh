@@ -1,12 +1,13 @@
 /**
- * Registre des indicateurs ESG — dérivé du questionnaire trimestriel Admaius
- * (« Quarterly data »). Chaque entrée porte sa ligne Excel d'origine (`row`)
- * pour l'export ultérieur au même format.
+ * Registre des indicateurs ESG — questions REPRISES MOT POUR MOT du
+ * questionnaire trimestriel Admaius (onglet « Quarterly data »), en anglais.
  *
- * - `auto`   : indicateur pré-rempli depuis les données RH (clé de calcul,
- *              voir compute.ts). Reste éditable.
- * - `derived`: pourcentage calculé en direct à partir de deux autres réponses
- *              (numérateur / dénominateur) — lecture seule.
+ * - `label`   : la question EN, VERBATIM (ne jamais reformuler — c'est ce qui
+ *               part dans l'export investisseurs).
+ * - `labelFr` : traduction française affichée sous la question dans l'app.
+ * - `row`     : ligne d'origine dans « Quarterly data » (pour l'export).
+ * - `auto`    : indicateur pré-rempli depuis les données RH (voir compute.ts).
+ * - `derived` : pourcentage calculé depuis deux autres réponses (num / den).
  */
 
 export type EsgSectionKey =
@@ -29,12 +30,13 @@ export type EsgMetric = {
   key: string;
   row: number; // ligne d'origine dans « Quarterly data »
   section: EsgSectionKey;
-  label: string;
+  label: string; // question EN, verbatim
+  labelFr?: string; // traduction FR (affichée sous la question)
   definition?: string;
   illustrative?: string;
   type: EsgFieldType;
   options?: string[];
-  unit?: string; // "USD", "kWh", "tCO2e", "%"
+  unit?: string; // "USD", "kWh"…
   auto?: string; // clé de calcul RH (compute.ts)
   derived?: { num: string; den: string }; // % calculé depuis d'autres réponses
 };
@@ -63,193 +65,86 @@ const POLICY_OPTIONS = [
 ];
 const YESNO = ["Yes", "No", "N/a"];
 
-const ISO_DEF =
-  "Le cas échéant, préciser la portée, la date d'expiration et l'organisme certificateur (en commentaire).";
-
 export const ESG_METRICS: EsgMetric[] = [
-  // ---------------------------------------------------------- Gouvernance
-  {
-    key: "gov_esg_responsible",
-    row: 6,
-    section: "governance",
-    label: "Responsable désigné des pratiques ESG",
-    definition:
-      "Indiquer s'il s'agit d'une personne nommée ou d'un comité. Si les deux existent, lister les deux.",
-    illustrative: "Mohamed Ali (CEO)",
-    type: "text",
-  },
-  {
-    key: "gov_hr_responsible",
-    row: 7,
-    section: "governance",
-    label: "Responsable désigné des pratiques RH",
-    definition: "Nom et fonction de la personne responsable des pratiques RH.",
-    illustrative: "Mohamed Ali (CEO) / Cheickna Sylla (Academic Director)",
-    type: "text",
-  },
-  {
-    key: "gov_hs_responsible",
-    row: 8,
-    section: "governance",
-    label: "Responsable désigné Santé & Sécurité",
-    definition:
-      "Nom et fonction de la personne responsable de la santé et sécurité au travail.",
-    illustrative: "Camara Diarietou (Head of Administrative Services)",
-    type: "text",
-  },
-  {
-    key: "gov_esg_committee",
-    row: 9,
-    section: "governance",
-    label: "Comité ESG ou développement durable dédié (préciser)",
-    definition:
-      "Nom du/des comité(s) responsable(s) des sujets ESG. Préciser s'il traite d'un sous-ensemble (EHS, santé-sécurité…).",
-    illustrative: "Non",
-    type: "text",
-  },
-  {
-    key: "gov_admaius_on_committee",
-    row: 10,
-    section: "governance",
-    label: "Des membres Admaius siègent-ils à ce comité ?",
-    definition:
-      "Indiquer si des représentants d'Admaius Capital Partners siègent au comité ESG.",
-    illustrative: "N/a",
-    type: "select",
-    options: YESNO,
-  },
-  {
-    key: "gov_committee_meetings",
-    row: 11,
-    section: "governance",
-    label: "Nombre de réunions du comité sur la période",
-    definition: "La période de reporting correspond à ce trimestre de 3 mois.",
-    illustrative: "1 (tenue le 27 juillet)",
-    type: "text",
-  },
-
-  // ---------------------------------------------------- Confirmations
-  {
-    key: "conf_material_incidents",
-    row: 15,
-    section: "confirmations",
-    label:
-      "Incidents ESG significatifs, pénalités ou amendes sur la période ?",
-    definition:
-      "Tout événement environnemental, social ou de gouvernance significatif (perte financière, sanction, atteinte réputationnelle, préjudice). Si oui, détailler et indiquer les actions correctives (commentaire obligatoire).",
-    illustrative: "Non",
-    type: "select",
-    options: YESNO,
-  },
-  {
-    key: "conf_fatalities",
-    row: 16,
-    section: "confirmations",
-    label: "Décès ou accidents/blessures graves liés au travail ?",
-    definition:
-      "Signaler tout incident mortel ou grave impliquant employés ou prestataires. Si oui, détailler chaque incident (commentaire obligatoire).",
-    illustrative: "Non",
-    type: "select",
-    options: YESNO,
-  },
-  {
-    key: "conf_accidents_count",
-    row: 17,
-    section: "confirmations",
-    label: "Nombre total d'accidents du travail sur la période",
-    definition:
-      "Exclure les accidents graves déjà signalés ci-dessus. Inclure incidents mineurs/modérés (employés et prestataires).",
-    illustrative: "5",
-    type: "number",
-  },
-  {
-    key: "conf_grievances",
-    row: 18,
-    section: "confirmations",
-    label:
-      "Plaintes liées à l'ESG remontées via les canaux employés/communauté ?",
-    definition: "Signaler toute plainte ESG reçue via les mécanismes de grief.",
-    illustrative: "Non",
-    type: "select",
-    options: YESNO,
-  },
-
-  // ------------------------------------------------------------- ISO
-  { key: "iso_9001", row: 22, section: "iso", label: "ISO 9001 (Management de la qualité)", definition: ISO_DEF, illustrative: "ex. Oui — expire juillet 2027 / organisme Bureau Veritas", type: "text" },
-  { key: "iso_14001", row: 23, section: "iso", label: "ISO 14001 (Management environnemental)", definition: ISO_DEF, illustrative: "ex. Oui — expire juin 2026 / SGS", type: "text" },
-  { key: "iso_22301", row: 24, section: "iso", label: "ISO 22301 (Continuité d'activité)", definition: ISO_DEF, illustrative: "ex. Oui — expire juillet 2026 / Factocert", type: "text" },
-  { key: "iso_22716", row: 25, section: "iso", label: "ISO 22716 (Cosmétiques — BPF)", definition: ISO_DEF, illustrative: "Non", type: "text" },
-  { key: "iso_17034", row: 26, section: "iso", label: "ISO 17034 (Producteurs de matériaux de référence)", definition: ISO_DEF, illustrative: "Non", type: "text" },
-  { key: "iso_17043", row: 27, section: "iso", label: "ISO 17043 (Essais d'aptitude)", definition: ISO_DEF, illustrative: "Non", type: "text" },
-  { key: "iso_22000", row: 28, section: "iso", label: "ISO 22000 (Sécurité des denrées alimentaires)", definition: ISO_DEF, illustrative: "Non", type: "text" },
-  { key: "iso_45001", row: 29, section: "iso", label: "ISO 45001 (Santé & sécurité au travail)", definition: ISO_DEF, illustrative: "Non", type: "text" },
-  { key: "iso_gmp", row: 30, section: "iso", label: "Bonnes pratiques de fabrication (GMP)", definition: ISO_DEF, illustrative: "Non", type: "text" },
-
-  // -------------------------------------------------------- Politiques
-  { key: "pol_code_conduct", row: 34, section: "policies", label: "Code de conduite / d'éthique des affaires", definition: "Politique formelle de conduite/éthique ; préciser si elle couvre fournisseurs et partenaires.", illustrative: "Yes - also covers suppliers / value chain", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_esg", row: 35, section: "policies", label: "Politique RSE / durabilité / ESG", definition: "Politique documentée de durabilité ou ESG (principes et engagements).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_esms", row: 36, section: "policies", label: "Système de gestion environnementale et sociale (SGES/ESMS)", definition: "Système structuré d'identification et gestion des risques E&S.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_climate", row: 37, section: "policies", label: "Déclaration / politique climat", definition: "Évaluation et gestion des risques climatiques (émissions, énergie, résilience).", illustrative: "Yes - covered under ESG policy", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_hr", row: 38, section: "policies", label: "Politique RH / manuel des pratiques", definition: "Politique RH ou manuel employé (recrutement, avantages, conduite, grief).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_dei", row: 39, section: "policies", label: "Politique Diversité, Équité & Inclusion (anti-discrimination)", definition: "Politique DEI incluant mesures anti-harcèlement et non-discrimination.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_gbv", row: 40, section: "policies", label: "Prévention et réponse aux violences basées sur le genre (VBG)", definition: "Mécanisme/politique de prévention et réponse VBG (sensibilisation, signalement, sanctions).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_hs", row: 41, section: "policies", label: "Politique / système de santé & sécurité", definition: "Politique/système SST formel, mis en œuvre et revu régulièrement.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_grievance_internal", row: 42, section: "policies", label: "Mécanisme de grief — canaux internes (employés)", definition: "Processus confidentiel pour les employés (contact RH, hotline, formulaire).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_grievance_external", row: 43, section: "policies", label: "Mécanisme de grief — canaux externes (fournisseurs, clients, communautés)", definition: "Canal permettant aux parties externes de soumettre plaintes/retours.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_waste", row: 44, section: "policies", label: "Système et politique de gestion des déchets", definition: "Politique de gestion des déchets et niveau de mise en œuvre (suivi, tri, élimination).", illustrative: "Statement only", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_anticorruption", row: 45, section: "policies", label: "Politique anti-corruption et anti-pots-de-vin", definition: "Politique anti-corruption formelle et formations/procédures associées.", illustrative: "Currently planned / drafting", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_supplychain", row: 46, section: "policies", label: "Politique chaîne d'approvisionnement & achats responsables", definition: "Politique fournisseurs incluant sélection, normes de travail, critères ESG.", illustrative: "Currently planned / drafting", type: "select", options: POLICY_OPTIONS },
-  { key: "pol_data_security", row: 47, section: "policies", label: "Sécurité et confidentialité des données", definition: "Politique de sécurité/confidentialité conforme aux lois applicables (RGPD).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
-
-  // -------------------------------------------------------- Avantages
-  { key: "ben_medical", row: 51, section: "benefits", label: "Mutuelle / assurance santé", definition: "Description courte en commentaire si pertinent.", illustrative: "Assurance santé privée complète pour tout le personnel à temps plein.", type: "boolean" },
-  { key: "ben_flexible", row: 52, section: "benefits", label: "Travail flexible", illustrative: "Télétravail jusqu'à 2 jours/semaine ; horaires flexibles.", type: "boolean" },
-  { key: "ben_parental", row: 53, section: "benefits", label: "Congé parental / familial au-delà du légal", illustrative: "Maternité : 16 semaines à 100 % ; paternité : 10 jours.", type: "boolean" },
-  { key: "ben_childcare", row: 54, section: "benefits", label: "Aide à la garde d'enfants", illustrative: "Allocation garde de 50 USD/mois pour enfants de moins de 5 ans.", type: "boolean" },
-  { key: "ben_recognition", row: 55, section: "benefits", label: "Programmes de reconnaissance / récompenses", illustrative: "« Employé du mois » trimestriel et bonus annuel d'équipe.", type: "boolean" },
-  { key: "ben_pension", row: 56, section: "benefits", label: "Cotisation retraite supplémentaire au-delà du légal", illustrative: "Employeur cotise 5 % du salaire de base à un régime complémentaire.", type: "boolean" },
-  { key: "ben_wellness", row: 57, section: "benefits", label: "Programmes bien-être (gym subventionnée, fruits…)", illustrative: "Allocation bien-être de 20 USD/mois ; fruits et café gratuits.", type: "boolean" },
-  { key: "ben_development", row: 58, section: "benefits", label: "Développement professionnel / formation", illustrative: "Budget formation annuel de 500 USD par employé.", type: "boolean" },
-  { key: "ben_other", row: 59, section: "benefits", label: "AUTRE — préciser", illustrative: "Retraite d'équipe annuelle ; ligne d'écoute et soutien psychologique.", type: "boolean" },
-
-  // ---------------------------------------------------- Données chiffrées
-  { key: "dp_total_fte", row: 63, section: "data", label: "Total FTEs (effectif équivalent temps plein)", definition: "Effectif total en ETP. Ici : agents présents (Actif/Suspendu), hors prestataires.", illustrative: "51", type: "number", auto: "totalFte" },
-  { key: "dp_female_fte", row: 64, section: "data", label: "Female FTEs", definition: "Sous-ensemble du total (femmes).", illustrative: "19", type: "number", auto: "femaleFte" },
-  { key: "dp_pct_female_fte", row: 65, section: "data", label: "% Female FTEs", definition: "Calculé : (Female FTEs / Total FTEs) × 100.", illustrative: "37 %", type: "percent", auto: "pctFemaleFte" },
-  { key: "dp_youth_fte", row: 66, section: "data", label: "Youth FTEs (16-25 ans)", definition: "Nombre d'employés jeunes (16 à 25 ans) — calculé depuis les dates de naissance.", illustrative: "3", type: "number", auto: "youthFte" },
-  { key: "dp_pct_youth_fte", row: 67, section: "data", label: "% Youth FTEs", definition: "Calculé : (Youth FTEs / Total FTEs) × 100.", illustrative: "6 %", type: "percent", auto: "pctYouthFte" },
-  { key: "dp_senior_managers", row: 68, section: "data", label: "Cadres dirigeants / managers", definition: "Rôles d'encadrement (Manager + Direction dans gestRH).", illustrative: "9", type: "number", auto: "seniorManagers" },
-  { key: "dp_female_senior", row: 69, section: "data", label: "Femmes cadres dirigeantes", definition: "Sous-ensemble (femmes).", illustrative: "4", type: "number", auto: "femaleSenior" },
-  { key: "dp_pct_female_senior", row: 70, section: "data", label: "% Femmes cadres dirigeantes", definition: "Calculé : (Femmes cadres / Total cadres) × 100.", illustrative: "44 %", type: "percent", auto: "pctFemaleSenior" },
-  { key: "dp_board_members", row: 71, section: "data", label: "Membres du conseil (ou organe équivalent)", illustrative: "7", type: "number" },
-  { key: "dp_female_board", row: 72, section: "data", label: "Femmes au conseil", definition: "Sous-ensemble (femmes).", illustrative: "1", type: "number" },
-  { key: "dp_pct_female_board", row: 73, section: "data", label: "% Femmes au conseil", definition: "Calculé automatiquement.", illustrative: "14 %", type: "percent", derived: { num: "dp_female_board", den: "dp_board_members" } },
-  { key: "dp_independent_board", row: 74, section: "data", label: "Membres indépendants du conseil", definition: "Administrateurs non impliqués dans la gestion quotidienne, sans lien financier/familial matériel.", illustrative: "2", type: "number" },
-  { key: "dp_pct_independent_board", row: 75, section: "data", label: "% Membres indépendants", definition: "Calculé automatiquement.", illustrative: "33 %", type: "percent", derived: { num: "dp_independent_board", den: "dp_board_members" } },
-  { key: "dp_board_meetings", row: 76, section: "data", label: "Réunions du conseil sur la période", definition: "Période = ce trimestre de 3 mois.", illustrative: "8", type: "number" },
-  { key: "dp_gender_pay_gap", row: 77, section: "data", label: "Écart de rémunération H/F (brut annuel)", definition: "((Rému. moyenne H − Rému. moyenne F) / Rému. moyenne H) × 100. Calculé depuis les bulletins.", illustrative: "25 %", type: "percent", auto: "genderPayGap" },
-  { key: "dp_turnover_voluntary", row: 78, section: "data", label: "Turnover volontaire (démission, retraite…)", definition: "Employés partis volontairement sur la période — départs par motif démission/retraite/rupture.", illustrative: "1", type: "number", auto: "turnoverVoluntary" },
-  { key: "dp_turnover_involuntary", row: 79, section: "data", label: "Turnover involontaire (licenciement…)", definition: "Employés partis involontairement — départs par motif licenciement/fin CDD/abandon.", illustrative: "2", type: "number", auto: "turnoverInvoluntary" },
-  { key: "dp_pct_turnover", row: 80, section: "data", label: "% Turnover (volontaire + involontaire)", definition: "Calculé : total partants / effectif moyen × 100.", illustrative: "6 %", type: "percent", auto: "pctTurnover" },
-  { key: "dp_new_jobs", row: 81, section: "data", label: "Nouveaux postes créés (ETP)", definition: "Postes nouvellement créés sur la période — embauches de la période (hors remplacements).", illustrative: "7", type: "number", auto: "newJobs" },
-  { key: "dp_youth_internships", row: 82, section: "data", label: "Stages / programmes de formation pour jeunes soutenus", definition: "Nombre de stages/programmes structurés pour jeunes (durée et objet en commentaire).", illustrative: "2 stagiaires accueillis sur un programme structuré de 4 semaines", type: "text" },
-  { key: "dp_suppliers_total", row: 83, section: "data", label: "Nombre total de fournisseurs / partenaires", definition: "Total des fournisseurs/partenaires engagés sur la période (locaux et internationaux).", illustrative: "15", type: "number" },
-  { key: "dp_suppliers_local", row: 84, section: "data", label: "Fournisseurs / partenaires locaux", definition: "« Local » = même pays africain (ou pays voisin avec échanges directs).", illustrative: "7", type: "number" },
-  { key: "dp_pct_local_suppliers", row: 85, section: "data", label: "% Fournisseurs locaux", definition: "Calculé : (Locaux / Total) × 100.", illustrative: "46 %", type: "percent", derived: { num: "dp_suppliers_local", den: "dp_suppliers_total" } },
-  { key: "dp_suppliers_sme", row: 86, section: "data", label: "Fournisseurs PME", definition: "Fournisseurs qualifiés de PME selon la définition nationale officielle.", illustrative: "10", type: "number" },
-  { key: "dp_pct_sme_suppliers", row: 87, section: "data", label: "% Fournisseurs PME", definition: "Calculé : (PME / Total) × 100.", illustrative: "67 %", type: "percent", derived: { num: "dp_suppliers_sme", den: "dp_suppliers_total" } },
-  { key: "dp_pct_above_min_wage", row: 88, section: "data", label: "% d'employés payés au-dessus du salaire minimum local", definition: "Pourcentage d'employés au-dessus du salaire minimum national. Citer la source/référence légale.", illustrative: "100 % des employés > SMIG en vigueur", type: "text" },
-  { key: "dp_total_wages_usd", row: 89, section: "data", label: "Valeur totale des salaires (USD) sur le trimestre", definition: "Salaires et bonus versés sur la période (hors avantages). Converti depuis la masse salariale brute FCFA.", illustrative: "200 000 $", type: "number", unit: "USD", auto: "totalWagesUsd" },
-  { key: "dp_training_spend_usd", row: 90, section: "data", label: "Montant dépensé en formation (USD) sur le trimestre", definition: "Total dépensé en formation et développement sur la période.", illustrative: "25 000 $", type: "number", unit: "USD" },
-  { key: "dp_electricity_kwh", row: 91, section: "data", label: "Consommation d'électricité sur le trimestre (kWh)", definition: "Consommation électrique totale. Données réelles de facture ; estimer sinon (préciser la méthode).", illustrative: "10 000 kWh", type: "number", unit: "kWh" },
-  { key: "dp_electricity_renewable_pct", row: 92, section: "data", label: "% d'électricité issue de renouvelables", definition: "Part d'électricité renouvelable (mix réseau, solaire sur site). Estimation acceptée.", illustrative: "33 %", type: "text" },
-  { key: "dp_energy_kwh", row: 93, section: "data", label: "Consommation d'énergie sur le trimestre (kWh)", definition: "Autres sources d'énergie (diesel, GPL, gaz…) converties en kWh.", illustrative: "5 350 kWh (500 L de diesel)", type: "text" },
-  { key: "dp_emissions", row: 94, section: "data", label: "Émissions par scope 1/2/3 (période la plus récente)", definition: "Scope 1 (direct), 2 (électricité), 3 (chaîne de valeur) en tonnes CO₂e. Préciser méthodo/estimation en commentaire.", illustrative: "0 / 500 / 1250 tCO₂e (scopes 1/2/3)", type: "text" },
-  { key: "dp_new_students", row: 95, section: "data", label: "Nouveaux étudiants inscrits sur le trimestre (SCU)", definition: "Nombre d'étudiants uniques ayant finalisé leur inscription à un cours/programme sur la période.", illustrative: "150", type: "number" },
-  { key: "dp_female_enrollments", row: 96, section: "data", label: "Nouvelles inscriptions féminines sur le trimestre", definition: "Nombre d'étudiantes inscrites se déclarant femmes sur la même fenêtre.", illustrative: "89", type: "number" },
-  { key: "dp_african_enrollments", row: 97, section: "data", label: "Nouvelles inscriptions africaines sur le trimestre", definition: "Étudiants ressortissants ou résidents permanents d'un pays africain au moment de l'inscription.", illustrative: "149", type: "number" },
-  { key: "dp_total_graduates", row: 98, section: "data", label: "Nombre total de diplômés (cumulé à ce jour)", definition: "Total cumulé de diplômés depuis la création (chaque diplômé compté une fois).", illustrative: "149", type: "number" },
-  { key: "dp_university_sites", row: 99, section: "data", label: "Nombre de sites universitaires opérationnels", definition: "Sites d'apprentissage officiels opérés/gérés par SCU (campus, centres régionaux…).", illustrative: "5", type: "number" },
+  { key: "gov_esg_responsible", row: 6, section: "governance", label: "Do you have a designated person responsible for ESG practices?", labelFr: "Responsable désigné des pratiques ESG", definition: "Specify whether this is a named individual or a committee. If both exist, list both (e.g., ESG Manager and ESG Committee).", illustrative: "Malala Smith, CFO", type: "text" },
+  { key: "gov_hr_responsible", row: 7, section: "governance", label: "Do you have a designated person responsible for HR practices?", labelFr: "Responsable désigné des pratiques RH", definition: "Please provide the name and title of the person responsible for HR practices within your company.", illustrative: "Henry Smith, Group Chief HR Officer", type: "text" },
+  { key: "gov_hs_responsible", row: 8, section: "governance", label: "Do you have a designated person responsible for Health and Safety practices?", labelFr: "Responsable désigné Santé & Sécurité", definition: "Please provide the name and title of the person responsible for occupational health and safety oversight.", illustrative: "Joohee Rand, Head of Health and Safety", type: "text" },
+  { key: "gov_esg_committee", row: 9, section: "governance", label: "Is there a dedicated ESG or sustainability committee (please provide details)", labelFr: "Comité ESG / développement durable dédié (préciser)", definition: "Please note down the specific name of the committee(s) responsible for ESG or sustainability matters. Where this is a committee that deals with a specific subset of issues e.g. EHS or health and safety please note this.", illustrative: "Yes", type: "text" },
+  { key: "gov_admaius_on_committee", row: 10, section: "governance", label: "If yes - are there Admaius team members on this committee", labelFr: "Des membres Admaius siègent-ils à ce comité ?", definition: "Please indicate whether any Admaius Capital Partners representatives sit on the ESG or sustainability committee.", illustrative: "Yes", type: "select", options: YESNO },
+  { key: "gov_committee_meetings", row: 11, section: "governance", label: "If yes - how many committee meetings were held over the reporting period", labelFr: "Nombre de réunions du comité sur la période", definition: "Reporting period refers to this 3-month quarter", illustrative: "1 (held on 27th July)", type: "text" },
+  { key: "conf_material_incidents", row: 15, section: "confirmations", label: "Have there been any material ESG linked incidents, penalties or fines over the reporting period?", labelFr: "Incidents ESG significatifs, pénalités ou amendes sur la période ?", definition: "A material ESG-linked incident refers to any significant environmental, social, or governance-related event that could cause financial loss, regulatory penalty, reputational damage, or harm to stakeholders (e.g. major safety incident, pollution event, discrimination case). If yes, provide details and corrective actions.", illustrative: "None (if Yes - mandatory to provide further comments)", type: "select", options: YESNO },
+  { key: "conf_fatalities", row: 16, section: "confirmations", label: "Have there been any work-related fatalities or serious accidents or injuries over the reporting period?", labelFr: "Décès ou accidents / blessures graves liés au travail ?", definition: "Please report any fatal or serious workplace incidents involving employees or contractors during the reporting period. If yes, provide full details of each incident", illustrative: "None (if Yes - mandatory to provide further comments)", type: "select", options: YESNO },
+  { key: "conf_accidents_count", row: 17, section: "confirmations", label: "Total number of work related accidents over the reporting period", labelFr: "Nombre total d'accidents du travail sur la période", definition: "Exclude any serious accidents already reported above. Include minor and moderate incidents involving both employees and contractors.", illustrative: "5", type: "number" },
+  { key: "conf_grievances", row: 18, section: "confirmations", label: "Have any ESG-related grievances been raised through employee or community channels over the period?", labelFr: "Plaintes ESG remontées via les canaux employés / communauté ?", definition: "Report any ESG-linked complaints received via grievance mechanisms, if applicable", illustrative: "None (if Yes - mandatory to provide further comments)", type: "select", options: YESNO },
+  { key: "iso_9001", row: 22, section: "iso", label: "ISO 9001 (Quality Management Systems)", labelFr: "ISO 9001 (Management de la qualité)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "e.g. Yes - Expiring July 2027  / Certification body Bureau Veritas", type: "text" },
+  { key: "iso_14001", row: 23, section: "iso", label: "ISO 14001 (Environmental Management)", labelFr: "ISO 14001 (Management environnemental)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "e.g. Yes Expiring June 2026  / Certification body SGS", type: "text" },
+  { key: "iso_22301", row: 24, section: "iso", label: "ISO 22301 (Business Continuity Management)", labelFr: "ISO 22301 (Continuité d'activité)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "e.g. Yes Expiring July 2026  / Certification body Factocert", type: "text" },
+  { key: "iso_22716", row: 25, section: "iso", label: "ISO 22716 (Cosmetics — Good Manufacturing Practices)", labelFr: "ISO 22716 (Cosmétiques — BPF)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "No", type: "text" },
+  { key: "iso_17034", row: 26, section: "iso", label: "ISO 17034 (General Requirements for Reference Material Producers)", labelFr: "ISO 17034 (Producteurs de matériaux de référence)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "No", type: "text" },
+  { key: "iso_17043", row: 27, section: "iso", label: "ISO 17043 (Conformity Assessment — Proficiency Testing)", labelFr: "ISO 17043 (Essais d'aptitude)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "No", type: "text" },
+  { key: "iso_22000", row: 28, section: "iso", label: "ISO 22000 (Food Safety Management Systems)", labelFr: "ISO 22000 (Sécurité des denrées alimentaires)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "No", type: "text" },
+  { key: "iso_45001", row: 29, section: "iso", label: "ISO 45001 (Occupational Health & Safety)", labelFr: "ISO 45001 (Santé & sécurité au travail)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "No", type: "text" },
+  { key: "iso_gmp", row: 30, section: "iso", label: "Good manufacturing practices (GMP)", labelFr: "Bonnes pratiques de fabrication (GMP)", definition: "Where applicable, specify the certification scope (e.g. manufacturing only, full company), expiry date, and certification body.", illustrative: "No", type: "text" },
+  { key: "pol_code_conduct", row: 34, section: "policies", label: "Business code of conduct and/or ethics", labelFr: "Code de conduite / d'éthique des affaires", definition: "Confirm whether your company has a formal code of conduct or ethics policy, and indicate whether it applies to suppliers, contractors, and business partners.", illustrative: "Yes - also covers suppliers / value chain", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_esg", row: 35, section: "policies", label: "Responsible business / Sustainability  / ESG policy", labelFr: "Politique RSE / durabilité / ESG", definition: "Confirm whether you have a documented sustainability or ESG policy outlining your company’s key principles and commitments.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_esms", row: 36, section: "policies", label: "Environmental and Social Management System or equivalent", labelFr: "Système de gestion environnementale et sociale (SGES)", definition: "Indicate whether your company operates a structured management system to identify, assess, and manage environmental and social risks and impacts.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_climate", row: 37, section: "policies", label: "Climate change statement / policy", labelFr: "Déclaration / politique climat", definition: "Confirm whether your company assesses and manages climate-related risks, such as emissions, energy use, and resilience. If not, note if this is under consideration.", illustrative: "Yes - covered under ESG policy", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_hr", row: 38, section: "policies", label: "HR policy / practices handbook", labelFr: "Politique RH / manuel des pratiques", definition: "Confirm whether a formal HR policy or employee handbook exists and covers recruitment, benefits, conduct, and grievance procedures.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_dei", row: 39, section: "policies", label: "Diversity, Equity and Inclusion policy (including anti-discrimination)", labelFr: "Politique Diversité, Équité & Inclusion (anti-discrimination)", definition: "Confirm whether your company has a policy or statement on diversity, equity, and inclusion, including anti-harassment and non-discrimination measures.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_gbv", row: 40, section: "policies", label: "Gender-based violence (GBV) prevention and response mechanism / policy.", labelFr: "Prévention et réponse aux violences basées sur le genre (VBG)", definition: "Indicate whether a GBV prevention and response mechanism or policy exists (e.g. awareness training, reporting channel, disciplinary measures).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_hs", row: 41, section: "policies", label: "Health and safety policy / management system", labelFr: "Politique / système de santé & sécurité", definition: "Confirm whether your company has a formal occupational health and safety policy or system, and whether it is implemented and regularly reviewed.", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_grievance_internal", row: 42, section: "policies", label: "Grievance mechanism - internal channels i.e. for employees", labelFr: "Mécanisme de grief — canaux internes (employés)", definition: "Indicate whether there is a confidential process for employees to raise concerns (e.g. HR contact, hotline, or form).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_grievance_external", row: 43, section: "policies", label: "Grievance mechanism - external channels i.e.  suppliers, customers, local communities", labelFr: "Mécanisme de grief — canaux externes (fournisseurs, clients, communautés)", definition: "Indicate whether external stakeholders can submit complaints or feedback (e.g. through a website, email, or phone contact).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_waste", row: 44, section: "policies", label: "Waste management system and policy", labelFr: "Système et politique de gestion des déchets", definition: "Confirm whether your company has a waste management policy and describe its level of implementation (e.g. tracking, segregation, disposal procedures).", illustrative: "Statement only", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_anticorruption", row: 45, section: "policies", label: "Anti-bribery and corruption policy", labelFr: "Politique anti-corruption et anti-pots-de-vin", definition: "Indicate whether your company has a formal anti-bribery and corruption policy and related training or procedures.", illustrative: "Currently planned / drafting", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_supplychain", row: 46, section: "policies", label: "Supply chain & responsible procurement policy", labelFr: "Politique chaîne d'approvisionnement & achats responsables", definition: "Confirm whether you have a policy covering suppliers and whether this includes supplier screening, labour standards, and ESG criteria.", illustrative: "Currently planned / drafting", type: "select", options: POLICY_OPTIONS },
+  { key: "pol_data_security", row: 47, section: "policies", label: "Data security and privacy management processes and/or policy", labelFr: "Sécurité et confidentialité des données", definition: "Indicate whether your company maintains a data security or privacy policy in line with applicable data protection laws (e.g. GDPR).", illustrative: "Yes", type: "select", options: POLICY_OPTIONS },
+  { key: "ben_medical", row: 51, section: "benefits", label: "Medical / health insurance", labelFr: "Mutuelle / assurance santé", definition: "Where relevant, provide short descriptions or examples", illustrative: "Comprehensive private medical insurance for all full-time staff, including inpatient and outpatient care. Part-time and contract staff are eligible after 6 months’ service.", type: "boolean" },
+  { key: "ben_flexible", row: 52, section: "benefits", label: "Flexible working", labelFr: "Travail flexible", definition: "Where relevant, provide short descriptions or examples", illustrative: "Hybrid working policy allows up to 2 days per week remote. Flexible start/end times permitted for staff with caregiving responsibilities.", type: "boolean" },
+  { key: "ben_parental", row: 53, section: "benefits", label: "Parental / family leave beyond statutory", labelFr: "Congé parental / familial au-delà du légal", definition: "Where relevant, provide short descriptions or examples", illustrative: "Maternity leave: 16 weeks paid at 100%; Paternity leave: 10 days paid. Additional unpaid family leave available upon request.", type: "boolean" },
+  { key: "ben_childcare", row: 54, section: "benefits", label: "Childcare support or provision", labelFr: "Aide à la garde d'enfants", definition: "Where relevant, provide short descriptions or examples", illustrative: "Monthly childcare allowance of USD 50 for employees with children under 5. Partnership with nearby daycare centre offering discounted rates.", type: "boolean" },
+  { key: "ben_recognition", row: 55, section: "benefits", label: "Employee recognition / rewards programs", labelFr: "Programmes de reconnaissance / récompenses", definition: "Where relevant, provide short descriptions or examples", illustrative: "Quarterly “Employee of the Month” award and annual team bonus linked to company performance. Peer-nomination system in place.", type: "boolean" },
+  { key: "ben_pension", row: 56, section: "benefits", label: "Additional pension contribution beyond statutory", labelFr: "Cotisation retraite supplémentaire au-delà du légal", definition: "Where relevant, provide short descriptions or examples", illustrative: "Employer contributes 5% of base salary into a defined contribution scheme (in addition to statutory requirements).", type: "boolean" },
+  { key: "ben_wellness", row: 57, section: "benefits", label: "Wellness programs (e.g. subsidized gym, fruit)", labelFr: "Programmes bien-être (gym subventionnée, fruits…)", definition: "Where relevant, provide short descriptions or examples", illustrative: "Wellness allowance of USD 20/month (can be used for gym, yoga, or sports memberships). Free fruit and coffee available in all offices.", type: "boolean" },
+  { key: "ben_development", row: 58, section: "benefits", label: "Professional development programs / training", labelFr: "Développement professionnel / formation", definition: "Where relevant, provide short descriptions or examples", illustrative: "Annual training budget of USD 500 per employee. All staff encouraged to complete at least one accredited course per year.", type: "boolean" },
+  { key: "ben_other", row: 59, section: "benefits", label: "OTHER - please describe", labelFr: "AUTRE — préciser", definition: "Where relevant, provide short descriptions or examples", illustrative: "Company organises annual team retreat focused on wellbeing and leadership. Counselling and mental health support line available through partner provider.", type: "boolean" },
+  { key: "dp_total_fte", row: 63, section: "data", label: "Total FTEs", labelFr: "Total FTEs (effectif équivalent temps plein)", definition: "Report the total full-time equivalent (FTE) employees. Include part-time or contract staff using an approximate equivalency (e.g. 0.5 FTE). Specify if contractors are included.", illustrative: "25", type: "number", auto: "totalFte" },
+  { key: "dp_female_fte", row: 64, section: "data", label: "Female FTEs", labelFr: "FTEs femmes", definition: "Subset of the above", illustrative: "12", type: "number", auto: "femaleFte" },
+  { key: "dp_pct_female_fte", row: 65, section: "data", label: "% Female FTEs", labelFr: "% FTEs femmes", definition: "Automatically calculated as (Female FTEs / Total FTEs) × 100.", illustrative: "48% (automatically calculated)", type: "percent", auto: "pctFemaleFte" },
+  { key: "dp_youth_fte", row: 66, section: "data", label: "Youth FTEs (aged 16-25)", labelFr: "FTEs jeunes (16-25 ans)", definition: "Report total number of youth employees (aged 16–25 years).", illustrative: "2", type: "number", auto: "youthFte" },
+  { key: "dp_pct_youth_fte", row: 67, section: "data", label: "% Youth FTEs", labelFr: "% FTEs jeunes", definition: "Automatically calculated as (Youth FTEs / Total FTEs) × 100.", illustrative: "8% (automatically calculated)", type: "percent", auto: "pctYouthFte" },
+  { key: "dp_senior_managers", row: 68, section: "data", label: "Senior managers or leaders", labelFr: "Cadres dirigeants / managers", definition: "Include all senior management or leadership roles including both male and female managers.", illustrative: "5", type: "number", auto: "seniorManagers" },
+  { key: "dp_female_senior", row: 69, section: "data", label: "Female Senior Managers", labelFr: "Femmes cadres dirigeantes", definition: "Subset of the above", illustrative: "2", type: "number", auto: "femaleSenior" },
+  { key: "dp_pct_female_senior", row: 70, section: "data", label: "% Female Senior Managers", labelFr: "% femmes cadres dirigeantes", definition: "Automatically calculated as (Female senior managers / Total senior managers) × 100.", illustrative: "40% (automatically calculated)", type: "percent", auto: "pctFemaleSenior" },
+  { key: "dp_board_members", row: 71, section: "data", label: "Number of board members (or equivalent governing body)", labelFr: "Membres du conseil (ou organe équivalent)", illustrative: "5", type: "number" },
+  { key: "dp_female_board", row: 72, section: "data", label: "Female board members", labelFr: "Femmes au conseil", definition: "Subset of the above", illustrative: "2", type: "number" },
+  { key: "dp_pct_female_board", row: 73, section: "data", label: "% Female board", labelFr: "% femmes au conseil", definition: "Automatically calculated.", illustrative: "40% (automatically calculated)", type: "percent", derived: { num: "dp_female_board", den: "dp_board_members" } },
+  { key: "dp_independent_board", row: 74, section: "data", label: "Independent board members", labelFr: "Membres indépendants du conseil", definition: "Directors not involved in day-to-day management and with no material financial or family ties to the company.", illustrative: "3", type: "number" },
+  { key: "dp_pct_independent_board", row: 75, section: "data", label: "% Independent board", labelFr: "% membres indépendants", definition: "Automatically calculated.", illustrative: "60% (automatically calculated)", type: "percent", derived: { num: "dp_independent_board", den: "dp_board_members" } },
+  { key: "dp_board_meetings", row: 76, section: "data", label: "Number of board meetings held over the reporting period", labelFr: "Réunions du conseil sur la période", definition: "Reporting period is this 3 month period", illustrative: "5", type: "number" },
+  { key: "dp_gender_pay_gap", row: 77, section: "data", label: "Gender pay gap (based on annual gross salary) as at end of reporting period", labelFr: "Écart de rémunération H/F (brut annuel)", definition: "Calculate as ((Average Male Pay – Average Female Pay) / Average Male Pay) × 100. Use comparable roles where possible.", illustrative: "25% (calculated as: (($20,000-$15,000)/$20,000)*100 =25%)", type: "percent", auto: "genderPayGap" },
+  { key: "dp_turnover_voluntary", row: 78, section: "data", label: "Employee turnover (voluntary) e.g. retirement, new job elsewhere in FTEs who left over the reporting period", labelFr: "Turnover volontaire (démission, retraite…)", definition: "Number of FTE employees who left voluntarily (e.g. resignation, retirement) during the reporting period. Report as number and %.", illustrative: "10 FTEs", type: "number", auto: "turnoverVoluntary" },
+  { key: "dp_turnover_involuntary", row: 79, section: "data", label: "Employee turnover (involuntary) e.g. dismissal in FTEs who left over the reporting period", labelFr: "Turnover involontaire (licenciement…)", definition: "Number of FTE employees who left involuntarily (e.g. dismissal, redundancy).", illustrative: "2 FTEs", type: "number", auto: "turnoverInvoluntary" },
+  { key: "dp_pct_turnover", row: 80, section: "data", label: "% employee turnover (both voluntary and involuntary)", labelFr: "% turnover (volontaire + involontaire)", definition: "Automatically calculated as total leavers / average FTEs. Specify if seasonal staff excluded.", illustrative: "10% (automatically calculated)", type: "percent", auto: "pctTurnover" },
+  { key: "dp_new_jobs", row: 81, section: "data", label: "New jobs created (in FTEs or equivalent)", labelFr: "Nouveaux postes créés (ETP)", definition: "Number of newly created positions (FTEs or equivalent) during the reporting period i.e. EXCLUDE replacement hires.", illustrative: "7", type: "number", auto: "newJobs" },
+  { key: "dp_youth_internships", row: 82, section: "data", label: "Number of youth internships or training programs supported", labelFr: "Stages / programmes de formation pour jeunes soutenus", definition: "Report total structured youth internships or training programs hosted, including duration and purpose.", illustrative: "2 interns hosted by the company over the summer with a structured 4 week program to support skills and training development relevant to our sector", type: "text" },
+  { key: "dp_suppliers_total", row: 83, section: "data", label: "Total number of suppliers and/or business partners", labelFr: "Nombre total de fournisseurs / partenaires", definition: "Report the total number of suppliers or business partners your company engaged with during the reporting period. Include both local and international suppliers relevant to your operations.", illustrative: "15", type: "number" },
+  { key: "dp_suppliers_local", row: 84, section: "data", label: "Number of local suppliers and/or business partners", labelFr: "Fournisseurs / partenaires locaux", definition: "“Local” refers to suppliers operating within the same African country as your business, or a neighbouring country with which your business has direct trade. Report both the number of local and total suppliers. If operating across multiple sites, please define “local” per site.", illustrative: "7", type: "number" },
+  { key: "dp_pct_local_suppliers", row: 85, section: "data", label: "% local suppliers and/or business partners", labelFr: "% fournisseurs locaux", definition: "Automatically calculated as (Number of local suppliers ÷ Total suppliers) × 100.", illustrative: "46% (automatically calculated)", type: "percent", derived: { num: "dp_suppliers_local", den: "dp_suppliers_total" } },
+  { key: "dp_suppliers_sme", row: 86, section: "data", label: "Number of SME suppliers and/or business partners", labelFr: "Fournisseurs PME", definition: "Report the number and percentage of suppliers that qualify as small or medium enterprises (SMEs), based on the official national definition in your operating country.", illustrative: "10", type: "number" },
+  { key: "dp_pct_sme_suppliers", row: 87, section: "data", label: "% SME suppliers and/or business partners", labelFr: "% fournisseurs PME", definition: "Automatically calculated as (Number of SME suppliers ÷ Total suppliers) × 100.", illustrative: "67% (automatically calculated)", type: "percent", derived: { num: "dp_suppliers_sme", den: "dp_suppliers_total" } },
+  { key: "dp_pct_above_min_wage", row: 88, section: "data", label: "% of employees paid above the local minimum wage", labelFr: "% d'employés payés au-dessus du salaire minimum local", definition: "Report the percentage of employees earning above the official national minimum wage. Provide source link or law reference.", illustrative: "100% of employees paid > NGN 70,000 per month (minimum local wage as at July 2024)", type: "text" },
+  { key: "dp_total_wages_usd", row: 89, section: "data", label: "Total value of employee wages in USD over the 3 month period", labelFr: "Valeur totale des salaires (USD) sur le trimestre", definition: "Total value of employee wages and bonuses (excluding benefits) paid during the reporting period.", illustrative: "$200,000 over the quarter was paid to all company FTEs", type: "number", unit: "USD", auto: "totalWagesUsd" },
+  { key: "dp_training_spend_usd", row: 90, section: "data", label: "Total amount spent on training in USD over the 3 month period", labelFr: "Montant dépensé en formation (USD) sur le trimestre", definition: "Total amount spent on employee training and development programs during the reporting period.", illustrative: "$25,000", type: "number", unit: "USD" },
+  { key: "dp_electricity_kwh", row: 91, section: "data", label: "Total electricity consumption for the 3 month period (kWh)", labelFr: "Consommation d'électricité sur le trimestre (kWh)", definition: "Report total electricity consumption during the most recent 3-month period. Use actual utility data; estimate if unavailable and specify method.", illustrative: "10,000 kWh", type: "number", unit: "kWh" },
+  { key: "dp_electricity_renewable_pct", row: 92, section: "data", label: "Total electricity consumption derived from renewables in %", labelFr: "% d'électricité issue de renouvelables", definition: "Share of total electricity from renewable sources (e.g. grid mix, onsite solar). Provide estimate if not precisely known.", illustrative: "33% (all electricity comes from our grid which is approx 33% renewables)", type: "text" },
+  { key: "dp_energy_kwh", row: 93, section: "data", label: "Total energy consumption for the 3 month period (kWh)", labelFr: "Consommation d'énergie sur le trimestre (kWh)", definition: "Report all other energy sources (diesel, LPG, oil, gas) converted to kilowatt-hours (kWh) for the most recent 3-month period.", illustrative: "5,350 kWh (500 litres of diesel)", type: "text" },
+  { key: "dp_emissions", row: 94, section: "data", label: "Total emissions broken down by scope 1/2/3 for the most recent available period (usually annually)", labelFr: "Émissions par scope 1/2/3 (période la plus récente)", definition: "Report Scope 1 (direct), Scope 2 (indirect electricity), and Scope 3 (value-chain) emissions for the most recent available period, in tonnes CO₂e - please add a comment to note methodology and whether this is an estimate.", illustrative: "0 / 500 / 1250 CO2e (scopes 1/2/3)", type: "text" },
+  { key: "dp_new_students", row: 95, section: "data", label: "Total number of NEW students enrolled over the 3 month period - SCU specific", labelFr: "Nouveaux étudiants inscrits sur le trimestre (SCU)", definition: "The total count of unique students who have completed formal enrolment in at least one course, module, or program delivered by SCU during the defined 3-month reporting period.", illustrative: "150", type: "number" },
+  { key: "dp_female_enrollments", row: 96, section: "data", label: "% female new enrollments over the 3 month period", labelFr: "Nouvelles inscriptions féminines sur le trimestre", definition: "The total number of unique enrolled students who self-identify as female, within the same 3-month reporting window.", illustrative: "89", type: "number" },
+  { key: "dp_african_enrollments", row: 97, section: "data", label: "% African new enrollments over the 3 month period", labelFr: "Nouvelles inscriptions africaines sur le trimestre", definition: "The total number of unique enrolled students who are nationals of, or permanently residing in, an African country at the time of enrolment.", illustrative: "149", type: "number" },
+  { key: "dp_total_graduates", row: 98, section: "data", label: "Total number of graduates of the university (cumulative to date)", labelFr: "Nombre total de diplômés (cumulé à ce jour)", definition: "The total number of students who have successfully completed all academic or professional requirements for graduation since the university’s inception (or from the start of the program being reported). Each graduate should be counted once, even if completing multiple programs. This figure should be cumulative and updated each reporting period.", illustrative: "149", type: "number" },
+  { key: "dp_university_sites", row: 99, section: "data", label: "Total number of university sites operational", labelFr: "Nombre de sites universitaires opérationnels", definition: "The total number of physical or officially recognised learning sites operated or directly managed by SCU, including main campuses, satellite campuses, regional centres, or officially affiliated teaching sites. Exclude temporary venues, partner institutions not under SCU operational control.", illustrative: "5", type: "number" },
 ];
 
 export const ESG_METRIC_BY_KEY: Record<string, EsgMetric> = Object.fromEntries(

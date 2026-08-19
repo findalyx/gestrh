@@ -116,25 +116,36 @@ function FieldRow({
   return (
     <div className="rounded-lg border border-sc-border/70 bg-sc-blue-bg/20 p-3">
       <div className="mb-1.5 flex flex-wrap items-start justify-between gap-2">
-        <label
-          htmlFor={`v_${m.key}`}
-          className="text-[12.5px] font-medium text-sc-blue-darker"
-        >
-          {m.label}
-          {m.unit && (
-            <span className="ml-1 text-[10.5px] text-gray-400">({m.unit})</span>
+        <div className="min-w-0 flex-1">
+          <label
+            htmlFor={`v_${m.key}`}
+            className="text-[12.5px] font-semibold text-sc-blue-darker"
+          >
+            {m.label}
+            {m.unit && (
+              <span className="ml-1 text-[10.5px] text-gray-400">
+                ({m.unit})
+              </span>
+            )}
+          </label>
+          {m.labelFr && (
+            <p className="mt-0.5 text-[11px] italic text-gray-500">
+              {m.labelFr}
+            </p>
           )}
-        </label>
-        {m.auto && (
-          <span className="rounded-full bg-sc-teal-light px-2 py-[1px] text-[9.5px] font-semibold uppercase tracking-wide text-sc-teal-dark">
-            Auto RH
-          </span>
-        )}
-        {m.derived && (
-          <span className="rounded-full bg-gray-100 px-2 py-[1px] text-[9.5px] font-semibold uppercase tracking-wide text-gray-500">
-            Calculé
-          </span>
-        )}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1">
+          {m.auto && (
+            <span className="rounded-full bg-sc-teal-light px-2 py-[1px] text-[9.5px] font-semibold uppercase tracking-wide text-sc-teal-dark">
+              Auto RH
+            </span>
+          )}
+          {m.derived && (
+            <span className="rounded-full bg-gray-100 px-2 py-[1px] text-[9.5px] font-semibold uppercase tracking-wide text-gray-500">
+              Calculé
+            </span>
+          )}
+        </div>
       </div>
       {m.definition && (
         <p className="mb-1.5 text-[11px] leading-snug text-gray-500">

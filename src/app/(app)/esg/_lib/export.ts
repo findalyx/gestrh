@@ -80,6 +80,19 @@ function quarterTag(period: string): string {
   return m ? `Q${m[1]}` : period;
 }
 
+const MONTHS_EN = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** "2026-Q2" → "April - June 2026" (en-tête anglais pour l'export). */
+function quarterLabelEn(period: string): string {
+  const m = period.match(/^(\d{4})-Q([1-4])$/);
+  if (!m) return period;
+  const start = (Number(m[2]) - 1) * 3;
+  return `${MONTHS_EN[start]} - ${MONTHS_EN[start + 2]} ${m[1]}`;
+}
+
 const HIST_COLS = ["G", "H", "I", "J"] as const;
 
 /**
@@ -102,12 +115,12 @@ export async function buildEsgExport(
 
   // En-têtes de trimestres
   ws.getCell("E3").value = quarterTag(current.period);
-  ws.getCell("E4").value = current.label;
+  ws.getCell("E4").value = quarterLabelEn(current.period);
   ws.getCell("F4").value = "Comments";
   ws.getCell("K4").value = "Comments";
   hist.forEach((h, i) => {
     ws.getCell(`${HIST_COLS[i]}3`).value = quarterTag(h.period);
-    ws.getCell(`${HIST_COLS[i]}4`).value = h.label;
+    ws.getCell(`${HIST_COLS[i]}4`).value = quarterLabelEn(h.period);
   });
 
   // Lignes d'indicateurs
