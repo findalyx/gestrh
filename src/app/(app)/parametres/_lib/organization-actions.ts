@@ -41,6 +41,12 @@ const OrgSchema = z.object({
   bp: z.string().trim().max(80).optional().or(z.literal("")),
   legalRepName: z.string().trim().max(120).optional().or(z.literal("")),
   legalRepTitle: z.string().trim().max(80).optional().or(z.literal("")),
+  usdRate: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((s) => !s || /^\d+$/.test(s), "Saisir un entier (FCFA pour 1 USD)"),
 });
 
 export type OrgFormState = {
@@ -80,6 +86,7 @@ export async function updateOrganization(
     bp: String(formData.get("bp") ?? ""),
     legalRepName: String(formData.get("legalRepName") ?? ""),
     legalRepTitle: String(formData.get("legalRepTitle") ?? ""),
+    usdRate: String(formData.get("usdRate") ?? ""),
   };
 
   const parsed = OrgSchema.safeParse(raw);
@@ -110,6 +117,7 @@ export async function updateOrganization(
       bp: data.bp || null,
       legalRepName: data.legalRepName || null,
       legalRepTitle: data.legalRepTitle || null,
+      usdRate: data.usdRate ? Number.parseInt(data.usdRate, 10) : null,
     },
   });
 

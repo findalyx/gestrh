@@ -122,6 +122,14 @@ export const NAV_SECTIONS: NavSection[] = [
         subtitle: "Documents, traçabilité et RGPD",
         roles: ADMIN,
       },
+      {
+        label: "Reporting ESG",
+        href: "/esg",
+        icon: "leaf",
+        title: "Reporting ESG",
+        subtitle: "Questionnaire investisseurs trimestriel · données extra-financières",
+        roles: ADMIN,
+      },
     ],
   },
   {

@@ -30,6 +30,7 @@ type Defaults = {
   bp: string | null;
   legalRepName: string | null;
   legalRepTitle: string | null;
+  usdRate: string | null;
   logoFilename: string | null;
 };
 
@@ -350,6 +351,35 @@ function IdentityBlock({ defaults }: { defaults: Defaults }) {
             id="legalRepTitle"
             name="legalRepTitle"
             defaultValue={v("legalRepTitle") || dflt("legalRepTitle")}
+            className={inputCls}
+          />
+        </Field>
+      </div>
+
+      {/* ============================================================
+          Bloc Reporting ESG — conversion des montants en USD
+          ============================================================ */}
+      <div className="mt-2 border-t border-sc-border pt-4">
+        <h5 className="text-[12px] font-semibold uppercase tracking-wide text-gray-500">
+          Reporting ESG
+        </h5>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Field
+          label="Taux de conversion USD"
+          name="usdRate"
+          hint="FCFA pour 1 USD — ex: 600"
+          error={err("usdRate")}
+        >
+          <input
+            id="usdRate"
+            name="usdRate"
+            type="number"
+            min={0}
+            step={1}
+            placeholder="600"
+            defaultValue={v("usdRate") || dflt("usdRate")}
             className={inputCls}
           />
         </Field>

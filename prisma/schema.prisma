@@ -291,7 +291,44 @@ model Organization {
   // Logo uploadé ; chemin = ./uploads/branding/{logoFilename}
   logoFilename String?
   logoMimeType String?
+  // Taux de conversion 1 USD = X FCFA (reporting ESG investisseurs en USD)
+  usdRate      Int?
   updatedAt    DateTime @updatedAt
+}
+
+/// Rapport ESG trimestriel (questionnaire investisseurs Admaius).
+/// Un rapport = un trimestre. Les données RH sont pré-remplies automatiquement,
+/// le reste est saisi manuellement. Voir src/app/(app)/esg/_lib/registry.ts.
+enum EsgReportStatus {
+  BROUILLON
+  FINALISE
+}
+
+model EsgReport {
+  id        String          @id @default(cuid())
+  period    String          @unique // "2026-Q2"
+  label     String                  // "Avril - Juin 2026"
+  startDate DateTime
+  endDate   DateTime
+  status    EsgReportStatus @default(BROUILLON)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  answers EsgAnswer[]
+}
+
+/// Réponse à un indicateur ESG (clé = metricKey du registre).
+model EsgAnswer {
+  id        String @id @default(cuid())
+  metricKey String
+  value     String @default("")
+  comment   String @default("")
+
+  report   EsgReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId String
+
+  @@unique([reportId, metricKey])
+  @@index([reportId])
 }
 
 /// Journal d'audit — traçabilité de toutes les actions RH (§5.9, §8.3)

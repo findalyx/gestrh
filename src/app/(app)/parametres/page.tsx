@@ -161,6 +161,7 @@ export default async function ParametresPage() {
             bp: organization.bp,
             legalRepName: organization.legalRepName,
             legalRepTitle: organization.legalRepTitle,
+            usdRate: organization.usdRate != null ? String(organization.usdRate) : null,
             logoFilename: organization.logoFilename,
           }}
           logoUrl={logoUrl}

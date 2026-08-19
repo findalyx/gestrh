@@ -20,6 +20,7 @@ export type IconName =
   | "chevron-down"
   | "heart"
   | "gift"
+  | "leaf"
   | "logout";
 
 // Tracés SVG (style Feather, viewBox 0 0 24 24) repris de la maquette.
@@ -121,6 +122,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <rect x="3" y="8" width="18" height="4" rx="1" />
       <path d="M12 8v13M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" />
       <path d="M12 8S10.5 3 7.5 3a2.5 2.5 0 0 0 0 5M12 8s1.5-5 4.5-5a2.5 2.5 0 0 1 0 5" />
+    </>
+  ),
+  leaf: (
+    <>
+      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+      <path d="M2 21c0-3 1.85-5.36 5.08-6" />
     </>
   ),
   logout: (
