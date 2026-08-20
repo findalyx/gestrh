@@ -26,7 +26,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
   const { id } = await params;
 
   const report = await prisma.esgReport.findUnique({

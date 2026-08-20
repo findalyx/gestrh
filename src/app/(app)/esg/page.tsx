@@ -21,7 +21,7 @@ export default async function EsgPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
   const sp = await searchParams;
   const vue: "dashboard" | "rapports" =
     sp.vue === "rapports" ? "rapports" : "dashboard";

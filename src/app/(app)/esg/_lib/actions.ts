@@ -54,7 +54,7 @@ export async function createEsgReport(
   _prev: EsgActionState,
   formData: FormData,
 ): Promise<EsgActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const year = Number.parseInt(String(formData.get("year") ?? ""), 10);
   const q = Number.parseInt(String(formData.get("quarter") ?? ""), 10);
@@ -103,7 +103,7 @@ export async function saveEsgAnswers(
   _prev: EsgActionState,
   formData: FormData,
 ): Promise<EsgActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const report = await prisma.esgReport.findUnique({
     where: { id: reportId },
@@ -146,7 +146,7 @@ export async function refreshEsgAuto(
   _prev: EsgActionState,
   _formData: FormData,
 ): Promise<EsgActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const n = await fillAutoAnswers(reportId);
   if (n === 0) return { ok: false, error: "Rapport introuvable." };
@@ -172,7 +172,7 @@ export async function setEsgStatus(
   _prev: EsgActionState,
   _formData: FormData,
 ): Promise<EsgActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   await prisma.esgReport.update({ where: { id: reportId }, data: { status } });
 
@@ -202,7 +202,7 @@ export async function deleteEsgReport(
   _prev: EsgActionState,
   _formData: FormData,
 ): Promise<EsgActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const report = await prisma.esgReport.findUnique({
     where: { id: reportId },

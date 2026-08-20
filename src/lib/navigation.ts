@@ -130,7 +130,8 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: "leaf",
         title: "Reporting ESG",
         subtitle: "Questionnaire investisseurs trimestriel · données extra-financières",
-        roles: ADMIN,
+        // DG, Responsable RH et Doyen Exécutif pilotent le reporting ESG.
+        roles: [Role.DIRECTION, Role.DRH, Role.DOYEN],
       },
     ],
   },

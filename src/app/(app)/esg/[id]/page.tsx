@@ -20,7 +20,7 @@ export default async function EsgReportPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await requireRole(Role.DIRECTION, Role.DRH);
+  await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const report = await prisma.esgReport.findUnique({
     where: { id },
