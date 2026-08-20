@@ -15,7 +15,7 @@ type AgentOption = {
 
 const ROLE_LABEL: Record<Role, string> = {
   DIRECTION: "Direction",
-  DRH: "DRH",
+  DRH: "Responsable RH",
   MANAGER: "Manager",
   RECTEUR: "Recteur",
   DOYEN: "Doyen",

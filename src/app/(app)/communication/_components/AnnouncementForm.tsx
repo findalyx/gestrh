@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import type { StaffCategory } from "@prisma/client";
+import { CATEGORY_LABEL } from "@/lib/announcement-audience";
 import {
   publishAnnouncement,
   updateAnnouncement,
@@ -11,15 +13,33 @@ const inputCls =
   "w-full rounded-lg border border-sc-border bg-gray-50 px-3 py-2 text-[13px] outline-none transition focus:border-sc-blue focus:bg-white focus:ring-[3px] focus:ring-sc-blue/10";
 
 type Props = {
+  /** Services proposés comme destinataires. */
+  services: { id: string; name: string }[];
   /** Mode édition : id de l'annonce + valeurs par défaut */
   editing?: {
     id: string;
     title: string;
     body: string;
+    categories: StaffCategory[];
+    serviceIds: string[];
   };
 };
 
-export function AnnouncementForm({ editing }: Props) {
+const CATEGORIES: StaffCategory[] = ["PER", "PATS", "PRESTATAIRE"];
+
+export function AnnouncementForm({ services, editing }: Props) {
+  // Ciblage : aucune case cochée = tout le personnel.
+  const [categories, setCategories] = useState<StaffCategory[]>(
+    editing?.categories ?? [],
+  );
+  const [serviceIds, setServiceIds] = useState<string[]>(
+    editing?.serviceIds ?? [],
+  );
+  const targeted = categories.length > 0 || serviceIds.length > 0;
+
+  const toggle = <T,>(list: T[], v: T): T[] =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+
   const action = editing
     ? updateAnnouncement.bind(null, editing.id)
     : publishAnnouncement;
@@ -81,6 +101,85 @@ export function AnnouncementForm({ editing }: Props) {
           className={`${inputCls} resize-none`}
         />
         {err("body") && <p className="text-[11.5px] text-sc-danger">{err("body")}</p>}
+      </div>
+
+      {/* Destinataires */}
+      <div className="rounded-lg border border-sc-border bg-gray-50/60 p-3">
+        <p className="text-[12px] font-medium text-sc-blue-darker">
+          Destinataires
+        </p>
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          Aucune case cochée = <strong>tout le personnel</strong>. Sinon
+          l&apos;annonce est visible par les catégories <em>ou</em> les services
+          sélectionnés.
+        </p>
+
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {CATEGORIES.map((c) => (
+            <label
+              key={c}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-[12px] font-medium transition ${
+                categories.includes(c)
+                  ? "border-sc-blue bg-sc-blue-light text-sc-blue"
+                  : "border-sc-border bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <input
+                type="checkbox"
+                name="categories"
+                value={c}
+                checked={categories.includes(c)}
+                onChange={() => setCategories((l) => toggle(l, c))}
+                className="sr-only"
+              />
+              {CATEGORY_LABEL[c]}
+            </label>
+          ))}
+        </div>
+
+        {services.length > 0 && (
+          <>
+            <p className="mt-3 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+              Services
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {services.map((sv) => (
+                <label
+                  key={sv.id}
+                  className={`cursor-pointer rounded-full border px-3 py-1 text-[12px] font-medium transition ${
+                    serviceIds.includes(sv.id)
+                      ? "border-sc-teal bg-sc-teal/10 text-sc-teal-dark"
+                      : "border-sc-border bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    name="services"
+                    value={sv.id}
+                    checked={serviceIds.includes(sv.id)}
+                    onChange={() => setServiceIds((l) => toggle(l, sv.id))}
+                    className="sr-only"
+                  />
+                  {sv.name}
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+
+        <p className="mt-2.5 text-[11.5px] text-gray-600">
+          Visible par :{" "}
+          <strong>
+            {targeted
+              ? [
+                  ...categories.map((c) => CATEGORY_LABEL[c]),
+                  ...serviceIds.map(
+                    (id) => services.find((sv) => sv.id === id)?.name ?? "Service",
+                  ),
+                ].join(" · ")
+              : "tout le personnel"}
+          </strong>
+        </p>
       </div>
 
       <div className="flex flex-col gap-1.5">

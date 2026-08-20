@@ -53,7 +53,7 @@ export default async function DashboardPage({
 function MissingAgentWarning({ role }: { role: string }) {
   return (
     <div className="rounded-xl border border-sc-warning/30 bg-sc-warning-light p-5 text-[13px] text-[#854f0b]">
-      Votre compte {role} n&apos;est pas relié à une fiche agent. Contactez la DRH.
+      Votre compte {role} n&apos;est pas relié à une fiche agent. Contactez le Responsable RH.
     </div>
   );
 }

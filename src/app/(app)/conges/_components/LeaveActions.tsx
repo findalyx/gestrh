@@ -5,6 +5,7 @@ import {
   approveLeaveRequest,
   rejectLeaveRequest,
   cancelLeaveRequest,
+  deleteLeaveRequest,
 } from "../_lib/actions";
 import type { LeaveActionState } from "../_lib/schema";
 
@@ -220,5 +221,75 @@ export function CancelButton({ requestId }: { requestId: string }) {
         <span className="text-[11px] text-sc-danger">{state.message}</span>
       )}
     </form>
+  );
+}
+
+// ============================================================
+//  SUPPRIMER — Direction / Responsable RH
+// ============================================================
+/**
+ * Suppression definitive (retrait des demandes de test par exemple).
+ * Confirmation obligatoire ; si la demande etait autorisee, les jours sont
+ * rendus au solde de l'agent.
+ */
+export function DeleteLeaveButton({
+  requestId,
+  label,
+}: {
+  requestId: string;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const action = deleteLeaveRequest.bind(null, requestId);
+  const [state, formAction, pending] = useActionState<LeaveActionState, FormData>(
+    action,
+    undefined,
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Supprimer la demande"
+        aria-label="Supprimer la demande"
+        className="rounded-lg border border-sc-border bg-white px-2 py-1 text-[11.5px] font-medium text-gray-400 transition hover:border-sc-danger/40 hover:bg-sc-danger-light hover:text-sc-danger"
+      >
+        Suppr.
+      </button>
+
+      {open && (
+        <DecisionModal onClose={() => !pending && setOpen(false)}>
+          <h3 className="font-serif text-[15px] font-semibold text-sc-danger">
+            Supprimer la demande
+          </h3>
+          <p className="mt-2 text-[12.5px] text-gray-700">
+            {label} sera définitivement supprimée, ainsi que son historique de
+            validation. Si elle était autorisée, les jours sont rendus au solde
+            de l&apos;agent.
+          </p>
+          <form action={formAction} className="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setOpen(false)}
+              className="rounded-lg border border-sc-border bg-white px-3 py-1.5 text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-lg bg-sc-danger px-3 py-1.5 text-[12.5px] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {pending ? "Suppression…" : "Supprimer"}
+            </button>
+          </form>
+          {state && !state.ok && (
+            <p className="mt-2 text-[11.5px] text-sc-danger">{state.message}</p>
+          )}
+        </DecisionModal>
+      )}
+    </>
   );
 }

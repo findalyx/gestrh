@@ -78,7 +78,7 @@ export default async function EvaluationDetailPage({
       {sp.finalized && (
         <div className="rounded-xl border border-sc-green/30 bg-sc-green-light px-4 py-3 text-[13px] text-sc-green-dark">
           ✓ Évaluation finalisée. Elle est désormais consultable par l&apos;agent
-          évalué et par la DRH.
+          évalué et par le Responsable RH.
         </div>
       )}
 
@@ -178,7 +178,7 @@ export default async function EvaluationDetailPage({
           </h3>
           <p className="mb-4 text-[12px] text-gray-600">
             Vous pouvez enregistrer en brouillon pour reprendre plus tard, ou
-            finaliser une fois la note posée. Une fois finalisée, seule la DRH
+            finaliser une fois la note posée. Une fois finalisée, seul le Responsable RH
             peut ré-ouvrir l&apos;évaluation.
           </p>
           <EvaluationForm

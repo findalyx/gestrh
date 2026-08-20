@@ -14,10 +14,10 @@ import { AgentSubNav } from "../../_components/AgentSubNav";
 export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<ResignationStatus, string> = {
-  SOUMISE: "Soumise — en attente DRH",
-  ACCUSEE: "Accusée par la DRH",
+  SOUMISE: "Soumise — en attente RH",
+  ACCUSEE: "Accusée par le Responsable RH",
   ACCEPTEE: "Acceptée — préavis en cours",
-  REJETEE: "Refusée par la DRH",
+  REJETEE: "Refusée par le Responsable RH",
   EN_PREAVIS: "En période de préavis",
   EFFECTIVE: "Effective — contrat rompu",
   ANNULEE: "Annulée",
@@ -122,7 +122,7 @@ export default async function ResignationPage({
                   )}
                   {resignation.hrComment && (
                     <p className="mt-1 text-gray-700">
-                      Commentaire DRH : {resignation.hrComment}
+                      Commentaire RH : {resignation.hrComment}
                     </p>
                   )}
                 </li>
@@ -187,7 +187,7 @@ function ResignationCard({
           )}
           {resignation.hrComment && (
             <p className="mt-1 text-[12px] text-gray-700">
-              <span className="font-semibold">Commentaire DRH : </span>
+              <span className="font-semibold">Commentaire RH : </span>
               {resignation.hrComment}
             </p>
           )}

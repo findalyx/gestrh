@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
+import {
+  audienceLabel,
+  isAnnouncementVisibleTo,
+} from "@/lib/announcement-audience";
 import { Icon } from "@/components/Icon";
 import { AnnouncementForm } from "../_components/AnnouncementForm";
 import { DeleteAnnouncementButton } from "../_components/DeleteAnnouncementButton";
@@ -47,6 +51,31 @@ export default async function AnnouncementDetailPage({
 
   if (!ann) notFound();
 
+  const isAdminUser = me.role === Role.DIRECTION || me.role === Role.DRH;
+  // Ciblage : hors administrateurs, on ne voit que les annonces qui nous sont
+  // destinées.
+  if (
+    !isAdminUser &&
+    !isAnnouncementVisibleTo(
+      { categories: ann.categories, serviceIds: ann.serviceIds },
+      me.agent
+        ? { category: me.agent.category, serviceId: me.agent.serviceId }
+        : null,
+    )
+  ) {
+    notFound();
+  }
+
+  const services = await prisma.service.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  const serviceNameById = new Map(services.map((sv) => [sv.id, sv.name]));
+  const audience = audienceLabel(
+    { categories: ann.categories, serviceIds: ann.serviceIds },
+    serviceNameById,
+  );
+
   const isAuthor = ann.authorId === me.id;
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
   const canEdit = isAuthor || isAdmin;
@@ -77,7 +106,14 @@ export default async function AnnouncementDetailPage({
             </Link>
           </header>
           <AnnouncementForm
-            editing={{ id: ann.id, title: ann.title, body: ann.body }}
+            services={services}
+            editing={{
+              id: ann.id,
+              title: ann.title,
+              body: ann.body,
+              categories: ann.categories,
+              serviceIds: ann.serviceIds,
+            }}
           />
 
           {ann.attachments.length > 0 && (
@@ -118,6 +154,11 @@ export default async function AnnouncementDetailPage({
               <h1 className="font-serif text-2xl font-semibold text-sc-blue-darker">
                 {ann.title}
               </h1>
+              <p className="mt-1 text-[11.5px] text-gray-600">
+                <span className="rounded-full bg-sc-teal/10 px-2 py-[2px] text-[10.5px] font-semibold text-sc-teal-dark">
+                  Destinataires : {audience}
+                </span>
+              </p>
               <p className="mt-1 text-[12px] text-gray-500">
                 Publiée le {formatDateTime(ann.publishedAt)} par{" "}
                 <span className="font-mono">{ann.author.email}</span>

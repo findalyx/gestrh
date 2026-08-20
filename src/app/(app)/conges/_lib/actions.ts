@@ -61,7 +61,7 @@ export async function createLeaveRequest(
   if (!me.agent) {
     return {
       errors: {
-        _form: ["Votre compte n'est pas relié à un agent. Contactez la DRH."],
+        _form: ["Votre compte n'est pas relié à un agent. Contactez le Responsable RH."],
       },
     };
   }
@@ -476,4 +476,60 @@ export async function cancelLeaveRequest(
   revalidatePath("/conges");
   revalidatePath("/tableau-de-bord");
   return { ok: true, message: "Demande annulée." };
+}
+
+// ============================================================
+//  SUPPRIMER UNE DEMANDE — DIRECTION + RESPONSABLE RH
+// ============================================================
+/**
+ * Suppression definitive d'une demande de conge (utile pour retirer des
+ * demandes de test). Si la demande etait AUTORISEE, les jours sont rendus au
+ * solde de l'agent. Les decisions de validation associees partent en cascade.
+ */
+export async function deleteLeaveRequest(
+  requestId: string,
+  _prev: LeaveActionState,
+  _formData: FormData,
+): Promise<LeaveActionState> {
+  const me = await getCurrentUser();
+  if (me.role !== Role.DIRECTION && me.role !== Role.DRH) {
+    return { ok: false, message: "Suppression réservée à la Direction et au Responsable RH." };
+  }
+
+  const request = await prisma.leaveRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      agentId: true,
+      status: true,
+      type: true,
+      days: true,
+      startDate: true,
+    },
+  });
+  if (!request) return { ok: false, message: "Demande introuvable." };
+
+  await prisma.$transaction(async (tx) => {
+    // Les jours consommés sont rendus au solde avant suppression.
+    if (request.status === LeaveStatus.AUTORISE) {
+      const year = request.startDate.getFullYear();
+      await tx.leaveBalance.updateMany({
+        where: { agentId: request.agentId, year, type: request.type },
+        data: { usedDays: { decrement: request.days } },
+      });
+    }
+    await tx.leaveRequest.delete({ where: { id: requestId } });
+  });
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_LEAVE_REQUEST",
+    entity: "LeaveRequest",
+    entityId: requestId,
+    details: `${request.type} · ${request.days} j · statut ${request.status}`,
+  });
+
+  revalidatePath("/conges");
+  revalidatePath("/tableau-de-bord");
+  return { ok: true, message: "Demande supprimée." };
 }

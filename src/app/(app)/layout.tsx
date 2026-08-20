@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const ROLE_LABEL: Record<Role, string> = {
   DIRECTION: "Direction générale",
-  DRH: "DRH",
+  DRH: "Responsable RH",
   MANAGER: "Manager",
   RECTEUR: "Recteur",
   DOYEN: "Doyen",

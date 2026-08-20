@@ -3,6 +3,10 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
 import { getAlertsForUser } from "@/lib/alerts";
+import {
+  audienceLabel,
+  isAnnouncementVisibleTo,
+} from "@/lib/announcement-audience";
 import { Icon } from "@/components/Icon";
 import { KpiCard } from "@/components/KpiCard";
 import { AnnouncementForm } from "./_components/AnnouncementForm";
@@ -20,7 +24,7 @@ export default async function CommunicationPage() {
   const me = await getCurrentUser();
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
 
-  const [announcements, alerts, totalAgents] = await Promise.all([
+  const [allAnnouncements, alerts, totalAgents, services] = await Promise.all([
     prisma.announcement.findMany({
       orderBy: { publishedAt: "desc" },
       include: {
@@ -35,13 +39,31 @@ export default async function CommunicationPage() {
       agent: me.agent ? { id: me.agent.id } : null,
     }),
     prisma.agent.count(),
+    prisma.service.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
+
+  const serviceNameById = new Map(services.map((sv) => [sv.id, sv.name]));
+  // Hors administrateurs, chacun ne voit que les annonces qui le concernent.
+  const announcements = isAdmin
+    ? allAnnouncements
+    : allAnnouncements.filter((a) =>
+        isAnnouncementVisibleTo(
+          { categories: a.categories, serviceIds: a.serviceIds },
+          me.agent
+            ? { category: me.agent.category, serviceId: me.agent.serviceId }
+            : null,
+        ),
+      );
 
   return (
     <div className="space-y-6">
       <p className="text-[12.5px] text-gray-600">
-        Annonces de la direction et notifications personnelles. Les annonces
-        sont visibles par tout le personnel.
+        Annonces de la direction et notifications personnelles. Chaque annonce
+        peut viser tout le personnel, certaines catégories (PER, PATS,
+        prestataires) ou certains services.
       </p>
 
       {/* Tuiles synthèse */}
@@ -85,7 +107,7 @@ export default async function CommunicationPage() {
                 + Publier une annonce
               </summary>
               <div className="border-t border-sc-border p-5">
-                <AnnouncementForm />
+                <AnnouncementForm services={services} />
               </div>
             </details>
           )}
@@ -106,9 +128,19 @@ export default async function CommunicationPage() {
                   className="block rounded-xl border border-sc-border bg-white p-5 shadow-[0_1px_2px_rgba(51,89,164,0.06)] transition hover:-translate-y-0.5 hover:border-sc-blue hover:shadow-[0_4px_12px_rgba(51,89,164,0.08)]"
                 >
                   <header className="mb-2">
-                    <h4 className="font-serif text-base font-semibold text-sc-blue-darker">
-                      {a.title}
-                    </h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-serif text-base font-semibold text-sc-blue-darker">
+                        {a.title}
+                      </h4>
+                      {(a.categories.length > 0 || a.serviceIds.length > 0) && (
+                        <span className="rounded-full bg-sc-teal/10 px-2 py-[2px] text-[10px] font-semibold text-sc-teal-dark">
+                          {audienceLabel(
+                            { categories: a.categories, serviceIds: a.serviceIds },
+                            serviceNameById,
+                          )}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[11.5px] text-gray-500">
                       {formatDateTime(a.publishedAt)} ·{" "}
                       <span className="font-mono">{a.author.email}</span>

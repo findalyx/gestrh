@@ -6,7 +6,12 @@ import { getCurrentUser } from "@/lib/dal";
 import { getLeaveScopeWhere, getMyPendingApprovalsWhere } from "@/lib/leave-access";
 import { Icon } from "@/components/Icon";
 import { LeaveStatusBadge, LeaveTypeBadge } from "./_components/LeaveBadges";
-import { ApproveButton, CancelButton, RejectButton } from "./_components/LeaveActions";
+import {
+  ApproveButton,
+  CancelButton,
+  DeleteLeaveButton,
+  RejectButton,
+} from "./_components/LeaveActions";
 import { LeaveTimeline } from "./_components/LeaveTimeline";
 
 export const dynamic = "force-dynamic";
@@ -186,6 +191,12 @@ function RequestsTable({
                       </>
                     )}
                     {canCancel && <CancelButton requestId={r.id} />}
+                    {isAdmin && (
+                      <DeleteLeaveButton
+                        requestId={r.id}
+                        label={`La demande de ${r.agent.firstName} ${r.agent.lastName}`}
+                      />
+                    )}
                     {canDecideRow && (
                       <>
                         <ApproveButton

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { Role } from "@prisma/client";
+import { Role, StaffCategory } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
@@ -40,6 +40,26 @@ function guessAttachMime(filename: string): string {
     default:
       return "application/octet-stream";
   }
+}
+
+/**
+ * Audience d'une annonce : categories de personnel et services coches dans le
+ * formulaire. Listes vides = tout le personnel (comportement par defaut).
+ */
+function readAudience(formData: FormData): {
+  categories: StaffCategory[];
+  serviceIds: string[];
+} {
+  const valid = Object.values(StaffCategory) as string[];
+  const categories = formData
+    .getAll("categories")
+    .map(String)
+    .filter((c) => valid.includes(c)) as StaffCategory[];
+  const serviceIds = formData
+    .getAll("services")
+    .map(String)
+    .filter((v) => v.trim() !== "");
+  return { categories, serviceIds };
 }
 
 const AnnouncementSchema = z.object({
@@ -108,11 +128,15 @@ export async function publishAnnouncement(
     return { errors: parsed.error.flatten().fieldErrors, values: raw };
   }
 
+  const audience = readAudience(formData);
+
   const created = await prisma.announcement.create({
     data: {
       title: parsed.data.title,
       body: parsed.data.body,
       authorId: me.id,
+      categories: audience.categories,
+      serviceIds: audience.serviceIds,
     },
     select: { id: true },
   });
@@ -172,9 +196,16 @@ export async function updateAnnouncement(
     return { errors: parsed.error.flatten().fieldErrors, values: raw };
   }
 
+  const audience = readAudience(formData);
+
   await prisma.announcement.update({
     where: { id: announcementId },
-    data: { title: parsed.data.title, body: parsed.data.body },
+    data: {
+      title: parsed.data.title,
+      body: parsed.data.body,
+      categories: audience.categories,
+      serviceIds: audience.serviceIds,
+    },
   });
 
   // Pièces jointes additionnelles éventuelles

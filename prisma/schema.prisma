@@ -905,6 +905,10 @@ model Announcement {
   publishedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// Ciblage de l'audience. Listes vides = annonce visible par tout le personnel.
+  categories  StaffCategory[] // PER / PATS / PRESTATAIRE
+  serviceIds  String[]        // identifiants de services destinataires
+
   author      User   @relation(fields: [authorId], references: [id])
   authorId    String
   attachments AnnouncementAttachment[]

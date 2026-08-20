@@ -483,7 +483,7 @@ export default async function PaiePage({
       {scope === "SELF" && totalCount === 0 && me.agent && (
         <p className="text-center text-[12px] text-gray-500">
           Vos bulletins apparaîtront ici dès qu&apos;ils auront été générés par
-          la DRH.
+          le Responsable RH.
         </p>
       )}
     </div>

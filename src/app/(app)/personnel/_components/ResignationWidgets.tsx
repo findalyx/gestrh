@@ -59,7 +59,7 @@ export function SubmitResignationForm({
         </h3>
         <p className="mt-1 text-[12px] text-gray-600">
           Vous pouvez initier une démission pour le contrat {contractReference}.
-          La DRH sera notifiée et décidera de l&apos;acceptation.
+          Le Responsable RH sera notifié et décidera de l&apos;acceptation.
         </p>
         <button
           type="button"
@@ -195,7 +195,7 @@ export function DecisionForm({ resignationId }: { resignationId: string }) {
     <form action={action} className="mt-4 space-y-3 rounded-md bg-sc-blue-bg p-4">
       <div>
         <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-600">
-          Commentaire DRH (optionnel)
+          Commentaire RH (optionnel)
         </label>
         <textarea
           name="hrComment"

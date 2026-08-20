@@ -130,7 +130,7 @@ export async function AgentDashboard({ agentId, firstName }: Props) {
   if (!agent) {
     return (
       <div className="rounded-xl border border-sc-warning/30 bg-sc-warning-light p-5 text-[13px] text-[#854f0b]">
-        Votre fiche agent est introuvable. Contactez la DRH.
+        Votre fiche agent est introuvable. Contactez le Responsable RH.
       </div>
     );
   }

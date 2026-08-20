@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 const ROLE_LABEL: Record<Role, string> = {
   DIRECTION: "Direction",
-  DRH: "DRH",
+  DRH: "Responsable RH",
   MANAGER: "Manager",
   RECTEUR: "Recteur",
   DOYEN: "Doyen",
@@ -238,7 +238,7 @@ export default async function ParametresPage() {
         <div className="space-y-4">
         <div className="rounded-lg border border-sc-blue/20 bg-sc-blue-bg/40 px-3.5 py-2.5 text-[12px] text-gray-700">
           <span className="font-semibold text-sc-blue-darker">À noter :</span>{" "}
-          le rôle (Direction / DRH / Manager / Agent) concerne uniquement
+          le rôle (Direction / Responsable RH / Manager / Agent) concerne uniquement
           l&apos;<strong>accès à l&apos;application</strong>. Pour donner un
           accès à un agent qui n&apos;en a pas encore, utilise la section{" "}
           <a href="#donner-acces" className="text-sc-blue hover:underline">

@@ -22,7 +22,7 @@ export default async function NewLeaveRequestPage() {
     return (
       <div className="rounded-xl border border-sc-warning/30 bg-sc-warning-light p-5 text-[13px] text-[#854f0b]">
         Votre compte n&apos;est pas relié à une fiche agent. Vous ne pouvez pas
-        soumettre de demande de congé. Contactez la DRH.
+        soumettre de demande de congé. Contactez le Responsable RH.
       </div>
     );
   }
