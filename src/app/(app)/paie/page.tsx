@@ -17,6 +17,15 @@ import { ImportPayslipsForm } from "./_components/ImportPayslipsForm";
 // Manager n'a pas accès (cf. matrice) ; AGENT, DRH, DIRECTION oui.
 export const dynamic = "force-dynamic";
 
+/** Infobulle CSS affichée au survol d'un bouton-icône (aucun JS). */
+function Tooltip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-sc-blue-darker px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/tip:opacity-100 group-open:hidden">
+      {children}
+    </span>
+  );
+}
+
 const FCFA = new Intl.NumberFormat("fr-FR");
 
 function formatPeriod(p: string): string {
@@ -282,38 +291,67 @@ export default async function PaiePage({
             </form>
           )}
 
-          {/* Bouton Export CSV — visible pour tous, exporte selon le rôle */}
-          {records.length > 0 && (
-            <a
-              href={exportHref}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-[9px] text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50"
-              title="Télécharger un fichier CSV (ouvrable dans Excel)"
-            >
-              <Icon name="export" size={13} />
-              Exporter en CSV
-            </a>
-          )}
+          {/* Actions : icônes seules, libellé au survol (infobulle CSS) */}
+          <div className="flex items-center gap-2">
+            {records.length > 0 && (
+              <span className="group/tip relative">
+                <a
+                  href={exportHref}
+                  aria-label="Exporter en CSV"
+                  className="inline-flex h-[38px] w-[38px] items-center justify-center rounded-lg border border-sc-border bg-white text-gray-600 transition hover:bg-gray-50 hover:text-sc-blue-darker"
+                >
+                  <Icon name="export" size={16} />
+                </a>
+                <Tooltip>Exporter en CSV</Tooltip>
+              </span>
+            )}
 
-          {/* Import PDF — petit bouton qui ouvre un panneau (utilisé 1×/mois) */}
-          {isAdmin && (
-            <details className="group relative">
-              <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-sc-teal/40 bg-sc-teal/5 px-3 py-[9px] text-[12.5px] font-medium text-sc-teal-dark transition hover:bg-sc-teal/10">
-                <Icon name="import" size={14} />
-                Importer des bulletins
-                <Icon
-                  name="chevron-down"
-                  size={13}
-                  className="transition-transform group-open:rotate-180"
-                />
-              </summary>
-              <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] rounded-xl border border-sc-border bg-white p-4 shadow-lg">
-                <p className="mb-3 text-[11.5px] text-gray-500">
-                  Lecture automatique du PDF mensuel.
-                </p>
-                <ImportPayslipsForm />
-              </div>
-            </details>
-          )}
+            {/* Import PDF — panneau flottant (utilisé 1×/mois) */}
+            {isAdmin && (
+              <details className="group/tip group relative">
+                <summary
+                  aria-label="Importer des bulletins"
+                  className="inline-flex h-[38px] w-[38px] cursor-pointer list-none items-center justify-center rounded-lg border border-sc-teal/40 bg-sc-teal/5 text-sc-teal-dark transition hover:bg-sc-teal/10"
+                >
+                  <Icon name="import" size={16} />
+                </summary>
+                <Tooltip>Importer des bulletins</Tooltip>
+                <div className="absolute right-0 top-full z-30 mt-2 w-[min(560px,92vw)] rounded-xl border border-sc-border bg-white p-4 shadow-lg">
+                  <p className="mb-3 text-[11.5px] text-gray-500">
+                    Lecture automatique du PDF mensuel.
+                  </p>
+                  <ImportPayslipsForm />
+                </div>
+              </details>
+            )}
+
+            {/* Suppression d'une période — panneau flottant, admin seulement */}
+            {isAdmin && selectedPeriod && periodCount > 0 && (
+              <details className="group/tip group relative">
+                <summary
+                  aria-label={`Supprimer les bulletins de ${formatPeriod(selectedPeriod)}`}
+                  className="inline-flex h-[38px] w-[38px] cursor-pointer list-none items-center justify-center rounded-lg border border-sc-danger/30 bg-white text-sc-danger transition hover:bg-sc-danger-light"
+                >
+                  <Icon name="trash" size={16} />
+                </summary>
+                <Tooltip>
+                  Supprimer les bulletins de {formatPeriod(selectedPeriod)}
+                </Tooltip>
+                <div className="absolute right-0 top-full z-30 mt-2 w-[min(460px,92vw)] rounded-xl border border-sc-danger/20 bg-white p-4 shadow-lg">
+                  <p className="mb-3 text-[12px] text-gray-600">
+                    Supprime <strong>tous</strong> les bulletins de{" "}
+                    {formatPeriod(selectedPeriod)} et leurs PDF (source +
+                    individuels). À utiliser pour corriger un import incomplet
+                    avant de ré-importer le bon fichier.
+                  </p>
+                  <DeletePeriodButton
+                    period={selectedPeriod}
+                    count={periodCount}
+                  />
+                </div>
+              </details>
+            )}
+          </div>
         </div>
       </div>
 
@@ -378,23 +416,6 @@ export default async function PaiePage({
           </p>
           <MarkPeriodPaidBatchButton period={selectedPeriod} count={validatedCount} />
         </div>
-      )}
-
-      {/* Zone de suppression — période précise (utile après un import partiel) */}
-      {isAdmin && selectedPeriod && periodCount > 0 && (
-        <details className="rounded-xl border border-sc-danger/20 bg-white">
-          <summary className="cursor-pointer px-4 py-2.5 text-[12.5px] font-medium text-sc-danger">
-            ⚠ Supprimer les bulletins de {formatPeriod(selectedPeriod)}
-          </summary>
-          <div className="border-t border-sc-danger/20 px-4 py-3">
-            <p className="mb-2 text-[12px] text-gray-600">
-              Supprime <strong>tous</strong> les bulletins de cette période et
-              leurs PDF (source + individuels). À utiliser pour corriger un import
-              incomplet avant de ré-importer le bon fichier.
-            </p>
-            <DeletePeriodButton period={selectedPeriod} count={periodCount} />
-          </div>
-        </details>
       )}
 
       {/* Liste */}
