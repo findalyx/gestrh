@@ -16,7 +16,10 @@ import {
   type PerfCategory,
 } from "@/lib/performance";
 import { EvaluationStatusBadge } from "./_components/EvaluationBadge";
-import { LaunchCampaignForm } from "./_components/LaunchCampaignForm";
+import {
+  CampaignAdmin,
+  LaunchCampaignForm,
+} from "./_components/LaunchCampaignForm";
 
 export const dynamic = "force-dynamic";
 
@@ -134,7 +137,9 @@ export default async function EvaluationListPage({
 
   const isAdmin = me.role === Role.DIRECTION || me.role === Role.DRH;
   const now = new Date();
-  const defaultYear = String(now.getFullYear());
+  // Une campagne porte sur un exercice clôturé : on propose l'année écoulée
+  // (l'année en cours n'est pas terminée) tout en laissant le champ modifiable.
+  const defaultYear = String(now.getFullYear() - 1);
 
   // Filtres actifs (pour proposer la réinitialisation)
   const filtersActive = Boolean(perfFilter || sp.period);
@@ -206,14 +211,26 @@ export default async function EvaluationListPage({
         </div>
 
         {isAdmin && (
-          <details className="rounded-xl border border-sc-border bg-white p-4">
-            <summary className="cursor-pointer text-[12.5px] font-semibold text-sc-blue-darker">
-              + Lancer une campagne
-            </summary>
-            <div className="mt-3">
-              <LaunchCampaignForm defaultYear={defaultYear} />
-            </div>
-          </details>
+          <div className="flex flex-wrap items-start gap-3">
+            <details className="rounded-xl border border-sc-border bg-white p-4">
+              <summary className="cursor-pointer text-[12.5px] font-semibold text-sc-blue-darker">
+                + Lancer une campagne
+              </summary>
+              <div className="mt-3">
+                <LaunchCampaignForm defaultYear={defaultYear} />
+              </div>
+            </details>
+            {selectedPeriod && (
+              <details className="rounded-xl border border-sc-border bg-white p-4">
+                <summary className="cursor-pointer text-[12.5px] font-semibold text-sc-blue-darker">
+                  Corriger la campagne {selectedPeriod}
+                </summary>
+                <div className="mt-3">
+                  <CampaignAdmin period={selectedPeriod} />
+                </div>
+              </details>
+            )}
+          </div>
         )}
       </div>
 

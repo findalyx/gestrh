@@ -95,6 +95,93 @@ export async function launchEvaluationCampaign(
 }
 
 // ============================================================
+//  CORRIGER L'ANNÉE D'UNE CAMPAGNE — DIRECTION + RESPONSABLE RH
+// ============================================================
+/**
+ * Rattache toutes les evaluations d'une campagne a une autre annee (campagne
+ * lancee sur la mauvaise periode). Les notes et commentaires deja saisis sont
+ * conserves ; l'echeance est repositionnee au 31 decembre de la nouvelle annee.
+ */
+export async function renameEvaluationCampaign(
+  _prev: CampaignActionState,
+  formData: FormData,
+): Promise<CampaignActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const from = String(formData.get("from") ?? "").trim();
+  const to = String(formData.get("to") ?? "").trim();
+  if (!YEAR_RE.test(from) || !YEAR_RE.test(to)) {
+    return { ok: false, error: "Année invalide (4 chiffres attendus)." };
+  }
+  if (from === to) return { ok: false, error: "C'est déjà l'année de cette campagne." };
+
+  const existing = await prisma.evaluation.count({ where: { period: to } });
+  if (existing > 0) {
+    return {
+      ok: false,
+      error: `Une campagne ${to} existe déjà (${existing} évaluation(s)). Supprimez-la d'abord ou choisissez une autre année.`,
+    };
+  }
+
+  const result = await prisma.evaluation.updateMany({
+    where: { period: from },
+    data: { period: to, dueDate: new Date(Number(to), 11, 31) },
+  });
+  if (result.count === 0) {
+    return { ok: false, error: `Aucune évaluation pour la campagne ${from}.` };
+  }
+
+  await logAudit({
+    userId: me.id,
+    action: "RENAME_EVALUATION_CAMPAIGN",
+    entity: "Evaluation",
+    details: `Campagne ${from} → ${to} · ${result.count} évaluation(s)`,
+  });
+
+  revalidatePath("/evaluation");
+  revalidatePath("/tableau-de-bord");
+  return {
+    ok: true,
+    message: `Campagne ${from} rattachée à l'année ${to} (${result.count} évaluation(s)).`,
+  };
+}
+
+// ============================================================
+//  SUPPRIMER UNE CAMPAGNE — DIRECTION + RESPONSABLE RH
+// ============================================================
+/** Supprime toutes les evaluations d'une periode (campagne lancee par erreur). */
+export async function deleteEvaluationCampaign(
+  _prev: CampaignActionState,
+  formData: FormData,
+): Promise<CampaignActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const period = String(formData.get("period") ?? "").trim();
+  if (!YEAR_RE.test(period)) {
+    return { ok: false, error: "Année invalide (4 chiffres attendus)." };
+  }
+
+  const result = await prisma.evaluation.deleteMany({ where: { period } });
+  if (result.count === 0) {
+    return { ok: false, error: `Aucune évaluation pour la campagne ${period}.` };
+  }
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_EVALUATION_CAMPAIGN",
+    entity: "Evaluation",
+    details: `Campagne ${period} · ${result.count} évaluation(s) supprimée(s)`,
+  });
+
+  revalidatePath("/evaluation");
+  revalidatePath("/tableau-de-bord");
+  return {
+    ok: true,
+    message: `Campagne ${period} supprimée (${result.count} évaluation(s)).`,
+  };
+}
+
+// ============================================================
 //  ENREGISTRER UN BROUILLON — Évaluateur désigné (ou DRH)
 // ============================================================
 export async function saveDraftEvaluation(
