@@ -36,7 +36,10 @@ const EMPLOYEE_AGENT_WHERE: Prisma.AgentWhereInput = {
 };
 
 // Entrees : seuls les contrats salaries comptent (ni stage, ni prestation).
-const HIRE_CONTRACT_TYPES = [ContractType.CDI, ContractType.CDD];
+const HIRE_CONTRACT_TYPES: ContractType[] = [
+  ContractType.CDI,
+  ContractType.CDD,
+];
 
 const QUICK_MODULES: {
   href: string;
@@ -175,21 +178,19 @@ export async function DirectionDashboard() {
             chargesPatronales: 0,
           },
         }),
-    // Entrees de l'annee : salaries (PER + PATS, prestataires exclus) dont le
-    // PREMIER contrat CDI/CDD demarre dans l'annee. Prendre le premier contrat
-    // evite qu'un renouvellement compte comme une nouvelle entree ; les stages
-    // ne comptent pas.
+    // Entrees de l'annee : salaries PER + PATS (prestataires exclus). La date
+    // d'entree est le debut du PREMIER contrat CDI/CDD — prendre le premier
+    // evite qu'un renouvellement compte comme une nouvelle entree. Si aucun
+    // contrat n'a encore ete saisi, on retombe sur la date d'embauche de la
+    // fiche, sinon la personne serait invisible. Un agent dont le seul contrat
+    // est un stage n'est pas compte.
     prisma.agent.findMany({
-      where: {
-        category: { in: [StaffCategory.PER, StaffCategory.PATS] },
-        contracts: { some: { type: { in: HIRE_CONTRACT_TYPES } } },
-      },
+      where: { category: { in: [StaffCategory.PER, StaffCategory.PATS] } },
       select: {
+        hireDate: true,
         contracts: {
-          where: { type: { in: HIRE_CONTRACT_TYPES } },
           orderBy: { startDate: "asc" },
-          take: 1,
-          select: { startDate: true },
+          select: { type: true, startDate: true },
         },
       },
     }),
@@ -259,11 +260,17 @@ export async function DirectionDashboard() {
   // Compteur pour le module Communication (annonces actives)
   const announcementCount = await prisma.announcement.count();
 
-  // Entrees de l'annee = 1er contrat CDI/CDD demarrant dans l'annee.
+  // Entrees de l'annee (voir requete ci-dessus) : date du 1er contrat CDI/CDD,
+  // a defaut date d'embauche de la fiche ; les stagiaires sont ecartes.
   let hiresThisYear = 0;
   for (const a of hireRows) {
-    const entry = a.contracts[0]?.startDate;
-    if (entry && entry >= yearStart && entry <= today) hiresThisYear++;
+    const firstSalaried = a.contracts.find((c) =>
+      HIRE_CONTRACT_TYPES.includes(c.type),
+    );
+    // Contrats saisis mais aucun CDI/CDD (stage, prestation) → pas une entree.
+    if (!firstSalaried && a.contracts.length > 0) continue;
+    const entry = firstSalaried?.startDate ?? a.hireDate;
+    if (entry >= yearStart && entry <= today) hiresThisYear++;
   }
 
   // Repartition par contrat courant (voir requete ci-dessus).
