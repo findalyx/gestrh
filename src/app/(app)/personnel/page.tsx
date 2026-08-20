@@ -5,6 +5,7 @@ import {
   StaffCategory,
   AgentStatus,
   ContractStatus,
+  ContractType,
   Role,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,9 @@ type SearchParams = {
   service?: string;
   statut?: string;
   vue?: string;
+  contrat?: string;
+  du?: string;
+  au?: string;
   page?: string;
 };
 
@@ -69,6 +73,10 @@ export default async function PersonnelListPage({
   const statut = isAgentStatus(sp.statut) ? sp.statut : undefined;
   const serviceId = sp.service?.trim() || undefined;
   const vue: "presents" | "partis" = sp.vue === "partis" ? "partis" : "presents";
+  // Filtres avances (panneau « Plus de filtres »)
+  const contrat = isContractType(sp.contrat) ? sp.contrat : undefined;
+  const du = isIsoDate(sp.du) ? sp.du : undefined;
+  const au = isIsoDate(sp.au) ? sp.au : undefined;
   const viewStatuses = vue === "partis" ? GONE_STATUSES : PRESENT_STATUSES;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
 
@@ -89,6 +97,27 @@ export default async function PersonnelListPage({
   filters.push({ status: { in: viewStatuses } });
   if (statut && viewStatuses.includes(statut)) filters.push({ status: statut });
   if (serviceId) filters.push({ serviceId });
+  // Type de contrat : chez les presents on regarde le contrat EN COURS ; chez
+  // les partis (plus aucun contrat actif) on accepte n'importe quel contrat.
+  if (contrat) {
+    filters.push({
+      contracts: {
+        some:
+          vue === "partis"
+            ? { type: contrat }
+            : { type: contrat, status: ContractStatus.ACTIF },
+      },
+    });
+  }
+  // Plage de dates d'entree (date d'embauche).
+  if (du || au) {
+    filters.push({
+      hireDate: {
+        ...(du ? { gte: new Date(`${du}T00:00:00.000Z`) } : {}),
+        ...(au ? { lte: new Date(`${au}T23:59:59.999Z`) } : {}),
+      },
+    });
+  }
 
   const where: Prisma.AgentWhereInput = { AND: filters };
 
@@ -120,7 +149,8 @@ export default async function PersonnelListPage({
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = Boolean(q || cat || statut || serviceId);
+  const advancedCount = [contrat, du, au].filter(Boolean).length;
+  const hasFilters = Boolean(q || cat || statut || serviceId) || advancedCount > 0;
   const canEdit = me.role === Role.DIRECTION || me.role === Role.DRH;
 
   // Construit une URL /personnel en préservant les filtres courants.
@@ -131,6 +161,9 @@ export default async function PersonnelListPage({
       service: serviceId || undefined,
       statut: statut || undefined,
       vue: vue === "partis" ? "partis" : undefined,
+      contrat: contrat || undefined,
+      du: du || undefined,
+      au: au || undefined,
       ...over,
     };
     const usp = new URLSearchParams();
@@ -350,6 +383,93 @@ export default async function PersonnelListPage({
             </Link>
           )}
         </div>
+
+        {/* Plus de filtres : type de contrat + plage de dates d'entrée.
+            Ouvert d'office si l'un de ces filtres est déjà actif. */}
+        <details className="group w-full" open={advancedCount > 0}>
+          <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-[7px] text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50">
+            Plus de filtres
+            {advancedCount > 0 && (
+              <span className="rounded-full bg-sc-blue px-1.5 py-[1px] text-[10px] font-semibold text-white">
+                {advancedCount}
+              </span>
+            )}
+            <Icon
+              name="chevron-down"
+              size={13}
+              className="transition-transform group-open:rotate-180"
+            />
+          </summary>
+
+          <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg border border-sc-border bg-gray-50/70 p-3">
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="contrat"
+                className="text-[11px] font-medium uppercase tracking-wide text-gray-500"
+              >
+                Type de contrat
+              </label>
+              <select
+                id="contrat"
+                name="contrat"
+                defaultValue={contrat ?? ""}
+                className="rounded-lg border border-sc-border bg-white px-3 py-[8px] text-[13px] outline-none focus:border-sc-blue"
+              >
+                <option value="">Tous</option>
+                <option value="CDI">CDI</option>
+                <option value="CDD">CDD</option>
+                <option value="STAGE">Stage</option>
+                <option value="VACATAIRE">Vacataire</option>
+                <option value="PRESTATION">Prestation</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="du"
+                className="text-[11px] font-medium uppercase tracking-wide text-gray-500"
+              >
+                Entrée à partir du
+              </label>
+              <input
+                type="date"
+                id="du"
+                name="du"
+                defaultValue={du ?? ""}
+                className="rounded-lg border border-sc-border bg-white px-3 py-[7px] text-[13px] outline-none focus:border-sc-blue"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="au"
+                className="text-[11px] font-medium uppercase tracking-wide text-gray-500"
+              >
+                Entrée jusqu&apos;au
+              </label>
+              <input
+                type="date"
+                id="au"
+                name="au"
+                defaultValue={au ?? ""}
+                className="rounded-lg border border-sc-border bg-white px-3 py-[7px] text-[13px] outline-none focus:border-sc-blue"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="rounded-lg bg-sc-blue px-4 py-[9px] text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark"
+            >
+              Appliquer
+            </button>
+
+            <p className="w-full text-[11px] text-gray-500">
+              Le type de contrat porte sur le contrat{" "}
+              {vue === "partis" ? "le plus récent" : "en cours"} ; les dates
+              portent sur la date d&apos;entrée (embauche).
+            </p>
+          </div>
+        </details>
       </form>
 
       {/* Compteur */}
@@ -490,6 +610,20 @@ export default async function PersonnelListPage({
       )}
     </div>
   );
+}
+
+function isContractType(v: string | undefined): v is ContractType {
+  return (
+    v === "CDI" ||
+    v === "CDD" ||
+    v === "VACATAIRE" ||
+    v === "STAGE" ||
+    v === "PRESTATION"
+  );
+}
+
+function isIsoDate(v: string | undefined): v is string {
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 }
 
 function isAgentStatus(v: string | undefined): v is AgentStatus {
