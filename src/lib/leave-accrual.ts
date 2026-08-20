@@ -173,6 +173,21 @@ export async function ensureMonthlyAccrualUpToDate(): Promise<void> {
 }
 
 /**
+ * Fixe la date d'arrêté du calcul automatique, au format "YYYY-MM".
+ *
+ * Sémantique : les soldes sont réputés exacts à la FIN de ce mois. Le calcul
+ * mensuel reprendra donc à partir du mois suivant, à raison de
+ * `MONTHLY_ACCRUAL_DAYS` jours par mois écoulé.
+ */
+export async function setAccrualCheckpoint(value: string): Promise<void> {
+  await prisma.appSetting.upsert({
+    where: { key: LAST_ACCRUAL_KEY },
+    create: { key: LAST_ACCRUAL_KEY, value },
+    update: { value },
+  });
+}
+
+/**
  * Indique si une initialisation a déjà été effectuée (en vérifiant le marqueur).
  */
 export async function hasBeenInitialized(): Promise<boolean> {

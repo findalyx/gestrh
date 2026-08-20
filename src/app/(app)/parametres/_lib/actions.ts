@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
-import { AgentStatus, Role } from "@prisma/client";
+import { AgentStatus, LeaveType, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
 import {
   initializeAnnualBalances,
   runMonthlyAccrual,
+  setAccrualCheckpoint,
 } from "@/lib/leave-accrual";
 
 export type ActionState =
@@ -329,6 +330,97 @@ export async function triggerMonthlyAccrual(
   return {
     ok: true,
     message: `Calcul effectué : +${months * 2} jour(s) pour ${agents} agent(s).`,
+  };
+}
+
+// ============================================================
+//  SAISIE MANUELLE DES SOLDES JUSQU'A UNE DATE D'ARRETE — DIRECTION + DRH
+// ============================================================
+/**
+ * Reprise des soldes de conges annuels : on saisit, agent par agent, les jours
+ * acquis et les jours pris arretes a la FIN du mois choisi. La date d'arrete
+ * devient le point de depart du calcul automatique : chaque mois ecoule ensuite
+ * ajoute 2 jours (voir runMonthlyAccrual).
+ */
+export async function saveLeaveBalances(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
+
+  const cutoff = String(formData.get("cutoff") ?? "").trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(cutoff)) {
+    return { ok: false, error: "Date d'arrêté invalide (format attendu : mois)." };
+  }
+  const year = Number(cutoff.slice(0, 4));
+
+  const num = (raw: FormDataEntryValue | null): number | null => {
+    const v = String(raw ?? "").trim().replace(",", ".");
+    if (v === "") return null;
+    const n = Number.parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  type Row = { agentId: string; totalDays: number; usedDays: number };
+  const rows: Row[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("acq_")) continue;
+    const agentId = key.slice(4);
+    const totalDays = num(value);
+    const usedDays = num(formData.get(`use_${agentId}`)) ?? 0;
+    if (totalDays === null) continue; // ligne laissée vide → non modifiée
+    if (totalDays < 0 || usedDays < 0) {
+      return { ok: false, error: "Les jours saisis ne peuvent pas être négatifs." };
+    }
+    if (usedDays > totalDays) {
+      return {
+        ok: false,
+        error: "Les jours pris ne peuvent pas dépasser les jours acquis.",
+      };
+    }
+    rows.push({ agentId, totalDays, usedDays });
+  }
+
+  if (rows.length === 0) {
+    return { ok: false, error: "Aucun solde saisi." };
+  }
+
+  for (const r of rows) {
+    await prisma.leaveBalance.upsert({
+      where: {
+        agentId_year_type: {
+          agentId: r.agentId,
+          year,
+          type: LeaveType.ANNUEL,
+        },
+      },
+      create: {
+        agentId: r.agentId,
+        year,
+        type: LeaveType.ANNUEL,
+        totalDays: r.totalDays,
+        usedDays: r.usedDays,
+      },
+      update: { totalDays: r.totalDays, usedDays: r.usedDays },
+    });
+  }
+
+  // Le calcul automatique repart du mois SUIVANT la date d'arrêté.
+  await setAccrualCheckpoint(cutoff);
+
+  await logAudit({
+    userId: me.id,
+    action: "SET_LEAVE_BALANCES",
+    entity: "LeaveBalance",
+    details: `${rows.length} agent(s), arrêté au ${cutoff}`,
+  });
+
+  revalidatePath("/parametres");
+  revalidatePath("/parametres/soldes");
+  revalidatePath("/conges");
+  return {
+    ok: true,
+    message: `Soldes enregistrés pour ${rows.length} agent(s), arrêtés à fin ${cutoff}. L'acquisition automatique reprend au mois suivant.`,
   };
 }
 
