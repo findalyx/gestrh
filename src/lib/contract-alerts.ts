@@ -1,10 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import {
+  AgentStatus,
   ContractStatus,
   ContractType,
   NotificationType,
   Role,
 } from "@prisma/client";
+
+// Agents encore en poste : on n'alerte que pour eux (les partis, Inactif/
+// Retraité, ne sont plus des échéances à anticiper).
+const PRESENT_AGENT = {
+  status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+};
 import {
   CddAlertLevel,
   cddAlertLevel,
@@ -48,6 +55,7 @@ export async function listCddAlerts(now: Date = new Date()): Promise<CddAlertIte
       type: ContractType.CDD,
       status: ContractStatus.ACTIF,
       endDate: { lte: horizonEnd },
+      agent: PRESENT_AGENT, // exclut les personnes déjà parties
     },
     select: {
       id: true,
@@ -94,6 +102,7 @@ export async function listRetirementAlerts(
   // partent à leur terme, pas en retraite).
   const agents = await prisma.agent.findMany({
     where: {
+      ...PRESENT_AGENT, // exclut les personnes déjà parties / retraitées
       contracts: {
         some: {
           type: ContractType.CDI,
