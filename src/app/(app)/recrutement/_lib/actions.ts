@@ -216,6 +216,49 @@ export async function reopenJobPosting(
 }
 
 // ============================================================
+//  SUPPRIMER UNE OFFRE — DRH / DIRECTION / DOYEN
+// ============================================================
+/**
+ * Suppression definitive d'une offre : les candidatures et leurs notes partent
+ * en cascade (schema Prisma), on retire donc d'abord les CV stockes pour ne pas
+ * laisser de fichiers orphelins dans le bucket.
+ */
+export async function deleteJobPosting(
+  postingId: string,
+  _prev: RecruitmentActionState,
+  _formData: FormData,
+): Promise<RecruitmentActionState> {
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
+
+  const posting = await prisma.jobPosting.findUnique({
+    where: { id: postingId },
+    select: {
+      id: true,
+      title: true,
+      applications: { select: { id: true, cvFilename: true } },
+    },
+  });
+  if (!posting) return { ok: false, error: "Offre introuvable." };
+
+  for (const app of posting.applications) {
+    if (app.cvFilename) await deleteCvFolder(app.id);
+  }
+
+  await prisma.jobPosting.delete({ where: { id: postingId } });
+
+  await logAudit({
+    userId: me.id,
+    action: "DELETE_JOB_POSTING",
+    entity: "JobPosting",
+    entityId: postingId,
+    details: `${posting.title} (${posting.applications.length} candidature(s))`,
+  });
+
+  revalidatePath("/recrutement");
+  return { ok: true, message: "Offre supprimée." };
+}
+
+// ============================================================
 //  AJOUTER UN CANDIDAT — DRH / DIRECTION
 // ============================================================
 export async function addApplication(

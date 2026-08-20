@@ -178,20 +178,15 @@ export async function DirectionDashboard() {
             chargesPatronales: 0,
           },
         }),
-    // Entrees de l'annee : salaries PER + PATS (prestataires exclus). La date
-    // d'entree est le debut du PREMIER contrat CDI/CDD — prendre le premier
-    // evite qu'un renouvellement compte comme une nouvelle entree. Si aucun
-    // contrat n'a encore ete saisi, on retombe sur la date d'embauche de la
-    // fiche, sinon la personne serait invisible. Un agent dont le seul contrat
-    // est un stage n'est pas compte.
+    // Entrees de l'annee : salaries PER + PATS (prestataires exclus), dates par
+    // la date d'entree de la fiche — la meme que le filtre « Entree a partir
+    // du » de la liste du personnel, pour que les deux ecrans concordent. Un
+    // agent dont les seuls contrats sont un stage ou une prestation est exclu.
     prisma.agent.findMany({
       where: { category: { in: [StaffCategory.PER, StaffCategory.PATS] } },
       select: {
         hireDate: true,
-        contracts: {
-          orderBy: { startDate: "asc" },
-          select: { type: true, startDate: true },
-        },
+        contracts: { select: { type: true } },
       },
     }),
     // Sorties de l'annee : les personnes parties (Inactif / Retraite) dont la
@@ -260,17 +255,15 @@ export async function DirectionDashboard() {
   // Compteur pour le module Communication (annonces actives)
   const announcementCount = await prisma.announcement.count();
 
-  // Entrees de l'annee (voir requete ci-dessus) : date du 1er contrat CDI/CDD,
-  // a defaut date d'embauche de la fiche ; les stagiaires sont ecartes.
+  // Entrees de l'annee (voir requete ci-dessus).
   let hiresThisYear = 0;
   for (const a of hireRows) {
-    const firstSalaried = a.contracts.find((c) =>
+    // Contrats saisis mais aucun CDI/CDD (stage, prestation) → pas une entree.
+    const hasSalariedContract = a.contracts.some((c) =>
       HIRE_CONTRACT_TYPES.includes(c.type),
     );
-    // Contrats saisis mais aucun CDI/CDD (stage, prestation) → pas une entree.
-    if (!firstSalaried && a.contracts.length > 0) continue;
-    const entry = firstSalaried?.startDate ?? a.hireDate;
-    if (entry >= yearStart && entry <= today) hiresThisYear++;
+    if (!hasSalariedContract && a.contracts.length > 0) continue;
+    if (a.hireDate >= yearStart && a.hireDate <= today) hiresThisYear++;
   }
 
   // Repartition par contrat courant (voir requete ci-dessus).

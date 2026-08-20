@@ -12,6 +12,7 @@ import {
 import {
   AdvanceButton,
   ClosePostingButton,
+  DeleteJobPostingButton,
   InterviewDateForm,
   RejectButton,
   ReopenPostingButton,
@@ -129,6 +130,13 @@ export default async function JobPostingDetailPage({
               canManage && <ReopenPostingButton postingId={posting.id} />
             ) : (
               canManage && <ClosePostingButton postingId={posting.id} />
+            )}
+            {canManage && (
+              <DeleteJobPostingButton
+                postingId={posting.id}
+                postingTitle={posting.title}
+                applicationCount={posting.applications.length}
+              />
             )}
           </div>
         </div>

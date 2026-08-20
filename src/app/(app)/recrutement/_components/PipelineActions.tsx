@@ -1,12 +1,14 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   advanceApplication,
   rejectApplication,
   setInterviewDate,
   closeJobPosting,
   reopenJobPosting,
+  deleteJobPosting,
 } from "../_lib/actions";
 import type { RecruitmentActionState } from "../_lib/schema";
 
@@ -163,5 +165,92 @@ export function ReopenPostingButton({ postingId }: { postingId: string }) {
         <span className="text-[11px] text-sc-danger">{state.error}</span>
       )}
     </form>
+  );
+}
+
+/**
+ * Suppression definitive d'une offre. Bouton discret ; au clic une modale
+ * rappelle que les candidatures et leurs notes partent avec l'offre.
+ * Retour a la liste apres succes.
+ */
+export function DeleteJobPostingButton({
+  postingId,
+  postingTitle,
+  applicationCount,
+}: {
+  postingId: string;
+  postingTitle: string;
+  applicationCount: number;
+}) {
+  const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
+  const action = deleteJobPosting.bind(null, postingId);
+  const [state, formAction, pending] = useActionState<RecruitmentActionState, FormData>(
+    action,
+    undefined,
+  );
+
+  if (state?.ok) {
+    router.push("/recrutement");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setConfirm(true)}
+        className="rounded-lg border border-sc-border bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-500 transition hover:border-sc-danger/40 hover:bg-sc-danger-light hover:text-sc-danger"
+      >
+        Supprimer
+      </button>
+
+      {confirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !pending && setConfirm(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-sc-border bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-serif text-[15px] font-semibold text-sc-danger">
+              Supprimer l&apos;offre
+            </h3>
+            <p className="mt-2 text-[13px] text-gray-700">
+              « {postingTitle} » sera définitivement supprimée
+              {applicationCount > 0
+                ? `, ainsi que ses ${applicationCount} candidature${applicationCount > 1 ? "s" : ""}, leurs notes et les CV déposés.`
+                : "."}
+            </p>
+            <p className="mt-2 text-[12px] text-gray-500">
+              Pour conserver l&apos;historique, préférez « Clôturer l&apos;offre ».
+            </p>
+            {state && !state.ok && (
+              <p className="mt-3 text-[12px] text-sc-danger">{state.error}</p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => setConfirm(false)}
+                className="rounded-lg border border-sc-border bg-white px-3 py-1.5 text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Annuler
+              </button>
+              <form action={formAction}>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-lg bg-sc-danger px-3 py-1.5 text-[12.5px] font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {pending ? "Suppression…" : "Supprimer définitivement"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
