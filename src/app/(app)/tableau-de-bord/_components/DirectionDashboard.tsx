@@ -35,13 +35,8 @@ const EMPLOYEE_AGENT_WHERE: Prisma.AgentWhereInput = {
   category: { in: [StaffCategory.PER, StaffCategory.PATS] },
 };
 
-// Entrees / sorties : seuls ces contrats comptent dans les effectifs
-// (les stages sont exclus).
-const MOVEMENT_CONTRACT_TYPES = [
-  ContractType.CDI,
-  ContractType.CDD,
-  ContractType.PRESTATION,
-];
+// Entrees : seuls les contrats salaries comptent (ni stage, ni prestation).
+const HIRE_CONTRACT_TYPES = [ContractType.CDI, ContractType.CDD];
 
 const QUICK_MODULES: {
   href: string;
@@ -113,7 +108,8 @@ export async function DirectionDashboard() {
     evalsDone,
     payrollThisPeriod,
     massLatestPeriod,
-    movementRows,
+    hireRows,
+    departuresThisYear,
     services,
     agentsForAgePyramid,
     appByStage,
@@ -179,23 +175,31 @@ export async function DirectionDashboard() {
             chargesPatronales: 0,
           },
         }),
-    // Mouvements de l'annee (entrees / sorties). On ne retient que les personnes
-    // sous CDI, CDD ou Prestation : les stagiaires ne comptent pas dans les
-    // effectifs. L'entree est la date de debut du PREMIER contrat de ce type
-    // (un renouvellement ne cree donc pas une nouvelle entree).
+    // Entrees de l'annee : salaries (PER + PATS, prestataires exclus) dont le
+    // PREMIER contrat CDI/CDD demarre dans l'annee. Prendre le premier contrat
+    // evite qu'un renouvellement compte comme une nouvelle entree ; les stages
+    // ne comptent pas.
     prisma.agent.findMany({
       where: {
-        contracts: { some: { type: { in: MOVEMENT_CONTRACT_TYPES } } },
+        category: { in: [StaffCategory.PER, StaffCategory.PATS] },
+        contracts: { some: { type: { in: HIRE_CONTRACT_TYPES } } },
       },
       select: {
-        status: true,
-        departureDate: true,
         contracts: {
-          where: { type: { in: MOVEMENT_CONTRACT_TYPES } },
+          where: { type: { in: HIRE_CONTRACT_TYPES } },
           orderBy: { startDate: "asc" },
           take: 1,
           select: { startDate: true },
         },
+      },
+    }),
+    // Sorties de l'annee : les personnes parties (Inactif / Retraite) dont la
+    // date de depart tombe dans l'annee — la meme population que le bouton
+    // « Personnes parties » de la liste du personnel.
+    prisma.agent.count({
+      where: {
+        status: { in: [AgentStatus.INACTIF, AgentStatus.RETRAITE] },
+        departureDate: { gte: yearStart, lte: today },
       },
     }),
     // Services + count d'agents (présents uniquement)
@@ -255,26 +259,11 @@ export async function DirectionDashboard() {
   // Compteur pour le module Communication (annonces actives)
   const announcementCount = await prisma.announcement.count();
 
-  // Entrees / sorties de l'annee (voir requete ci-dessus).
-  //  - entree  : debut du 1er contrat CDI/CDD/Prestation dans l'annee ;
-  //  - sortie  : personne devenue Inactive ou Retraitee. On retient la date de
-  //    depart quand elle est renseignee ; sans date, on rattache la sortie a
-  //    l'annee en cours plutot que de la perdre.
+  // Entrees de l'annee = 1er contrat CDI/CDD demarrant dans l'annee.
   let hiresThisYear = 0;
-  let departuresThisYear = 0;
-  for (const a of movementRows) {
+  for (const a of hireRows) {
     const entry = a.contracts[0]?.startDate;
     if (entry && entry >= yearStart && entry <= today) hiresThisYear++;
-
-    const isGone =
-      a.status === AgentStatus.INACTIF || a.status === AgentStatus.RETRAITE;
-    if (
-      isGone &&
-      (!a.departureDate ||
-        (a.departureDate >= yearStart && a.departureDate <= today))
-    ) {
-      departuresThisYear++;
-    }
   }
 
   // Repartition par contrat courant (voir requete ci-dessus).
