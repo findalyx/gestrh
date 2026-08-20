@@ -9,7 +9,6 @@ import { PayrollStatusBadge } from "./_components/PayrollBadge";
 import {
   MarkPeriodPaidBatchButton,
   ValidatePeriodBatchButton,
-  DeletePayrollButton,
   DeletePeriodButton,
 } from "./_components/PayrollActions";
 import { ImportPayslipsForm } from "./_components/ImportPayslipsForm";
@@ -465,7 +464,7 @@ export default async function PaiePage({
                     {isAdmin && (
                       <td className="px-4 py-2.5">
                         <Link
-                          href={`/personnel/${r.agent.id}`}
+                          href={`/paie/${r.id}`}
                           className="font-medium text-sc-blue-darker hover:underline"
                         >
                           {r.agent.lastName.toUpperCase()} {r.agent.firstName}
@@ -497,24 +496,23 @@ export default async function PaiePage({
                       <PayrollStatusBadge value={r.status} />
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        {r.pdfUrl && (
-                          <a
-                            href={`/api/paie/${r.id}/bulletin`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[12px] font-medium text-sc-blue hover:underline"
-                          >
-                            📄 Bulletin
-                          </a>
+                      <div className="flex items-center justify-end">
+                        {r.pdfUrl ? (
+                          <span className="group/tip relative">
+                            <a
+                              href={`/api/paie/${r.id}/bulletin`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Télécharger le bulletin PDF"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sc-border bg-white text-sc-blue transition hover:bg-sc-blue-bg"
+                            >
+                              <Icon name="export" size={14} />
+                            </a>
+                            <Tooltip>Télécharger le bulletin</Tooltip>
+                          </span>
+                        ) : (
+                          <span className="text-[11.5px] text-gray-400">—</span>
                         )}
-                        <Link
-                          href={`/paie/${r.id}`}
-                          className="text-[12px] font-medium text-sc-blue hover:underline"
-                        >
-                          Voir →
-                        </Link>
-                        {isAdmin && <DeletePayrollButton payrollId={r.id} />}
                       </div>
                     </td>
                   </tr>

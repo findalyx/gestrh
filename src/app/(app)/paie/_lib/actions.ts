@@ -289,7 +289,9 @@ export async function deletePayrollRecord(
 
   revalidatePath("/paie");
   revalidatePath("/tableau-de-bord");
-  return { ok: true, message: "Bulletin supprimé." };
+  // La suppression se fait depuis le detail du bulletin : la page n'existe plus,
+  // on renvoie donc sur la liste.
+  redirect("/paie");
 }
 
 // ============================================================

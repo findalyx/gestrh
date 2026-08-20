@@ -7,6 +7,7 @@ import { canViewPayroll } from "@/lib/payroll-access";
 import { getOrganization } from "@/lib/organization";
 import { PayrollStatusBadge } from "../_components/PayrollBadge";
 import {
+  DeletePayrollButton,
   MarkPaidButton,
   ValidateButton,
 } from "../_components/PayrollActions";
@@ -104,6 +105,7 @@ export default async function PayrollDetailPage({
               Ouvrir le PDF
             </a>
           )}
+          {isAdmin && <DeletePayrollButton payrollId={record.id} />}
         </div>
       </div>
 
