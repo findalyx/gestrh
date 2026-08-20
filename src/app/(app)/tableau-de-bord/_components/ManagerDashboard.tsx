@@ -334,9 +334,9 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
               Aucune demande en attente. Bonne journée !
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[70vh] overflow-auto">
             <table className="w-full min-w-[640px] text-[13px]">
-              <thead className="text-left">
+              <thead className="sticky top-0 z-10 bg-white text-left">
                 <tr className="border-b border-sc-border text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                   <th className="pb-2">Agent</th>
                   <th className="pb-2">Type</th>

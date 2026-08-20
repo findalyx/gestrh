@@ -236,7 +236,7 @@ export default async function ConformitePage({
           )}
         </form>
 
-        <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
           {auditLogs.length === 0 ? (
             <div className="p-8 text-center">
               <Icon name="compliance" size={20} className="mx-auto text-gray-300" />
@@ -246,7 +246,7 @@ export default async function ConformitePage({
             </div>
           ) : (
             <table className="w-full min-w-[640px] text-[12.5px]">
-              <thead className="bg-sc-blue-bg text-left">
+              <thead className="sticky top-0 z-10 bg-sc-blue-bg text-left">
                 <tr className="text-[10.5px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                   <th className="px-4 py-2.5">Date</th>
                   <th className="px-4 py-2.5">Utilisateur</th>
@@ -323,7 +323,7 @@ export default async function ConformitePage({
           </div>
         )}
 
-        <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
           {documents.length === 0 ? (
             <div className="p-8 text-center">
               <Icon name="compliance" size={20} className="mx-auto text-gray-300" />
@@ -336,7 +336,7 @@ export default async function ConformitePage({
             </div>
           ) : (
             <table className="w-full min-w-[640px] text-[12.5px]">
-              <thead className="bg-sc-blue-bg text-left">
+              <thead className="sticky top-0 z-10 bg-sc-blue-bg text-left">
                 <tr className="text-[10.5px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                   <th className="px-4 py-2.5">Type</th>
                   <th className="px-4 py-2.5">Titre</th>

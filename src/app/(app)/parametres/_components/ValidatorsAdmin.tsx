@@ -55,7 +55,7 @@ export function ValidatorsAdmin({
       ) : (
         <div className="overflow-hidden rounded-xl border border-sc-border bg-white">
           <table className="w-full text-[13px]">
-            <thead className="bg-sc-blue-bg text-left">
+            <thead className="sticky top-0 z-10 bg-sc-blue-bg text-left">
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                 <th className="px-4 py-2.5">Personne</th>
                 <th className="px-4 py-2.5">Rôle / libellé</th>

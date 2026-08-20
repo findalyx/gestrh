@@ -103,9 +103,9 @@ function RequestsTable({
     );
   }
   return (
-    <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+    <div className="max-h-[70vh] overflow-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
       <table className="w-full min-w-[640px] text-[13px]">
-        <thead className="bg-sc-blue-bg text-left">
+        <thead className="sticky top-0 z-10 bg-sc-blue-bg text-left">
           <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
             {showAgent && <th className="px-4 py-3">Agent</th>}
             <th className="px-4 py-3">Type</th>
@@ -558,9 +558,9 @@ async function SoldesView({
           Aucun solde enregistré.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
+        <div className="max-h-[70vh] overflow-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
           <table className="w-full min-w-[640px] text-[13px]">
-            <thead className="bg-sc-blue-bg text-left">
+            <thead className="sticky top-0 z-10 bg-sc-blue-bg text-left">
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                 <th className="px-4 py-3">Agent</th>
                 <th className="px-4 py-3">Service</th>

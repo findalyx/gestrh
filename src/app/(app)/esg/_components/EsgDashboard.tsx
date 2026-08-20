@@ -366,9 +366,9 @@ export function EsgDashboard({ reports }: { reports: EsgTrendReport[] }) {
           <summary className="cursor-pointer px-4 py-3 text-[12.5px] font-semibold text-sc-blue-darker">
             Évolution trimestrielle détaillée
           </summary>
-          <div className="overflow-x-auto border-t border-sc-border">
+          <div className="max-h-[60vh] overflow-auto border-t border-sc-border">
             <table className="w-full min-w-[560px] text-[13px]">
-              <thead className="bg-sc-blue-bg text-left">
+              <thead className="sticky top-0 z-10 bg-sc-blue-bg text-left">
                 <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                   <th className="px-4 py-3">Indicateur</th>
                   {reports.map((r) => (
