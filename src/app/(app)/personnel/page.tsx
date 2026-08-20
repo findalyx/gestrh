@@ -1,18 +1,31 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
-import { StaffCategory, AgentStatus, Role } from "@prisma/client";
+import {
+  StaffCategory,
+  AgentStatus,
+  ContractStatus,
+  Role,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
 import { getAgentScopeWhere } from "@/lib/personnel-access";
 import { listCddAlerts, listRetirementAlerts } from "@/lib/contract-alerts";
-import { AgentStatusBadge, CategoryBadge } from "@/components/Badges";
+import {
+  AgentStatusBadge,
+  CategoryBadge,
+  ContractTypeBadge,
+} from "@/components/Badges";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+function formatShortDate(d: Date): string {
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "short" }).format(d);
+}
 
 // Présents = encore en poste ; Partis = ont quitté l'organisation.
 const PRESENT_STATUSES: AgentStatus[] = [
@@ -82,7 +95,16 @@ export default async function PersonnelListPage({
   const [agents, total, services] = await Promise.all([
     prisma.agent.findMany({
       where,
-      include: { service: { select: { name: true, code: true } } },
+      include: {
+        service: { select: { name: true, code: true } },
+        // Contrats recents : on retient le contrat actif s'il existe, sinon le
+        // plus recent (utile pour les personnes parties).
+        contracts: {
+          orderBy: { startDate: "desc" },
+          take: 5,
+          select: { type: true, status: true, endDate: true },
+        },
+      },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       take: PAGE_SIZE,
       skip: (page - 1) * PAGE_SIZE,
@@ -350,7 +372,7 @@ export default async function PersonnelListPage({
 
       {/* Tableau */}
       <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-        <table className="w-full min-w-[720px] text-[13px]">
+        <table className="w-full min-w-[820px] text-[13px]">
           <thead className="bg-sc-blue-bg text-left">
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
               <th className="px-4 py-3">Matricule</th>
@@ -358,6 +380,7 @@ export default async function PersonnelListPage({
               <th className="px-4 py-3">Service</th>
               <th className="px-4 py-3">Poste</th>
               <th className="px-4 py-3">Catégorie</th>
+              <th className="px-4 py-3">Contrat</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3 w-10" />
             </tr>
@@ -366,7 +389,7 @@ export default async function PersonnelListPage({
             {agents.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-10 text-center text-[13px] text-gray-500"
                 >
                   {vue === "partis"
@@ -414,6 +437,29 @@ export default async function PersonnelListPage({
                   <td className="px-4 py-2.5 text-gray-700">{a.jobTitle}</td>
                   <td className="px-4 py-2.5">
                     <CategoryBadge value={a.category} />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {(() => {
+                      const active = a.contracts.find(
+                        (c) => c.status === ContractStatus.ACTIF,
+                      );
+                      const c = active ?? a.contracts[0];
+                      if (!c)
+                        return (
+                          <span className="text-[11.5px] text-gray-400">—</span>
+                        );
+                      return (
+                        <div className="flex flex-col gap-0.5">
+                          <ContractTypeBadge value={c.type} muted={!active} />
+                          {c.endDate && (
+                            <span className="text-[10.5px] text-gray-500">
+                              {active ? "jusqu'au " : "fin "}
+                              {formatShortDate(c.endDate)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-2.5">
                     <AgentStatusBadge value={a.status} />

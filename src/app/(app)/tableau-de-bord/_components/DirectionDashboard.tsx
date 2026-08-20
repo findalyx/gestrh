@@ -99,6 +99,7 @@ export async function DirectionDashboard() {
     onLeaveToday,
     cdiCount,
     cddCount,
+    noContractCount,
     pendingLeaves,
     openPostings,
     enrollments,
@@ -127,13 +128,32 @@ export async function DirectionDashboard() {
         endDate: { gte: today },
       },
     }),
-    // Contrats CDI actifs
-    prisma.contract.count({
-      where: { type: ContractType.CDI, status: ContractStatus.ACTIF },
+    // Salariés présents sous CDI : on compte des PERSONNES (un agent peut avoir
+    // plusieurs contrats successifs) et non des lignes de contrat.
+    prisma.agent.count({
+      where: {
+        ...EMPLOYEE_AGENT_WHERE,
+        contracts: {
+          some: { type: ContractType.CDI, status: ContractStatus.ACTIF },
+        },
+      },
     }),
-    // Contrats CDD actifs
-    prisma.contract.count({
-      where: { type: ContractType.CDD, status: ContractStatus.ACTIF },
+    // Salariés présents sous CDD
+    prisma.agent.count({
+      where: {
+        ...EMPLOYEE_AGENT_WHERE,
+        contracts: {
+          some: { type: ContractType.CDD, status: ContractStatus.ACTIF },
+        },
+      },
+    }),
+    // Salariés présents sans aucun contrat actif enregistré (explique l'écart
+    // entre l'effectif et la somme CDI + CDD).
+    prisma.agent.count({
+      where: {
+        ...EMPLOYEE_AGENT_WHERE,
+        contracts: { none: { status: ContractStatus.ACTIF } },
+      },
     }),
     prisma.leaveRequest.count({
       where: {
@@ -355,9 +375,9 @@ export async function DirectionDashboard() {
         <KpiCard
           color="purple"
           icon="payroll"
-          label="Contrats CDI"
+          label="Salariés en CDI"
           value={String(cdiCount)}
-          hint={`vs ${cddCount} CDD`}
+          hint={`${cddCount} en CDD${noContractCount > 0 ? ` · ${noContractCount} sans contrat` : ""}`}
         />
         <KpiCard
           color="green"

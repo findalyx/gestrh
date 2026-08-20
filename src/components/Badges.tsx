@@ -87,3 +87,31 @@ const CONTRACT_TYPE_LABEL: Record<ContractType, string> = {
 export function ContractTypeLabel({ value }: { value: ContractType }) {
   return <>{CONTRACT_TYPE_LABEL[value]}</>;
 }
+
+const CONTRACT_TYPE_STYLE: Record<ContractType, string> = {
+  CDI: "bg-sc-blue-light text-sc-blue",
+  CDD: "bg-sc-teal/10 text-sc-teal-dark",
+  VACATAIRE: "bg-sc-purple-light text-sc-purple",
+  STAGE: "bg-sc-green-light text-sc-green-dark",
+  PRESTATION: "bg-sc-warning-light text-[#854f0b]",
+};
+
+/**
+ * Badge de type de contrat. `muted` = contrat non actif (personne partie ou
+ * contrat expire) : on grise pour ne pas le confondre avec un contrat en cours.
+ */
+export function ContractTypeBadge({
+  value,
+  muted,
+}: {
+  value: ContractType;
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={`${BASE} ${muted ? "bg-gray-100 text-gray-500" : CONTRACT_TYPE_STYLE[value]}`}
+    >
+      {CONTRACT_TYPE_LABEL[value]}
+    </span>
+  );
+}
