@@ -14,8 +14,17 @@ function formatDate(d: Date): string {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(d);
 }
 
-export default async function EsgPage() {
+type SearchParams = { vue?: string; p?: string };
+
+export default async function EsgPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   await requireRole(Role.DIRECTION, Role.DRH);
+  const sp = await searchParams;
+  const vue: "dashboard" | "rapports" =
+    sp.vue === "rapports" ? "rapports" : "dashboard";
 
   const [reports, org, recent] = await Promise.all([
     prisma.esgReport.findMany({
@@ -23,10 +32,10 @@ export default async function EsgPage() {
       include: { _count: { select: { answers: true } } },
     }),
     prisma.organization.findFirst({ select: { usdRate: true } }),
-    // Cinq derniers trimestres pour le tableau de bord (KPI + évolution).
+    // Historique récent : sert au tableau de bord (KPI + évolution).
     prisma.esgReport.findMany({
       orderBy: { period: "desc" },
-      take: 5,
+      take: 8,
       select: {
         id: true,
         period: true,
@@ -38,7 +47,7 @@ export default async function EsgPage() {
   ]);
 
   // Du plus ancien au plus récent pour la lecture de l'évolution.
-  const trend = [...recent].reverse().map((r) => {
+  const history = [...recent].reverse().map((r) => {
     const answers: AnswerMap = {};
     for (const a of r.answers) {
       answers[a.metricKey] = { value: a.value, comment: a.comment };
@@ -52,21 +61,44 @@ export default async function EsgPage() {
     };
   });
 
+  // Trimestre affiché : celui demandé, sinon le plus récent. Le tableau de bord
+  // reçoit ce trimestre et les quatre précédents.
+  const selectedIndex = sp.p
+    ? history.findIndex((r) => r.period === sp.p)
+    : history.length - 1;
+  const endIndex = selectedIndex >= 0 ? selectedIndex : history.length - 1;
+  const trend = history.slice(Math.max(0, endIndex - 4), endIndex + 1);
+  const selected = trend[trend.length - 1];
+
   const now = new Date();
   const { year, q } = currentQuarter(now);
   const years = [year + 1, year, year - 1, year - 2];
 
   return (
     <div className="space-y-6">
-      <header>
-        <h2 className="font-serif text-xl font-semibold text-sc-blue-darker">
-          Reporting ESG
-        </h2>
-        <p className="mt-1 text-[12.5px] text-gray-500">
-          Questionnaire trimestriel investisseurs · les données RH sont
-          pré-remplies automatiquement, le reste se saisit à la main.
-        </p>
-      </header>
+      {/* Onglets : le tableau de bord lit les rapports saisis dans l'autre onglet */}
+      <nav className="flex w-fit gap-1 rounded-xl border border-sc-border bg-white p-1">
+        <Link
+          href="/esg"
+          className={`rounded-lg px-4 py-1.5 text-[12.5px] font-medium transition ${
+            vue === "dashboard"
+              ? "bg-sc-blue text-white"
+              : "text-gray-600 hover:bg-sc-blue-bg"
+          }`}
+        >
+          Tableau de bord
+        </Link>
+        <Link
+          href="/esg?vue=rapports"
+          className={`rounded-lg px-4 py-1.5 text-[12.5px] font-medium transition ${
+            vue === "rapports"
+              ? "bg-sc-blue text-white"
+              : "text-gray-600 hover:bg-sc-blue-bg"
+          }`}
+        >
+          Rapports ({reports.length})
+        </Link>
+      </nav>
 
       {org?.usdRate == null && (
         <div className="flex items-start gap-2 rounded-xl border border-sc-warning/40 bg-sc-warning-light px-4 py-3 text-[12.5px] text-[#854f0b]">
@@ -83,12 +115,76 @@ export default async function EsgPage() {
         </div>
       )}
 
-      {trend.length > 0 && <EsgDashboard reports={trend} />}
+      {vue === "dashboard" &&
+        (selected ? (
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <form method="get" className="flex items-end gap-2">
+                <div className="flex flex-col gap-1">
+                  <label
+                    htmlFor="p"
+                    className="text-[11px] font-medium uppercase tracking-wide text-gray-500"
+                  >
+                    Trimestre
+                  </label>
+                  <select
+                    id="p"
+                    name="p"
+                    defaultValue={selected.period}
+                    className="rounded-lg border border-sc-border bg-gray-50 px-3 py-[8px] text-[13px] outline-none focus:border-sc-blue focus:bg-white"
+                  >
+                    {[...history].reverse().map((r) => (
+                      <option key={r.id} value={r.period}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-sc-border bg-white px-3 py-[9px] text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50"
+                >
+                  Afficher
+                </button>
+                <span className="pb-2 text-[11.5px] text-gray-500">
+                  {selected.finalised ? "Finalisé" : "Brouillon"}
+                  {trend.length > 1 &&
+                    ` · comparé au trimestre précédent`}
+                </span>
+              </form>
+              <Link
+                href={`/esg/${selected.id}`}
+                className="pb-2 text-[12px] font-medium text-sc-blue hover:underline"
+              >
+                Ouvrir le rapport →
+              </Link>
+            </div>
 
+            <EsgDashboard reports={trend} />
+          </>
+        ) : (
+          <p className="rounded-xl border border-dashed border-sc-border bg-white p-8 text-center text-[12.5px] text-gray-500">
+            Aucune donnée à afficher. Créez un rapport dans l&apos;onglet{" "}
+            <Link
+              href="/esg?vue=rapports"
+              className="font-semibold text-sc-blue underline"
+            >
+              Rapports
+            </Link>{" "}
+            : les informations saisies alimentent ce tableau de bord.
+          </p>
+        ))}
+
+      {vue === "rapports" && (
+        <>
       <section className="rounded-xl border border-sc-border bg-white p-5 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
         <h3 className="mb-3 text-[13px] font-semibold text-sc-blue-darker">
           Nouveau rapport trimestriel
         </h3>
+        <p className="mb-3 text-[11.5px] text-gray-500">
+          Les données RH sont pré-remplies automatiquement ; le reste se saisit à
+          la main. Ces réponses alimentent le tableau de bord.
+        </p>
         <NewReportForm years={years} defaultYear={year} defaultQuarter={q} />
       </section>
 
@@ -134,6 +230,8 @@ export default async function EsgPage() {
           </div>
         )}
       </section>
+        </>
+      )}
     </div>
   );
 }

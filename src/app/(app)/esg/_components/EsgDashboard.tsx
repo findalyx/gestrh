@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   ESG_KPI_GROUPS,
   ESG_TREND_KEYS,
@@ -63,24 +62,6 @@ export function EsgDashboard({ reports }: { reports: EsgTrendReport[] }) {
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h3 className="font-serif text-[15px] font-semibold text-sc-blue-darker">
-            Tableau de bord ESG
-          </h3>
-          <p className="text-[11.5px] text-gray-500">
-            {current.label} · {current.finalised ? "finalisé" : "brouillon"}
-            {previous && ` · comparé à ${shortPeriod(previous.period)}`}
-          </p>
-        </div>
-        <Link
-          href={`/esg/${current.id}`}
-          className="text-[12px] font-medium text-sc-blue hover:underline"
-        >
-          Ouvrir le rapport →
-        </Link>
-      </div>
-
       {/* Cartes par pilier */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {ESG_KPI_GROUPS.map((group) => (
@@ -102,7 +83,7 @@ export function EsgDashboard({ reports }: { reports: EsgTrendReport[] }) {
                 return (
                   <div key={item.key}>
                     <p
-                      className="truncate text-[10.5px] uppercase tracking-wide text-gray-500"
+                      className="text-[10.5px] uppercase leading-tight tracking-wide text-gray-500"
                       title={metric?.labelFr ?? metric?.label ?? item.label}
                     >
                       {item.label}
