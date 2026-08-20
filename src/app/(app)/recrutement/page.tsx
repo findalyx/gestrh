@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ApplicationStage, JobStatus, Role } from "@prisma/client";
+import { ApplicationStage, JobStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/dal";
+import { requireRecruitmentAccess } from "@/lib/recruitment-access";
 import { Icon } from "@/components/Icon";
 import { KpiCard } from "@/components/KpiCard";
 import { CategoryBadge } from "@/components/Badges";
@@ -21,7 +21,9 @@ export default async function RecrutementListPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  // DG / RH / Doyen Exécutif voient tout ; un responsable de service ne suit
+  // que les offres rattachées à son (ses) service(s).
+  const { canManage, where: scopeWhere } = await requireRecruitmentAccess();
   const sp = await searchParams;
 
   // Le filtre "EN_COURS" est fusionné avec "OUVERT" : on cherche les deux.
@@ -30,7 +32,9 @@ export default async function RecrutementListPage({
   const [postings, activeCount, filledCount, closedCount, applicationsActive] =
     await Promise.all([
       prisma.jobPosting.findMany({
-        where: statusFilter ? { status: { in: statusFilter } } : {},
+        where: statusFilter
+          ? { ...scopeWhere, status: { in: statusFilter } }
+          : scopeWhere,
         orderBy: { publishedAt: "desc" },
         include: {
           service: { select: { name: true } },
@@ -40,13 +44,21 @@ export default async function RecrutementListPage({
       }),
       // "En cours" = OUVERT ou EN_COURS (héritage)
       prisma.jobPosting.count({
-        where: { status: { in: [JobStatus.OUVERT, JobStatus.EN_COURS] } },
+        where: {
+          ...scopeWhere,
+          status: { in: [JobStatus.OUVERT, JobStatus.EN_COURS] },
+        },
       }),
-      prisma.jobPosting.count({ where: { status: JobStatus.POURVU } }),
-      prisma.jobPosting.count({ where: { status: JobStatus.FERME } }),
+      prisma.jobPosting.count({
+        where: { ...scopeWhere, status: JobStatus.POURVU },
+      }),
+      prisma.jobPosting.count({
+        where: { ...scopeWhere, status: JobStatus.FERME },
+      }),
       prisma.application.count({
         where: {
           stage: { notIn: [ApplicationStage.RECRUTE, ApplicationStage.REJETE] },
+          jobPosting: scopeWhere,
         },
       }),
     ]);
@@ -56,13 +68,16 @@ export default async function RecrutementListPage({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="text-[12.5px] text-gray-600">
           Suivi des offres d&apos;emploi et du pipeline de candidatures.
+          {!canManage && " Offres de votre service."}
         </p>
-        <Link
-          href="/recrutement/nouvelle"
-          className="inline-flex items-center gap-2 rounded-lg bg-sc-blue px-4 py-2 text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark"
-        >
-          <span className="text-base leading-none">+</span> Nouvelle offre
-        </Link>
+        {canManage && (
+          <Link
+            href="/recrutement/nouvelle"
+            className="inline-flex items-center gap-2 rounded-lg bg-sc-blue px-4 py-2 text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark"
+          >
+            <span className="text-base leading-none">+</span> Nouvelle offre
+          </Link>
+        )}
       </div>
 
       {/* Stats */}

@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/dal";
+import { requireRecruitmentManager } from "@/lib/recruitment-access";
 import { JobPostingForm } from "../_components/JobPostingForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewJobPostingPage() {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  await requireRecruitmentManager();
 
   const services = await prisma.service.findMany({
     orderBy: { name: "asc" },

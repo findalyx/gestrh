@@ -236,7 +236,7 @@ export default async function AgentDetailPage({
                 Modifier
               </Link>
             )}
-            {me.role === Role.DIRECTION && (
+            {(me.role === Role.DIRECTION || me.role === Role.DRH) && (
               <DeleteAgentButton
                 agentId={id}
                 agentLabel={`${agent.firstName} ${agent.lastName}`}

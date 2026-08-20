@@ -326,7 +326,7 @@ export async function deleteAgent(
   _prev: DeleteAgentResult,
   _formData: FormData,
 ): Promise<DeleteAgentResult> {
-  const me = await requireRole(Role.DIRECTION);
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
 
   // Charge le contexte : fichiers à purger + compte de connexion.
   const agent = await prisma.agent.findUnique({

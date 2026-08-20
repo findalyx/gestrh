@@ -17,14 +17,14 @@ export type ActionState =
   | undefined;
 
 // ============================================================
-//  CHANGER LE RÔLE D'UN UTILISATEUR — DIRECTION uniquement
+//  CHANGER LE RÔLE D'UN UTILISATEUR — DIRECTION + DRH (mêmes droits admin)
 // ============================================================
 export async function changeUserRole(
   targetUserId: string,
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const me = await requireRole(Role.DIRECTION);
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
 
   const newRole = String(formData.get("role") ?? "");
   if (!isRole(newRole)) {
@@ -155,11 +155,15 @@ export async function createUserAccount(
     return { ok: false, error: "Le mot de passe doit faire au moins 8 caractères." };
   }
 
-  // Seul DIRECTION peut créer un autre DIRECTION
-  if (role === Role.DIRECTION && me.role !== Role.DIRECTION) {
+  // Créer un compte Direction reste réservé à la Direction et au RH.
+  if (
+    role === Role.DIRECTION &&
+    me.role !== Role.DIRECTION &&
+    me.role !== Role.DRH
+  ) {
     return {
       ok: false,
-      error: "Seul un compte Direction peut créer un autre compte Direction.",
+      error: "Seul un compte Direction ou RH peut créer un compte Direction.",
     };
   }
 
@@ -210,14 +214,14 @@ export async function createUserAccount(
 }
 
 // ============================================================
-//  AFFECTER UN MANAGER À UN SERVICE — DIRECTION uniquement
+//  AFFECTER UN MANAGER À UN SERVICE — DIRECTION + DRH
 // ============================================================
 export async function assignServiceManager(
   serviceId: string,
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const me = await requireRole(Role.DIRECTION);
+  const me = await requireRole(Role.DIRECTION, Role.DRH);
 
   const rawAgentId = String(formData.get("agentId") ?? "").trim();
   const newManagerId = rawAgentId === "" ? null : rawAgentId;

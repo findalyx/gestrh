@@ -96,7 +96,9 @@ export const NAV_SECTIONS: NavSection[] = [
         icon: "recruitment",
         title: "Recrutement & intégration",
         subtitle: "Offres, candidatures et onboarding",
-        roles: ADMIN,
+        // DG, RH et Doyen Exécutif pilotent ; un responsable de service suit
+        // les offres rattachées à son service.
+        roles: [Role.DIRECTION, Role.DRH, Role.DOYEN, Role.MANAGER],
       },
       {
         label: "Communication interne",

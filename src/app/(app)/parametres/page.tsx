@@ -47,7 +47,8 @@ function formatDateTime(d: Date | null): string {
 
 export default async function ParametresPage() {
   const me = await requireRole(Role.DIRECTION, Role.DRH);
-  const isDirection = me.role === Role.DIRECTION;
+  // Le Responsable RH a les mêmes droits d'administration que la Direction.
+  const isDirection = me.role === Role.DIRECTION || me.role === Role.DRH;
 
   const [
     users,

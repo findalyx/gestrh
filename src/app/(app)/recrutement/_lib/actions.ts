@@ -40,7 +40,7 @@ export async function requestCvUpload(
 ): Promise<
   { ok: true; signedUrl: string; path: string } | { ok: false; error: string }
 > {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
   const app = await prisma.application.findUnique({
     where: { id: applicationId },
     select: { id: true },
@@ -58,7 +58,7 @@ export async function finalizeCvUpload(
   filename: string,
   size: number,
 ): Promise<CvUploadState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
   const app = await prisma.application.findUnique({
     where: { id: applicationId },
     select: { id: true, jobPostingId: true },
@@ -98,7 +98,7 @@ export async function createJobPosting(
   _prev: JobPostingFormState | undefined,
   formData: FormData,
 ): Promise<JobPostingFormState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const raw = {
     title: String(formData.get("title") ?? ""),
@@ -147,7 +147,7 @@ export async function closeJobPosting(
   _prev: RecruitmentActionState,
   _formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const posting = await prisma.jobPosting.findUnique({
     where: { id: postingId },
@@ -185,7 +185,7 @@ export async function reopenJobPosting(
   _prev: RecruitmentActionState,
   _formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const posting = await prisma.jobPosting.findUnique({
     where: { id: postingId },
@@ -223,7 +223,7 @@ export async function addApplication(
   _prev: ApplicationFormState | undefined,
   formData: FormData,
 ): Promise<ApplicationFormState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const raw = {
     candidateName: String(formData.get("candidateName") ?? ""),
@@ -308,7 +308,7 @@ export async function advanceApplication(
   _prev: RecruitmentActionState,
   _formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const app = await prisma.application.findUnique({
     where: { id: applicationId },
@@ -380,7 +380,7 @@ export async function rejectApplication(
   _prev: RecruitmentActionState,
   formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const app = await prisma.application.findUnique({
     where: { id: applicationId },
@@ -435,7 +435,7 @@ export async function addApplicationNote(
   _prev: RecruitmentActionState,
   formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const body = String(formData.get("body") ?? "").trim();
   if (body.length < 3) {
@@ -480,7 +480,7 @@ export async function deleteApplicationNote(
   _prev: RecruitmentActionState,
   _formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const note = await prisma.applicationNote.findUnique({
     where: { id: noteId },
@@ -515,7 +515,7 @@ export async function setInterviewDate(
   _prev: RecruitmentActionState,
   formData: FormData,
 ): Promise<RecruitmentActionState> {
-  const me = await requireRole(Role.DIRECTION, Role.DRH);
+  const me = await requireRole(Role.DIRECTION, Role.DRH, Role.DOYEN);
 
   const dateStr = String(formData.get("interviewAt") ?? "").trim();
   if (!dateStr) {

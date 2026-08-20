@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ApplicationStage, JobStatus, Role, type Application } from "@prisma/client";
+import { ApplicationStage, JobStatus, type Application } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/dal";
+import { requireRecruitmentAccess } from "@/lib/recruitment-access";
 import { Icon } from "@/components/Icon";
 import { CategoryBadge } from "@/components/Badges";
 import {
@@ -52,7 +52,7 @@ export default async function JobPostingDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  const { canManage, serviceIds } = await requireRecruitmentAccess();
   const { id } = await params;
 
   const posting = await prisma.jobPosting.findUnique({
@@ -66,6 +66,10 @@ export default async function JobPostingDetailPage({
   });
 
   if (!posting) notFound();
+  // Un responsable de service ne suit que les offres de son (ses) service(s).
+  if (!canManage && (!posting.serviceId || !serviceIds.includes(posting.serviceId))) {
+    notFound();
+  }
   const postingId = posting.id;
 
   // Groupe les candidatures par étape
@@ -122,9 +126,9 @@ export default async function JobPostingDetailPage({
           <div className="flex items-center gap-2">
             {posting.status === JobStatus.FERME ||
             posting.status === JobStatus.POURVU ? (
-              <ReopenPostingButton postingId={posting.id} />
+              canManage && <ReopenPostingButton postingId={posting.id} />
             ) : (
-              <ClosePostingButton postingId={posting.id} />
+              canManage && <ClosePostingButton postingId={posting.id} />
             )}
           </div>
         </div>
@@ -148,7 +152,7 @@ export default async function JobPostingDetailPage({
             + Enregistrer un nouveau candidat
           </summary>
           <div className="border-t border-sc-border p-5">
-            <ApplicationForm postingId={posting.id} />
+            {canManage && <ApplicationForm postingId={posting.id} />}
           </div>
         </details>
       )}
@@ -304,18 +308,20 @@ export default async function JobPostingDetailPage({
                 📅 {formatDateTime(app.interviewAt)}
               </p>
             )}
-            <InterviewDateForm
-              applicationId={app.id}
-              currentDate={toDateTimeLocal(app.interviewAt)}
-            />
+            {canManage && (
+              <InterviewDateForm
+                applicationId={app.id}
+                currentDate={toDateTimeLocal(app.interviewAt)}
+              />
+            )}
           </div>
         )}
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-sc-border pt-2">
-          {canAdvance && nextLabel && (
+          {canManage && canAdvance && nextLabel && (
             <AdvanceButton applicationId={app.id} label={nextLabel} />
           )}
-          {app.stage !== ApplicationStage.RECRUTE && (
+          {canManage && app.stage !== ApplicationStage.RECRUTE && (
             <RejectButton applicationId={app.id} />
           )}
         </div>

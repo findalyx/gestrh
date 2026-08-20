@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ApplicationStage, Role } from "@prisma/client";
+import { ApplicationStage } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/dal";
+import { requireRecruitmentAccess } from "@/lib/recruitment-access";
 import { Icon } from "@/components/Icon";
 import {
   ApplicationStageBadge,
@@ -60,7 +60,7 @@ export default async function ApplicationDetailPage({
 }: {
   params: Promise<{ id: string; appId: string }>;
 }) {
-  await requireRole(Role.DIRECTION, Role.DRH);
+  const { canManage, serviceIds } = await requireRecruitmentAccess();
   const { id, appId } = await params;
 
   const application = await prisma.application.findUnique({
@@ -71,6 +71,7 @@ export default async function ApplicationDetailPage({
           id: true,
           title: true,
           category: true,
+          serviceId: true,
           service: { select: { name: true } },
         },
       },
@@ -82,6 +83,14 @@ export default async function ApplicationDetailPage({
   });
 
   if (!application) notFound();
+  // Un responsable de service ne suit que les candidatures de son service.
+  if (
+    !canManage &&
+    (!application.jobPosting.serviceId ||
+      !serviceIds.includes(application.jobPosting.serviceId))
+  ) {
+    notFound();
+  }
 
   // Groupe les notes par étape
   const notesByStage = new Map<
@@ -137,13 +146,13 @@ export default async function ApplicationDetailPage({
           <div className="flex flex-col items-end gap-2">
             <ApplicationStageBadge value={application.stage} />
             <div className="flex flex-wrap items-center gap-1.5">
-              {!isRejected && !isHired && (
+              {canManage && !isRejected && !isHired && (
                 <AdvanceButton
                   applicationId={application.id}
                   label="Avancer →"
                 />
               )}
-              {!isRejected && !isHired && (
+              {canManage && !isRejected && !isHired && (
                 <RejectButton applicationId={application.id} />
               )}
             </div>
@@ -261,12 +270,14 @@ export default async function ApplicationDetailPage({
               Aucun CV joint à cette candidature.
             </p>
           )}
-          <div className="mt-3 border-t border-sc-border pt-3">
-            <p className="mb-1.5 text-[11.5px] font-medium text-sc-blue-darker">
-              {application.cvFilename ? "Remplacer le CV" : "Ajouter un CV"}
-            </p>
-            <CvUploadForm applicationId={application.id} />
-          </div>
+          {canManage && (
+            <div className="mt-3 border-t border-sc-border pt-3">
+              <p className="mb-1.5 text-[11.5px] font-medium text-sc-blue-darker">
+                {application.cvFilename ? "Remplacer le CV" : "Ajouter un CV"}
+              </p>
+              <CvUploadForm applicationId={application.id} />
+            </div>
+          )}
         </Section>
       </div>
 
@@ -283,12 +294,14 @@ export default async function ApplicationDetailPage({
               Aucune date d&apos;entretien planifiée.
             </p>
           )}
-          <div className="mt-3">
-            <InterviewDateForm
-              applicationId={application.id}
-              currentDate={toDateTimeLocal(application.interviewAt)}
-            />
-          </div>
+          {canManage && (
+            <div className="mt-3">
+              <InterviewDateForm
+                applicationId={application.id}
+                currentDate={toDateTimeLocal(application.interviewAt)}
+              />
+            </div>
+          )}
         </Section>
       )}
 
@@ -303,7 +316,7 @@ export default async function ApplicationDetailPage({
         </p>
 
         {/* Saisie d'une nouvelle note — toujours à l'étape courante */}
-        {!isRejected && (
+        {canManage && !isRejected && (
           <div className="mb-4 rounded-lg border border-sc-border bg-sc-blue-bg/30 p-3">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-600">
               Nouvelle note · étape actuelle :{" "}
