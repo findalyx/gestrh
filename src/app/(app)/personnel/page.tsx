@@ -311,7 +311,7 @@ export default async function PersonnelListPage({
             <option value="">Toutes</option>
             <option value="PER">PER</option>
             <option value="PATS">PATS</option>
-            <option value="PRESTATAIRE">Prestataires</option>
+            <option value="PRESTATAIRE">Permanents</option>
           </select>
         </div>
 

@@ -434,7 +434,7 @@ export async function DirectionDashboard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard
           title="Répartition du personnel"
-          subtitle="PER · PATS · Prestataires"
+          subtitle="PER · PATS · Permanents"
         >
           <CategoryDonut
             per={perCount}

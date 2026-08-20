@@ -8,7 +8,7 @@ export type AnnouncementAudience = {
 export const CATEGORY_LABEL: Record<StaffCategory, string> = {
   PER: "PER",
   PATS: "PATS",
-  PRESTATAIRE: "Prestataires",
+  PRESTATAIRE: "Permanents",
 };
 
 /**

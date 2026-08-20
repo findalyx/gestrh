@@ -132,7 +132,7 @@ export async function createPrestationInvoice(
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return {
         errors: {
-          period: ["Une note existe déjà pour ce prestataire et ce mois."],
+          period: ["Une note existe déjà pour ce permanent et ce mois."],
         },
         values: raw,
       };

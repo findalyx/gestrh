@@ -36,7 +36,7 @@ const SUB_CATEGORY_LABEL: Record<StaffSubCategory, string> = {
   PER_RECHERCHE: "Recherche",
   PATS_ADMINISTRATIF: "Administratif",
   PATS_TECHNIQUE: "Technique",
-  PRESTATAIRE_SERVICE: "Prestataire",
+  PRESTATAIRE_SERVICE: "Permanent",
 };
 
 const GENDER_LABEL: Record<Gender, string> = {
@@ -447,7 +447,7 @@ export default async function AgentDetailPage({
         >
           <p className="mb-3 text-[12px] text-gray-500">
             Chaque mois : honoraires brut → retenue à la source 5% → net à payer.
-            La note est générée au format SCIMD, signée par le prestataire, et
+            La note est générée au format SCIMD, signée par le permanent, et
             tient lieu de bulletin.
           </p>
           <PrestationSection

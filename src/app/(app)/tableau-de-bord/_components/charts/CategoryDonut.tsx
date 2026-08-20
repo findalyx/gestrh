@@ -17,7 +17,7 @@ export function CategoryDonut({
     <div className="relative h-[220px]">
       <Doughnut
         data={{
-          labels: ["PER", "PATS", "Prestataires"],
+          labels: ["PER", "PATS", "Permanents"],
           datasets: [
             {
               data: [per, pats, prestataire],

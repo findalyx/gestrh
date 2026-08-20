@@ -52,7 +52,7 @@ const SUB_LABEL: Record<StaffSubCategory, string> = {
   PER_RECHERCHE: "Recherche",
   PATS_ADMINISTRATIF: "Administratif",
   PATS_TECHNIQUE: "Technique",
-  PRESTATAIRE_SERVICE: "Prestataire",
+  PRESTATAIRE_SERVICE: "Permanent",
 };
 
 const STATUS_LABEL: Record<AgentStatus, string> = {
@@ -312,7 +312,7 @@ export function AgentForm({
             >
               <option value={StaffCategory.PER}>PER (Enseignant / Recherche)</option>
               <option value={StaffCategory.PATS}>PATS (Administratif / Technique)</option>
-              <option value={StaffCategory.PRESTATAIRE}>Prestataire</option>
+              <option value={StaffCategory.PRESTATAIRE}>Permanent</option>
             </select>
           </Field>
           <Field

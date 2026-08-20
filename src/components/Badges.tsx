@@ -17,7 +17,7 @@ const CATEGORY_STYLE: Record<StaffCategory, string> = {
 const CATEGORY_LABEL: Record<StaffCategory, string> = {
   PER: "PER",
   PATS: "PATS",
-  PRESTATAIRE: "Prestataire",
+  PRESTATAIRE: "Permanent",
 };
 
 export function CategoryBadge({ value }: { value: StaffCategory }) {

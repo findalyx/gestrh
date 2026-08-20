@@ -63,7 +63,7 @@ export default async function CommunicationPage() {
       <p className="text-[12.5px] text-gray-600">
         Annonces de la direction et notifications personnelles. Chaque annonce
         peut viser tout le personnel, certaines catégories (PER, PATS,
-        prestataires) ou certains services.
+        permanents) ou certains services.
       </p>
 
       {/* Tuiles synthèse */}

@@ -75,7 +75,7 @@ export async function createLeaveRequest(
     return {
       errors: {
         _form: [
-          "Les prestataires de services ne sont pas concernés par le module de congés.",
+          "Les permanents ne sont pas concernés par le module de congés.",
         ],
       },
     };

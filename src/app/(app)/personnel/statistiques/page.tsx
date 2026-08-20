@@ -245,7 +245,7 @@ export default async function StatistiquesPage() {
           </div>
         </Card>
 
-        <Card title="Catégorie de personnel (PER / PATS / Prestataires)">
+        <Card title="Catégorie de personnel (PER / PATS / Permanents)">
           <p className="mb-3 text-[11.5px] text-gray-500">
             Effectif <strong>présent</strong> compté par agent (Actif / Suspendu)
             — indépendant du nombre de contrats.
@@ -284,7 +284,7 @@ export default async function StatistiquesPage() {
                 {headByCategory.PRESTATAIRE}
               </div>
               <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[#854f0b]">
-                Prestataires
+                Permanents
               </div>
               <div className="mt-2 text-[11px] text-gray-600">
                 {headTotal > 0
