@@ -237,6 +237,12 @@ async function processPayslipsBuffer({
       p.patronale != null && p.patronale > 0 && p.patronale < brut
         ? p.patronale
         : 0;
+    // Indemnité de transport : exonérée, versée en plus du brut. Garde-fou :
+    // strictement positive et inférieure au brut (rejette une lecture douteuse).
+    const transport =
+      p.transport != null && p.transport > 0 && p.transport < brut
+        ? p.transport
+        : 0;
     const pdfUrl = await saveIndividualBulletin(p.page, p.period, agent.id);
 
     const existing = await prisma.payrollRecord.findUnique({
@@ -251,6 +257,7 @@ async function processPayslipsBuffer({
         baseSalary: brut,
         deductions,
         chargesPatronales,
+        transport,
         netSalary: p.net,
         status: PayrollStatus.PAYE,
         pdfUrl,
@@ -259,6 +266,7 @@ async function processPayslipsBuffer({
         baseSalary: brut,
         deductions,
         chargesPatronales,
+        transport,
         netSalary: p.net,
         status: PayrollStatus.PAYE,
         ...(pdfUrl ? { pdfUrl } : {}),

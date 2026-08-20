@@ -159,7 +159,8 @@ export async function DirectionDashboard() {
     prisma.evaluation.count(),
     prisma.evaluation.count({ where: { status: EvaluationStatus.TERMINEE } }),
     prisma.payrollRecord.count({ where: { period: latestPeriod?.period ?? "" } }),
-    // Coût employeur de la dernière période (brut + charges patronales)
+    // Coût employeur de la dernière période
+    // (brut + charges patronales + indemnité de transport)
     latestPeriod
       ? prisma.payrollRecord.aggregate({
           where: { period: latestPeriod.period },
@@ -168,6 +169,7 @@ export async function DirectionDashboard() {
             bonuses: true,
             allowances: true,
             chargesPatronales: true,
+            transport: true,
           },
         })
       : Promise.resolve({
@@ -176,6 +178,7 @@ export async function DirectionDashboard() {
             bonuses: 0,
             allowances: 0,
             chargesPatronales: 0,
+            transport: 0,
           },
         }),
     // Entrees de l'annee : salaries PER + PATS (prestataires exclus), dates par
@@ -228,6 +231,7 @@ export async function DirectionDashboard() {
         bonuses: true,
         allowances: true,
         chargesPatronales: true,
+        transport: true,
       },
       orderBy: { period: "asc" },
       take: 12,
@@ -247,6 +251,7 @@ export async function DirectionDashboard() {
         bonuses: true,
         allowances: true,
         chargesPatronales: true,
+        transport: true,
         agent: { select: { gender: true } },
       },
     }),
@@ -316,7 +321,8 @@ export async function DirectionDashboard() {
       (p._sum.baseSalary ?? 0) +
       (p._sum.bonuses ?? 0) +
       (p._sum.allowances ?? 0) +
-      (p._sum.chargesPatronales ?? 0),
+      (p._sum.chargesPatronales ?? 0) +
+      (p._sum.transport ?? 0),
   }));
 
   // Coût employeur par sexe (période courante)
@@ -324,7 +330,11 @@ export async function DirectionDashboard() {
   let womenPayroll = 0;
   for (const r of payrollByGender) {
     const cout =
-      r.baseSalary + r.bonuses + r.allowances + r.chargesPatronales;
+      r.baseSalary +
+      r.bonuses +
+      r.allowances +
+      r.chargesPatronales +
+      r.transport;
     if (r.agent.gender === Gender.HOMME) menPayroll += cout;
     else womenPayroll += cout;
   }
@@ -349,7 +359,8 @@ export async function DirectionDashboard() {
     (massLatestPeriod._sum.baseSalary ?? 0) +
     (massLatestPeriod._sum.bonuses ?? 0) +
     (massLatestPeriod._sum.allowances ?? 0) +
-    (massLatestPeriod._sum.chargesPatronales ?? 0);
+    (massLatestPeriod._sum.chargesPatronales ?? 0) +
+    (massLatestPeriod._sum.transport ?? 0);
   const compactFcfa = (n: number): string => {
     if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} Md`;
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;

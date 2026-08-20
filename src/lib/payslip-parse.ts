@@ -17,6 +17,7 @@ export type ParsedPayslip = {
   net: number | null;
   cotisation: number | null; // cotisations salariales (1er montant après « Total cotisation »)
   patronale: number | null; // charges patronales (2e montant après « Total cotisation »)
+  transport: number | null; // indemnité de transport (ligne « transport » du bulletin)
 };
 
 const MONTHS: Record<string, string> = {
@@ -103,6 +104,13 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
   // charges patronales). Donne la vraie retenue, qui peut différer de
   // (brut − net) à cause des indemnités non imposables (transport…).
   const cotis = text.match(/Total\s*cotisations?\s*([\d   ]+)/i);
+  // Indemnité de transport : ligne « Transport », « Ind. transport »,
+  // « Prime de transport »… suivie de son montant. Elle est exonérée et n'entre
+  // pas dans le total brut imposable, alors qu'elle est bien payée par
+  // l'employeur — on la capture pour le coût employeur.
+  const transp = text.match(
+    /(?:indemnit[ée]s?|prime|frais)?\s*(?:de\s*|d')?transport[^\d]{0,20}([\d   ]+)/i,
+  );
   const nm = text.match(
     /\b(?:Mme|Mlle|Mr|M)\b\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ '\-]{2,30})/,
   );
@@ -117,6 +125,7 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
     cotisation: firstAmount(cotis?.[1]),
     // 2e nombre = charges patronales (part employeur).
     patronale: secondAmount(cotis?.[1]),
+    transport: firstAmount(transp?.[1]),
   };
 }
 

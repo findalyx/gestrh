@@ -129,7 +129,7 @@ export default async function PayrollDetailPage({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-sc-border bg-gray-50/60 p-4">
             <p className="text-[11px] uppercase tracking-wider text-gray-500">
               Brut
@@ -148,6 +148,17 @@ export default async function PayrollDetailPage({
             </p>
             <p className="text-[11px] text-gray-400">FCFA</p>
           </div>
+          <div className="rounded-lg border border-sc-border bg-gray-50/60 p-4">
+            <p className="text-[11px] uppercase tracking-wider text-gray-500">
+              Indemnité de transport
+            </p>
+            <p className="mt-1 font-mono text-lg font-semibold text-gray-700">
+              {fmt(record.transport)}
+            </p>
+            <p className="text-[11px] text-gray-400">
+              FCFA · exonérée, hors brut
+            </p>
+          </div>
           <div className="rounded-lg border border-sc-green/30 bg-sc-green-light p-4">
             <p className="text-[11px] uppercase tracking-wider text-sc-green-dark">
               Net à payer
@@ -159,7 +170,16 @@ export default async function PayrollDetailPage({
           </div>
         </div>
 
-        <p className="mt-3 text-[11px] text-gray-400">
+        <p className="mt-3 text-[12px] text-gray-600">
+          Coût employeur :{" "}
+          <strong className="font-mono">
+            {fmt(gross + record.chargesPatronales + record.transport)}
+          </strong>{" "}
+          FCFA — brut + charges patronales ({fmt(record.chargesPatronales)}) +
+          transport ({fmt(record.transport)}).
+        </p>
+
+        <p className="mt-2 text-[11px] text-gray-400">
           Valeurs issues du bulletin importé. Le document officiel ci-dessous
           fait foi.
           {record.status === PayrollStatus.PAYE

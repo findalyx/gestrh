@@ -587,6 +587,7 @@ model PayrollRecord {
   allowances  Int           @default(0) // allocations
   deductions  Int           @default(0) // cotisations salariales (part employé)
   chargesPatronales Int      @default(0) // charges patronales (part employeur)
+  transport   Int           @default(0) // indemnité de transport (hors brut imposable)
   netSalary   Int
   status      PayrollStatus @default(BROUILLON)
   pdfUrl      String?
