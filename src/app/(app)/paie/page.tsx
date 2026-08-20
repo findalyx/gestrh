@@ -287,35 +287,29 @@ export default async function PaiePage({
               Exporter en CSV
             </a>
           )}
+
+          {/* Import PDF — petit bouton qui ouvre un panneau (utilisé 1×/mois) */}
+          {isAdmin && (
+            <details className="group relative">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-sc-teal/40 bg-sc-teal/5 px-3 py-[9px] text-[12.5px] font-medium text-sc-teal-dark transition hover:bg-sc-teal/10">
+                <Icon name="import" size={14} />
+                Importer des bulletins
+                <Icon
+                  name="chevron-down"
+                  size={13}
+                  className="transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div className="absolute left-0 top-full z-30 mt-2 w-[min(560px,92vw)] rounded-xl border border-sc-border bg-white p-4 shadow-lg">
+                <p className="mb-3 text-[11.5px] text-gray-500">
+                  Lecture automatique du PDF mensuel.
+                </p>
+                <ImportPayslipsForm />
+              </div>
+            </details>
+          )}
         </div>
       </div>
-
-      {/* Outils admin : import PDF (source unique des bulletins) */}
-      {isAdmin && (
-        <details className="group rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-          <summary className="flex cursor-pointer list-none items-center gap-3 p-4">
-            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sc-teal/10 text-sc-teal">
-              <Icon name="import" size={18} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-sc-blue-darker">
-                Importer des bulletins (PDF)
-              </p>
-              <p className="truncate text-[11.5px] text-gray-500">
-                Lecture automatique du PDF mensuel
-              </p>
-            </div>
-            <Icon
-              name="chevron-down"
-              size={16}
-              className="flex-shrink-0 text-gray-400 transition-transform group-open:rotate-180"
-            />
-          </summary>
-          <div className="border-t border-sc-border p-4">
-            <ImportPayslipsForm />
-          </div>
-        </details>
-      )}
 
       {/* Tuiles synthèse — visibles pour tous (admin = équipe / agent = perso) */}
       {records.length > 0 && (
