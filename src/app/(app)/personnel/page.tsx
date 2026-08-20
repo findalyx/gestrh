@@ -14,11 +14,22 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
 
+// Présents = encore en poste ; Partis = ont quitté l'organisation.
+const PRESENT_STATUSES: AgentStatus[] = [
+  AgentStatus.ACTIF,
+  AgentStatus.SUSPENDU,
+];
+const GONE_STATUSES: AgentStatus[] = [
+  AgentStatus.INACTIF,
+  AgentStatus.RETRAITE,
+];
+
 type SearchParams = {
   q?: string;
   cat?: string;
   service?: string;
   statut?: string;
+  vue?: string;
   page?: string;
 };
 
@@ -44,6 +55,8 @@ export default async function PersonnelListPage({
       : undefined;
   const statut = isAgentStatus(sp.statut) ? sp.statut : undefined;
   const serviceId = sp.service?.trim() || undefined;
+  const vue: "presents" | "partis" = sp.vue === "partis" ? "partis" : "presents";
+  const viewStatuses = vue === "partis" ? GONE_STATUSES : PRESENT_STATUSES;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
 
   const filters: Prisma.AgentWhereInput[] = [scopeWhere];
@@ -58,7 +71,10 @@ export default async function PersonnelListPage({
     });
   }
   if (cat) filters.push({ category: cat });
-  if (statut) filters.push({ status: statut });
+  // Vue « présents » (par défaut) ou « partis ». Un statut précis sélectionné
+  // dans la vue courante affine encore (sinon on prend tous les statuts de la vue).
+  filters.push({ status: { in: viewStatuses } });
+  if (statut && viewStatuses.includes(statut)) filters.push({ status: statut });
   if (serviceId) filters.push({ serviceId });
 
   const where: Prisma.AgentWhereInput = { AND: filters };
@@ -84,6 +100,28 @@ export default async function PersonnelListPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters = Boolean(q || cat || statut || serviceId);
   const canEdit = me.role === Role.DIRECTION || me.role === Role.DRH;
+
+  // Construit une URL /personnel en préservant les filtres courants.
+  const hrefWith = (over: Record<string, string | undefined>): string => {
+    const params: Record<string, string | undefined> = {
+      q: q || undefined,
+      cat: cat || undefined,
+      service: serviceId || undefined,
+      statut: statut || undefined,
+      vue: vue === "partis" ? "partis" : undefined,
+      ...over,
+    };
+    const usp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v) usp.set(k, v);
+    const s = usp.toString();
+    return s ? `/personnel?${s}` : "/personnel";
+  };
+  // Bascule présents ↔ partis (on repart sans statut précis).
+  const toggleHref = hrefWith({
+    vue: vue === "partis" ? undefined : "partis",
+    statut: undefined,
+    page: undefined,
+  });
 
   // Signalements par agent : échéance CDD (expiré / imminent) ou départ
   // retraite proche. Le plus grave l'emporte.
@@ -125,40 +163,60 @@ export default async function PersonnelListPage({
   return (
     <div className="space-y-5">
       {/* Barre d'actions */}
-      {canEdit && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Link
-            href="/personnel/echeances"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
-          >
-            <Icon name="alert" size={14} /> Échéances &amp; retraites
-          </Link>
-          <Link
-            href="/personnel/statistiques"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
-          >
-            <Icon name="dashboard" size={14} /> Statistiques
-          </Link>
-          <Link
-            href="/personnel/clauses"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
-          >
-            <Icon name="compliance" size={14} /> Clauses
-          </Link>
-          <Link
-            href="/personnel/nouveau"
-            className="inline-flex items-center gap-2 rounded-lg bg-sc-blue px-4 py-2 text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark"
-          >
-            <span className="text-base leading-none">+</span> Nouvelle fiche
-          </Link>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href={toggleHref}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium transition ${
+            vue === "partis"
+              ? "border-sc-blue bg-sc-blue-light text-sc-blue"
+              : "border-sc-border bg-white text-sc-blue-darker hover:bg-sc-blue-bg"
+          }`}
+        >
+          {vue === "partis" ? (
+            "← Personnes présentes"
+          ) : (
+            <>
+              <Icon name="logout" size={14} /> Personnes parties
+            </>
+          )}
+        </Link>
+
+        {canEdit && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/personnel/echeances"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+            >
+              <Icon name="alert" size={14} /> Échéances &amp; retraites
+            </Link>
+            <Link
+              href="/personnel/statistiques"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+            >
+              <Icon name="dashboard" size={14} /> Statistiques
+            </Link>
+            <Link
+              href="/personnel/clauses"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sc-border bg-white px-3 py-2 text-[12.5px] font-medium text-sc-blue-darker transition hover:bg-sc-blue-bg"
+            >
+              <Icon name="compliance" size={14} /> Clauses
+            </Link>
+            <Link
+              href="/personnel/nouveau"
+              className="inline-flex items-center gap-2 rounded-lg bg-sc-blue px-4 py-2 text-[12.5px] font-medium text-white transition hover:bg-sc-blue-dark"
+            >
+              <span className="text-base leading-none">+</span> Nouvelle fiche
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* Bandeau de filtres */}
       <form
         method="get"
         className="flex flex-wrap items-end gap-3 rounded-xl border border-sc-border bg-white p-4 shadow-[0_1px_2px_rgba(51,89,164,0.06)]"
       >
+        {vue === "partis" && <input type="hidden" name="vue" value="partis" />}
         <div className="flex flex-1 flex-col gap-1 min-w-[220px]">
           <label
             htmlFor="q"
@@ -240,10 +298,17 @@ export default async function PersonnelListPage({
             className="rounded-lg border border-sc-border bg-gray-50 px-3 py-[8px] text-[13px] outline-none focus:border-sc-blue focus:bg-white"
           >
             <option value="">Tous</option>
-            <option value="ACTIF">Actif</option>
-            <option value="SUSPENDU">Suspendu</option>
-            <option value="RETRAITE">Retraité</option>
-            <option value="INACTIF">Inactif</option>
+            {vue === "partis" ? (
+              <>
+                <option value="RETRAITE">Retraité</option>
+                <option value="INACTIF">Inactif</option>
+              </>
+            ) : (
+              <>
+                <option value="ACTIF">Actif</option>
+                <option value="SUSPENDU">Suspendu</option>
+              </>
+            )}
           </select>
         </div>
 
@@ -256,7 +321,7 @@ export default async function PersonnelListPage({
           </button>
           {hasFilters && (
             <Link
-              href="/personnel"
+              href={vue === "partis" ? "/personnel?vue=partis" : "/personnel"}
               className="rounded-lg border border-sc-border bg-white px-4 py-[9px] text-[12.5px] font-medium text-gray-700 transition hover:bg-gray-50"
             >
               Réinitialiser
@@ -269,7 +334,9 @@ export default async function PersonnelListPage({
       <div className="flex items-center justify-between text-[12.5px] text-gray-600">
         <p>
           <span className="font-semibold text-sc-blue-darker">{total}</span>{" "}
-          agent{total > 1 ? "s" : ""}
+          {vue === "partis"
+            ? `personne${total > 1 ? "s" : ""} partie${total > 1 ? "s" : ""}`
+            : `agent${total > 1 ? "s" : ""} présent${total > 1 ? "s" : ""}`}
           {hasFilters ? " (filtrés)" : ""}
           {scope === "SERVICE" && " · votre service"}
           {scope === "SELF" && " · votre fiche"}
@@ -302,7 +369,9 @@ export default async function PersonnelListPage({
                   colSpan={7}
                   className="px-4 py-10 text-center text-[13px] text-gray-500"
                 >
-                  Aucun agent trouvé.
+                  {vue === "partis"
+                    ? "Aucune personne partie."
+                    : "Aucun agent présent trouvé."}
                 </td>
               </tr>
             ) : (
@@ -370,15 +439,7 @@ export default async function PersonnelListPage({
         <Pagination
           page={page}
           totalPages={totalPages}
-          buildHref={(p) =>
-            `/personnel?${new URLSearchParams({
-              ...(q && { q }),
-              ...(cat && { cat }),
-              ...(statut && { statut }),
-              ...(serviceId && { service: serviceId }),
-              page: String(p),
-            }).toString()}`
-          }
+          buildHref={(p) => hrefWith({ page: String(p) })}
         />
       )}
     </div>
