@@ -118,6 +118,7 @@ enum ContractNotificationKind {
   FIN_PERIODE_ESSAI
   RUPTURE_ANTICIPEE
   CONFIRMATION_PERIODE_ESSAI
+  DEMANDE_EXPLICATION // courrier demandant des explications sur un fait précis
 }
 
 enum LeaveType {

@@ -52,6 +52,7 @@ const SUBJECT_BY_KIND: Record<ContractNotificationKind, string> = {
   FIN_PERIODE_ESSAI: "Notification de fin de période d'essai",
   CONFIRMATION_PERIODE_ESSAI: "Confirmation de période d'essai",
   RUPTURE_ANTICIPEE: "Notification de rupture anticipée du contrat",
+  DEMANDE_EXPLICATION: "Demande d'explication",
 };
 
 function buildBodyLines(
@@ -98,6 +99,15 @@ function buildBodyLines(
         "Conformément aux dispositions légales et contractuelles, votre relation de travail prend fin à la date indiquée ci-dessus.",
       );
       break;
+    case "DEMANDE_EXPLICATION":
+      lines.push(
+        `Nous sommes contraints de vous demander des explications écrites sur les faits exposés ci-après, ` +
+          `survenus dans le cadre de l'exécution de votre contrat de travail (référence ${contract.reference}) ` +
+          `en qualité de ${agent.jobTitle} au sein du service ${service.name}.`,
+        "Nous vous invitons à nous faire parvenir votre réponse écrite dans un délai de quarante-huit (48) heures à compter de la réception de la présente.",
+        "Passé ce délai, et à défaut de réponse de votre part, l'Université se réserve le droit de tirer toutes les conséquences de ces faits.",
+      );
+      break;
     case "RUPTURE_ANTICIPEE":
       lines.push(
         `Nous vous notifions, par la présente, la rupture anticipée de votre contrat de travail ` +
@@ -108,7 +118,11 @@ function buildBodyLines(
   }
 
   if (decisionDetails.reason) {
-    lines.push(`Motif de la décision : ${decisionDetails.reason}`);
+    lines.push(
+      kind === "DEMANDE_EXPLICATION"
+        ? `Faits reprochés : ${decisionDetails.reason}`
+        : `Motif de la décision : ${decisionDetails.reason}`,
+    );
   }
   lines.push(
     "Nous vous prions d'accuser réception de la présente notification et restons à votre disposition pour toute précision.",

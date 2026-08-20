@@ -16,6 +16,7 @@ const KIND_LABEL: Record<ContractNotificationKind, string> = {
   FIN_PERIODE_ESSAI: "Fin de période d'essai",
   RUPTURE_ANTICIPEE: "Rupture anticipée",
   CONFIRMATION_PERIODE_ESSAI: "Confirmation période d'essai",
+  DEMANDE_EXPLICATION: "Demande d'explication",
 };
 
 const KIND_STYLE: Record<ContractNotificationKind, string> = {
@@ -24,6 +25,7 @@ const KIND_STYLE: Record<ContractNotificationKind, string> = {
   FIN_PERIODE_ESSAI: "bg-amber-100 text-amber-800",
   RUPTURE_ANTICIPEE: "bg-sc-danger-light text-sc-danger",
   CONFIRMATION_PERIODE_ESSAI: "bg-sc-blue-light text-sc-blue",
+  DEMANDE_EXPLICATION: "bg-amber-100 text-amber-800",
 };
 
 export default async function NotificationsTabPage({

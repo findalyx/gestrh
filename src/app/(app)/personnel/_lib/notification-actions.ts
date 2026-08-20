@@ -13,6 +13,7 @@ const KIND_LABEL: Record<ContractNotificationKind, string> = {
   CONFIRMATION_PERIODE_ESSAI: "Confirmation de période d'essai",
   FIN_PERIODE_ESSAI: "Fin de période d'essai",
   RUPTURE_ANTICIPEE: "Rupture anticipée",
+  DEMANDE_EXPLICATION: "Demande d'explication",
 };
 
 export async function sendStandaloneNotification(

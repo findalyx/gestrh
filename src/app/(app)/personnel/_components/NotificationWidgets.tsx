@@ -13,6 +13,7 @@ const KIND_LABEL: Record<ContractNotificationKind, string> = {
   CONFIRMATION_PERIODE_ESSAI: "Confirmation de période d'essai",
   FIN_PERIODE_ESSAI: "Fin de période d'essai",
   RUPTURE_ANTICIPEE: "Rupture anticipée",
+  DEMANDE_EXPLICATION: "Demande d'explication",
 };
 
 // Les renouvellements / non-renouvellements passent par le module Renouvellement.
@@ -20,6 +21,7 @@ const STANDALONE_KINDS: ContractNotificationKind[] = [
   ContractNotificationKind.CONFIRMATION_PERIODE_ESSAI,
   ContractNotificationKind.FIN_PERIODE_ESSAI,
   ContractNotificationKind.RUPTURE_ANTICIPEE,
+  ContractNotificationKind.DEMANDE_EXPLICATION,
 ];
 
 export function NewNotificationButton({ contractId }: { contractId: string }) {
