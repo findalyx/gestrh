@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { Icon } from "@/components/Icon";
 import { NewReportForm } from "./_components/EsgActions";
+import { EsgDashboard } from "./_components/EsgDashboard";
 import { currentQuarter } from "./_lib/periods";
+import type { AnswerMap } from "./_lib/kpi";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +17,40 @@ function formatDate(d: Date): string {
 export default async function EsgPage() {
   await requireRole(Role.DIRECTION, Role.DRH);
 
-  const [reports, org] = await Promise.all([
+  const [reports, org, recent] = await Promise.all([
     prisma.esgReport.findMany({
       orderBy: { period: "desc" },
       include: { _count: { select: { answers: true } } },
     }),
     prisma.organization.findFirst({ select: { usdRate: true } }),
+    // Cinq derniers trimestres pour le tableau de bord (KPI + évolution).
+    prisma.esgReport.findMany({
+      orderBy: { period: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        period: true,
+        label: true,
+        status: true,
+        answers: { select: { metricKey: true, value: true, comment: true } },
+      },
+    }),
   ]);
+
+  // Du plus ancien au plus récent pour la lecture de l'évolution.
+  const trend = [...recent].reverse().map((r) => {
+    const answers: AnswerMap = {};
+    for (const a of r.answers) {
+      answers[a.metricKey] = { value: a.value, comment: a.comment };
+    }
+    return {
+      id: r.id,
+      period: r.period,
+      label: r.label,
+      finalised: r.status === EsgReportStatus.FINALISE,
+      answers,
+    };
+  });
 
   const now = new Date();
   const { year, q } = currentQuarter(now);
@@ -53,6 +82,8 @@ export default async function EsgPage() {
           </span>
         </div>
       )}
+
+      {trend.length > 0 && <EsgDashboard reports={trend} />}
 
       <section className="rounded-xl border border-sc-border bg-white p-5 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
         <h3 className="mb-3 text-[13px] font-semibold text-sc-blue-darker">
