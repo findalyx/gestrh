@@ -339,7 +339,7 @@ export default async function PaiePage({
             icon="compliance"
             label="Cotisations salariales"
             value={FCFA.format(totals.contributions)}
-            hint="IPRES 5,6 % + IPM 3 %"
+            hint="FCFA"
           />
           <KpiCard
             color="green"
@@ -353,7 +353,7 @@ export default async function PaiePage({
             icon="compliance"
             label={isAdmin ? "Charge employeur" : "Coût pour l'employeur"}
             value={FCFA.format(totalEmployerCost)}
-            hint="Brut + patronales + transport"
+            hint="FCFA"
           />
         </div>
       )}
