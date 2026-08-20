@@ -38,12 +38,15 @@ function seniorityLabel(years: number): string {
 }
 
 export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
-  const service = await prisma.service.findUnique({
+  // Un responsable peut diriger plusieurs services : on agrège l'ensemble.
+  const services = await prisma.service.findMany({
     where: { managerId: managerAgentId },
+    orderBy: { name: "asc" },
     select: { id: true, name: true, code: true },
   });
+  const serviceIds = services.map((s) => s.id);
 
-  if (!service) {
+  if (services.length === 0) {
     return (
       <div className="rounded-xl border border-sc-warning/30 bg-sc-warning-light p-5 text-[13px] text-[#854f0b]">
         Vous êtes connecté en tant que Manager mais n&apos;avez encore aucun
@@ -72,20 +75,20 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
   ] = await Promise.all([
     prisma.agent.count({
       where: {
-        serviceId: service.id,
+        serviceId: { in: serviceIds },
         status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
       },
     }),
     prisma.agent.count({
       where: {
-        serviceId: service.id,
+        serviceId: { in: serviceIds },
         category: StaffCategory.PER,
         status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
       },
     }),
     prisma.agent.count({
       where: {
-        serviceId: service.id,
+        serviceId: { in: serviceIds },
         category: StaffCategory.PATS,
         status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
       },
@@ -95,34 +98,34 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
         status: LeaveStatus.AUTORISE,
         startDate: { lte: today },
         endDate: { gte: today },
-        agent: { serviceId: service.id },
+        agent: { serviceId: { in: serviceIds } },
       },
     }),
     prisma.leaveRequest.count({
       where: {
         status: LeaveStatus.EN_ATTENTE,
-        agent: { serviceId: service.id },
+        agent: { serviceId: { in: serviceIds } },
       },
     }),
     prisma.evaluation.count({
-      where: { agent: { serviceId: service.id } },
+      where: { agent: { serviceId: { in: serviceIds } } },
     }),
     prisma.evaluation.count({
       where: {
         status: EvaluationStatus.TERMINEE,
-        agent: { serviceId: service.id },
+        agent: { serviceId: { in: serviceIds } },
       },
     }),
     prisma.evaluation.count({
       where: {
-        agent: { serviceId: service.id },
+        agent: { serviceId: { in: serviceIds } },
         status: { in: [EvaluationStatus.PLANIFIEE, EvaluationStatus.EN_COURS] },
         dueDate: { lt: today },
       },
     }),
     // Liste des membres de l'équipe (avec leur contrat actif)
     prisma.agent.findMany({
-      where: { serviceId: service.id },
+      where: { serviceId: { in: serviceIds } },
       orderBy: [{ status: "asc" }, { lastName: "asc" }],
       select: {
         id: true,
@@ -134,6 +137,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
         birthDate: true,
         hireDate: true,
         category: true,
+        service: { select: { name: true } },
         contracts: {
           where: { status: ContractStatus.ACTIF },
           orderBy: { startDate: "desc" },
@@ -147,7 +151,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
       where: {
         status: ContractStatus.ACTIF,
         endDate: { gte: today, lte: in60Days },
-        agent: { serviceId: service.id },
+        agent: { serviceId: { in: serviceIds } },
       },
       orderBy: { endDate: "asc" },
       include: {
@@ -161,7 +165,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
       where: {
         status: LeaveStatus.AUTORISE,
         startDate: { gte: today, lte: new Date(today.getTime() + 30 * DAY) },
-        agent: { serviceId: service.id },
+        agent: { serviceId: { in: serviceIds } },
       },
       orderBy: { startDate: "asc" },
       take: 6,
@@ -202,7 +206,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
   const pendingLeaves = await prisma.leaveRequest.findMany({
     where: {
       status: LeaveStatus.EN_ATTENTE,
-      agent: { serviceId: service.id },
+      agent: { serviceId: { in: serviceIds } },
     },
     orderBy: { createdAt: "asc" },
     take: 5,
@@ -218,16 +222,23 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
       {/* Bandeau service */}
       <div className="rounded-xl border border-sc-border bg-gradient-to-r from-sc-blue-bg to-white p-5 shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
         <p className="text-[11px] uppercase tracking-wider text-gray-500">
-          Service que vous dirigez
+          {services.length > 1
+            ? `Services que vous dirigez (${services.length})`
+            : "Service que vous dirigez"}
         </p>
-        <h2 className="mt-1 font-serif text-xl font-semibold text-sc-blue-darker">
-          {service.name}{" "}
-          <span className="text-[14px] font-normal text-gray-500">
-            · {service.code}
-          </span>
+        <h2 className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-serif text-xl font-semibold text-sc-blue-darker">
+          {services.map((s) => (
+            <span key={s.id}>
+              {s.name}{" "}
+              <span className="text-[14px] font-normal text-gray-500">
+                · {s.code}
+              </span>
+            </span>
+          ))}
         </h2>
         <p className="mt-2 text-[12.5px] text-gray-600">
-          Bonjour {firstName}, voici la situation de votre équipe.
+          Bonjour {firstName}, voici la situation de{" "}
+          {services.length > 1 ? "vos équipes" : "votre équipe"}.
         </p>
       </div>
 
@@ -370,10 +381,15 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
         <div className="mb-4 flex items-center justify-between">
           <h3 className="flex items-center gap-2.5 font-serif text-base font-semibold text-sc-blue-darker">
             <span className="h-[18px] w-1 rounded bg-sc-blue" />
-            Mon équipe ({teamMembers.length})
+            {services.length > 1 ? "Mes équipes" : "Mon équipe"} (
+            {teamMembers.length})
           </h3>
           <Link
-            href={`/personnel?service=${service.id}`}
+            href={
+              services.length === 1
+                ? `/personnel?service=${services[0].id}`
+                : "/personnel"
+            }
             className="text-[12px] font-medium text-sc-blue hover:underline"
           >
             Voir toutes les fiches →
@@ -404,6 +420,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
                     {m.jobTitle}
                   </p>
                   <p className="text-[10.5px] text-gray-500">
+                    {services.length > 1 && `${m.service.name} · `}
                     {seniorityLabel(years)} d&apos;ancienneté
                     {contract && ` · ${contract.type}`}
                   </p>

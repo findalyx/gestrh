@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
-import { Prisma, Role } from "@prisma/client";
+import { AgentStatus, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/dal";
 import { logAudit } from "@/lib/audit";
@@ -232,36 +232,28 @@ export async function assignServiceManager(
     return { ok: true, message: "Aucun changement." };
   }
 
-  // Le nouveau manager doit appartenir au service (s'il y en a un)
+  // Le manager n'est pas forcément membre du service : un même responsable
+  // peut diriger plusieurs services (ex. Administratif + Technique). On exige
+  // seulement que ce soit un agent encore en poste.
   if (newManagerId) {
     const ok = await prisma.agent.count({
-      where: { id: newManagerId, serviceId },
+      where: {
+        id: newManagerId,
+        status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] },
+      },
     });
     if (ok === 0) {
       return {
         ok: false,
-        error: "L'agent choisi ne fait pas partie de ce service.",
+        error: "Agent introuvable ou n'étant plus en poste.",
       };
     }
   }
 
-  try {
-    await prisma.service.update({
-      where: { id: serviceId },
-      data: { managerId: newManagerId },
-    });
-  } catch (e) {
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return {
-        ok: false,
-        error: "Cet agent gère déjà un autre service.",
-      };
-    }
-    throw e;
-  }
+  await prisma.service.update({
+    where: { id: serviceId },
+    data: { managerId: newManagerId },
+  });
 
   await logAudit({
     userId: me.id,

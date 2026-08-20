@@ -358,12 +358,15 @@ model Service {
   description String?
 
   agents     Agent[] @relation("ServiceMembers")
+  // Un même agent peut diriger plusieurs services (pas de contrainte d'unicité).
   manager    Agent?  @relation("ServiceManager", fields: [managerId], references: [id])
-  managerId  String? @unique
+  managerId  String?
 
   jobPostings JobPosting[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  @@index([managerId])
 }
 
 // ============================================================
@@ -398,8 +401,9 @@ model Agent {
   service   Service @relation("ServiceMembers", fields: [serviceId], references: [id])
   serviceId String
 
-  managedService Service? @relation("ServiceManager")
-  user           User?
+  /// Services dirigés par cet agent (il peut en diriger plusieurs).
+  managedServices Service[] @relation("ServiceManager")
+  user            User?
 
   contracts          Contract[]
   leaveRequests      LeaveRequest[]      @relation("LeaveRequester")

@@ -14,11 +14,15 @@ export function ServiceManagerForm({
   serviceId,
   currentManagerId,
   candidates,
+  others = [],
   disabled,
 }: {
   serviceId: string;
   currentManagerId: string | null;
+  /** Agents membres du service (choix naturels). */
   candidates: Candidate[];
+  /** Autres agents en poste — un responsable peut diriger plusieurs services. */
+  others?: Candidate[];
   disabled?: boolean;
 }) {
   const action = assignServiceManager.bind(null, serviceId);
@@ -36,11 +40,24 @@ export function ServiceManagerForm({
         className="rounded-lg border border-sc-border bg-white px-2 py-1 text-[12.5px] outline-none focus:border-sc-blue focus:ring-[3px] focus:ring-sc-blue/10 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <option value="">— Aucun —</option>
-        {candidates.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.lastName.toUpperCase()} {c.firstName} ({c.matricule})
-          </option>
-        ))}
+        {candidates.length > 0 && (
+          <optgroup label="Membres du service">
+            {candidates.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.lastName.toUpperCase()} {c.firstName} ({c.matricule})
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {others.length > 0 && (
+          <optgroup label="Autres agents">
+            {others.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.lastName.toUpperCase()} {c.firstName} ({c.matricule})
+              </option>
+            ))}
+          </optgroup>
+        )}
       </select>
       <button
         type="submit"

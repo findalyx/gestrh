@@ -122,6 +122,15 @@ export default async function ParametresPage() {
     }),
   ]);
 
+  // Nombre de services dirigés par chaque manager (un agent peut en diriger
+  // plusieurs — ex. Administratif + Technique).
+  const servicesByManager = new Map<string, number>();
+  for (const s of services) {
+    if (s.managerId) {
+      servicesByManager.set(s.managerId, (servicesByManager.get(s.managerId) ?? 0) + 1);
+    }
+  }
+
   const now = new Date();
   const currentYYMM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   // Le logo est servi via /api/branding/logo ; on ajoute un cache-buster pour
@@ -366,6 +375,11 @@ export default async function ParametresPage() {
                         <span className="ml-1 text-[11px] text-gray-500 font-mono">
                           · {s.manager.matricule}
                         </span>
+                        {(servicesByManager.get(s.manager.id) ?? 1) > 1 && (
+                          <span className="ml-1.5 rounded-full bg-sc-purple/10 px-1.5 py-[1px] text-[10px] font-semibold text-sc-purple">
+                            dirige {servicesByManager.get(s.manager.id)} services
+                          </span>
+                        )}
                       </>
                     ) : (
                       <span className="text-gray-400">Aucun</span>
@@ -377,6 +391,9 @@ export default async function ParametresPage() {
                         serviceId={s.id}
                         currentManagerId={s.manager?.id ?? null}
                         candidates={s.agents}
+                        others={allAgents.filter(
+                          (a) => !s.agents.some((m) => m.id === a.id),
+                        )}
                       />
                     ) : (
                       <span className="text-[11px] text-gray-400">—</span>
