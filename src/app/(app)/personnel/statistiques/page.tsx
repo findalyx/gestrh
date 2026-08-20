@@ -78,12 +78,13 @@ function HBar({
 }
 
 export default async function StatistiquesPage() {
-  const activeContracts = await prisma.contract.findMany({
+  const activeContractRows = await prisma.contract.findMany({
     where: {
       status: ContractStatus.ACTIF,
       // Exclut les agents partants (INACTIF / RETRAITE) des statistiques.
       agent: { status: { in: [AgentStatus.ACTIF, AgentStatus.SUSPENDU] } },
     },
+    orderBy: { startDate: "desc" },
     select: {
       type: true,
       baseSalary: true,
@@ -95,6 +96,16 @@ export default async function StatistiquesPage() {
         },
       },
     },
+  });
+
+  // Un agent = UN contrat courant : si plusieurs contrats actifs sont
+  // enregistrés (renouvellement saisi sans clôturer le précédent), on ne garde
+  // que le plus récent, sinon la personne serait comptée deux fois.
+  const seenAgents = new Set<string>();
+  const activeContracts = activeContractRows.filter((c) => {
+    if (seenAgents.has(c.agent.id)) return false;
+    seenAgents.add(c.agent.id);
+    return true;
   });
 
   // Masse salariale = dernier bulletin importé de chaque agent (le baseSalary

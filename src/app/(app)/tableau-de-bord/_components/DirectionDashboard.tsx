@@ -97,9 +97,7 @@ export async function DirectionDashboard() {
     patsCount,
     prestataireCount,
     onLeaveToday,
-    cdiCount,
-    cddCount,
-    noContractCount,
+    employeesForContracts,
     pendingLeaves,
     openPostings,
     enrollments,
@@ -128,31 +126,19 @@ export async function DirectionDashboard() {
         endDate: { gte: today },
       },
     }),
-    // Salariés présents sous CDI : on compte des PERSONNES (un agent peut avoir
-    // plusieurs contrats successifs) et non des lignes de contrat.
-    prisma.agent.count({
-      where: {
-        ...EMPLOYEE_AGENT_WHERE,
+    // Repartition CDI / CDD : on compte des PERSONNES, un agent = un seul
+    // contrat courant (l'actif le plus recent). Compter les lignes de contrat
+    // gonflait le chiffre des qu'un renouvellement etait saisi sans cloturer
+    // le precedent.
+    prisma.agent.findMany({
+      where: EMPLOYEE_AGENT_WHERE,
+      select: {
         contracts: {
-          some: { type: ContractType.CDI, status: ContractStatus.ACTIF },
+          where: { status: ContractStatus.ACTIF },
+          orderBy: { startDate: "desc" },
+          take: 1,
+          select: { type: true },
         },
-      },
-    }),
-    // Salariés présents sous CDD
-    prisma.agent.count({
-      where: {
-        ...EMPLOYEE_AGENT_WHERE,
-        contracts: {
-          some: { type: ContractType.CDD, status: ContractStatus.ACTIF },
-        },
-      },
-    }),
-    // Salariés présents sans aucun contrat actif enregistré (explique l'écart
-    // entre l'effectif et la somme CDI + CDD).
-    prisma.agent.count({
-      where: {
-        ...EMPLOYEE_AGENT_WHERE,
-        contracts: { none: { status: ContractStatus.ACTIF } },
       },
     }),
     prisma.leaveRequest.count({
@@ -259,6 +245,17 @@ export async function DirectionDashboard() {
 
   // Compteur pour le module Communication (annonces actives)
   const announcementCount = await prisma.announcement.count();
+
+  // Repartition par contrat courant (voir requete ci-dessus).
+  let cdiCount = 0;
+  let cddCount = 0;
+  let noContractCount = 0;
+  for (const a of employeesForContracts) {
+    const current = a.contracts[0];
+    if (!current) noContractCount++;
+    else if (current.type === ContractType.CDI) cdiCount++;
+    else if (current.type === ContractType.CDD) cddCount++;
+  }
 
   const presenceRate =
     employeeCount > 0
@@ -375,9 +372,9 @@ export async function DirectionDashboard() {
         <KpiCard
           color="purple"
           icon="payroll"
-          label="Salariés en CDI"
-          value={String(cdiCount)}
-          hint={`${cddCount} en CDD${noContractCount > 0 ? ` · ${noContractCount} sans contrat` : ""}`}
+          label="CDI / CDD"
+          value={`${cdiCount} / ${cddCount}`}
+          hint={`Salariés présents${noContractCount > 0 ? ` · ${noContractCount} sans contrat` : ""}`}
         />
         <KpiCard
           color="green"
