@@ -57,6 +57,9 @@ export async function GET(request: NextRequest) {
     "Total brut",
     "Cotisations",
     "Net à payer",
+    "Transport",
+    "Charges patronales",
+    "Charge totale employeur",
     "Statut",
   ];
 
@@ -75,6 +78,9 @@ export async function GET(request: NextRequest) {
       gross,
       r.deductions,
       r.netSalary,
+      r.transport,
+      r.chargesPatronales,
+      gross + r.chargesPatronales + r.transport,
       r.status,
     ];
   });

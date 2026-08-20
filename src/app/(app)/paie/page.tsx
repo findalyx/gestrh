@@ -155,9 +155,15 @@ export default async function PaiePage({
       gross: acc.gross + r.baseSalary + r.bonuses + r.allowances,
       net: acc.net + r.netSalary,
       contributions: acc.contributions + r.deductions,
+      transport: acc.transport + r.transport,
+      employerCharges: acc.employerCharges + r.chargesPatronales,
     }),
-    { gross: 0, net: 0, contributions: 0 },
+    { gross: 0, net: 0, contributions: 0, transport: 0, employerCharges: 0 },
   );
+  // Charge totale supportée par l'employeur = brut + charges patronales +
+  // indemnité de transport (exonérée, versée en plus du brut).
+  const totalEmployerCost =
+    totals.gross + totals.employerCharges + totals.transport;
 
   const isAdmin = scope === "ALL";
 
@@ -313,7 +319,7 @@ export default async function PaiePage({
 
       {/* Tuiles synthèse — visibles pour tous (admin = équipe / agent = perso) */}
       {records.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <KpiCard
             color="blue"
             icon="payroll"
@@ -341,6 +347,13 @@ export default async function PaiePage({
             label={isAdmin ? "Total net à payer" : "Mon net cumulé"}
             value={FCFA.format(totals.net)}
             hint="FCFA"
+          />
+          <KpiCard
+            color="teal"
+            icon="compliance"
+            label={isAdmin ? "Charge employeur" : "Coût pour l'employeur"}
+            value={FCFA.format(totalEmployerCost)}
+            hint="Brut + patronales + transport"
           />
         </div>
       )}
@@ -405,7 +418,7 @@ export default async function PaiePage({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-sc-border bg-white shadow-[0_1px_2px_rgba(51,89,164,0.06)]">
-          <table className="w-full min-w-[640px] text-[13px]">
+          <table className="w-full min-w-[980px] text-[13px]">
             <thead className="bg-sc-blue-bg text-left">
               <tr className="text-[11px] font-semibold uppercase tracking-wider text-sc-blue-darker">
                 <th className="px-4 py-3">Période</th>
@@ -413,6 +426,9 @@ export default async function PaiePage({
                 <th className="px-4 py-3 text-right">Brut (FCFA)</th>
                 <th className="px-4 py-3 text-right">Cotisations</th>
                 <th className="px-4 py-3 text-right">Net (FCFA)</th>
+                <th className="px-4 py-3 text-right">Transport</th>
+                <th className="px-4 py-3 text-right">Charges patr.</th>
+                <th className="px-4 py-3 text-right">Charge totale</th>
                 <th className="px-4 py-3">Statut</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -446,6 +462,15 @@ export default async function PaiePage({
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono font-semibold text-sc-blue-darker">
                       {FCFA.format(r.netSalary)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-gray-700">
+                      {FCFA.format(r.transport)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-gray-700">
+                      {FCFA.format(r.chargesPatronales)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-sc-teal-dark">
+                      {FCFA.format(gross + r.chargesPatronales + r.transport)}
                     </td>
                     <td className="px-4 py-2.5">
                       <PayrollStatusBadge value={r.status} />
