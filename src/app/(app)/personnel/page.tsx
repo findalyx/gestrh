@@ -475,6 +475,11 @@ export default async function PersonnelListPage({
       {/* Compteur */}
       <div className="flex items-center justify-between text-[12.5px] text-gray-600">
         <p>
+          {/* Affichés sur cette page / total correspondant aux filtres. */}
+          <span className="font-semibold text-sc-blue-darker">
+            {agents.length}
+          </span>
+          <span className="text-gray-400"> / </span>
           <span className="font-semibold text-sc-blue-darker">{total}</span>{" "}
           {vue === "partis"
             ? `personne${total > 1 ? "s" : ""} partie${total > 1 ? "s" : ""}`
