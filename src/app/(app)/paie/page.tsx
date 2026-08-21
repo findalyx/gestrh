@@ -175,6 +175,20 @@ export default async function PaiePage({
 
   const isAdmin = scope === "ALL";
 
+  /**
+   * Montant des tuiles de synthèse. Côté administrateur les cumuls atteignent
+   * la centaine de millions et débordent sur deux lignes : on les abrège en
+   * millions (2 décimales). Un agent ne voit que ses propres montants, bien
+   * plus courts, donc affichés en entier.
+   */
+  const tileAmount = (n: number): string =>
+    isAdmin && Math.abs(n) >= 1_000_000
+      ? `${(n / 1_000_000).toLocaleString("fr-FR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })} M`
+      : FCFA.format(n);
+
   // Total de bulletins de la période sélectionnée (pour la suppression en lot).
   const periodCount =
     isAdmin && selectedPeriod
@@ -368,29 +382,29 @@ export default async function PaiePage({
             color="purple"
             icon="users"
             label={isAdmin ? "Total brut" : "Mon brut cumulé"}
-            value={FCFA.format(totals.gross)}
-            hint="FCFA"
+            value={tileAmount(totals.gross)}
+            hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
           <KpiCard
             color="warning"
             icon="compliance"
             label="Cotisations salariales"
-            value={FCFA.format(totals.contributions)}
-            hint="FCFA"
+            value={tileAmount(totals.contributions)}
+            hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
           <KpiCard
             color="green"
             icon="payroll"
             label={isAdmin ? "Total net à payer" : "Mon net cumulé"}
-            value={FCFA.format(totals.net)}
-            hint="FCFA"
+            value={tileAmount(totals.net)}
+            hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
           <KpiCard
             color="teal"
             icon="compliance"
             label={isAdmin ? "Charge employeur" : "Coût pour l'employeur"}
-            value={FCFA.format(totalEmployerCost)}
-            hint="FCFA"
+            value={tileAmount(totalEmployerCost)}
+            hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
         </div>
       )}
