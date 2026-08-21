@@ -406,7 +406,7 @@ export async function DirectionDashboard() {
           valueTitle={`${FCFA.format(massCout)} FCFA`}
           hint={
             paidMonths > 0
-              ? `Chargé · cumul ${paidMonths} mois`
+              ? "Cumul YTD"
               : `Aucun bulletin en ${today.getFullYear()}`
           }
         />
@@ -415,7 +415,7 @@ export async function DirectionDashboard() {
           icon="evaluation"
           label="Taux de présence"
           value={`${presenceRate}%`}
-          hint={`${onLeaveToday} agent(s) en congé`}
+          hint={`${onLeaveToday} absent${onLeaveToday > 1 ? "s" : ""}`}
         />
         <KpiCard
           color="warning"

@@ -256,7 +256,7 @@ export async function ManagerDashboard({ managerAgentId, firstName }: Props) {
           icon="evaluation"
           label="Taux de présence"
           value={`${presenceRate}%`}
-          hint={`${onLeaveToday} en congé aujourd'hui`}
+          hint={`${onLeaveToday} absent${onLeaveToday > 1 ? "s" : ""}`}
         />
         <KpiCard
           color="warning"
