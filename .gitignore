@@ -79,3 +79,6 @@ Papier*.docx
 *.xls
 # Exception : gabarit ESG vierge (structure + exemples génériques, aucune donnée réelle)
 !src/app/(app)/esg/_lib/esg-template.xlsx
+
+# Bulletins de paie deposes localement pour analyse (donnees personnelles)
+bulletins/
