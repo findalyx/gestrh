@@ -406,7 +406,11 @@ export async function DirectionDashboard() {
           icon="payroll"
           label="CDI / CDD"
           value={`${cdiCount} / ${cddCount}`}
-          hint={`Dont ${prestataireCount} permanent${prestataireCount > 1 ? "s" : ""}${noContractCount > 0 ? ` · ${noContractCount} sans contrat` : ""}`}
+          hint={
+            noContractCount > 0
+              ? `${noContractCount} sans contrat`
+              : "Agents présents"
+          }
         />
         <KpiCard
           color="green"
