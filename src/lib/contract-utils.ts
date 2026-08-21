@@ -11,8 +11,16 @@ import {
 } from "@prisma/client";
 
 /** Âge légal de retraite selon la catégorie (Sénégal). */
+/**
+ * Âge de départ à la retraite : 60 ans pour tous.
+ *
+ * C'est l'âge légal du secteur privé sénégalais (régime IPRES). La poursuite de
+ * l'activité jusqu'à 65 ans reste possible, mais c'est une FACULTÉ ouverte aux
+ * parties — pas une règle d'âge : elle se décide au cas par cas et ne doit donc
+ * pas décaler l'alerte, dont le rôle est justement de provoquer cette décision.
+ */
 export const RETIREMENT_AGE: Record<StaffCategory, number> = {
-  PER: 65,
+  PER: 60,
   PATS: 60,
   PRESTATAIRE: 60,
 };

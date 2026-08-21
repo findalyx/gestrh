@@ -7,6 +7,7 @@ import {
   ContractStatus,
   ContractType,
   Role,
+  type DepartureReason,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/dal";
@@ -23,6 +24,17 @@ import { Icon } from "@/components/Icon";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+const DEPARTURE_REASON_LABEL: Record<DepartureReason, string> = {
+  DEMISSION: "Démission",
+  FIN_CDD: "Fin de CDD",
+  LICENCIEMENT: "Licenciement",
+  RETRAITE: "Retraite",
+  RUPTURE_CONVENTIONNELLE: "Rupture d'un commun accord",
+  ABANDON_POSTE: "Abandon de poste",
+  DECES: "Décès",
+  AUTRE: "Autre motif",
+};
 
 function formatShortDate(d: Date): string {
   return new Intl.DateTimeFormat("fr-FR", { dateStyle: "short" }).format(d);
@@ -506,6 +518,7 @@ export default async function PersonnelListPage({
               <th className="px-4 py-3">Poste</th>
               <th className="px-4 py-3">Catégorie</th>
               <th className="px-4 py-3">Contrat</th>
+              {vue === "partis" && <th className="px-4 py-3">Départ</th>}
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3 w-10" />
             </tr>
@@ -514,7 +527,7 @@ export default async function PersonnelListPage({
             {agents.length === 0 ? (
               <tr>
                 <td
-                  colSpan={8}
+                  colSpan={vue === "partis" ? 9 : 8}
                   className="px-4 py-10 text-center text-[13px] text-gray-500"
                 >
                   {vue === "partis"
@@ -586,6 +599,29 @@ export default async function PersonnelListPage({
                       );
                     })()}
                   </td>
+                  {vue === "partis" && (
+                    <td className="px-4 py-2.5">
+                      {a.departureDate ? (
+                        <>
+                          <div className="text-gray-700">
+                            {formatShortDate(a.departureDate)}
+                          </div>
+                          {a.departureReason && (
+                            <div className="text-[11px] text-gray-500">
+                              {DEPARTURE_REASON_LABEL[a.departureReason]}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span
+                          className="rounded-full bg-sc-warning-light px-2 py-[1px] text-[10.5px] font-semibold text-[#854f0b]"
+                          title="Sans date de départ, cette personne n'est pas comptée dans les départs de l'année"
+                        >
+                          Date manquante
+                        </span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-2.5">
                     <AgentStatusBadge value={a.status} />
                   </td>
