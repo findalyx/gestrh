@@ -87,6 +87,61 @@ function secondAmount(s: string | undefined | null): number | null {
   return digits ? Number.parseInt(digits, 10) : null;
 }
 
+/**
+ * Tous les montants d'une portion de LIGNE de bulletin. Deux pièges du format :
+ *  - le séparateur de milliers est une espace (« 26 000 ») ;
+ *  - la virgule introduit des décimales et termine donc le nombre
+ *    (« 30,00 » = 30 jours, « 866,667 » = base journalière).
+ * « 30,00 866,667 26 000 » → [30, 866, 26000].
+ */
+function allAmounts(s: string | undefined | null): number[] {
+  if (!s) return [];
+  const tokens = s.trim().split(/[ \t  ]+/).filter(Boolean);
+  const out: number[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const head = /^(\d+)(?:[.,](\d+))?$/.exec(tokens[i]);
+    i++;
+    if (!head) continue;
+    let acc = head[1];
+    let closed = Boolean(head[2]); // des décimales terminent le nombre
+    while (!closed && i < tokens.length) {
+      const group = /^(\d{3})(?:[.,](\d+))?$/.exec(tokens[i]);
+      if (!group) break;
+      acc += group[1];
+      if (group[2]) closed = true;
+      i++;
+    }
+    out.push(Number.parseInt(acc, 10));
+  }
+  return out;
+}
+
+/**
+ * Indemnité de transport, lue sur la ligne « Indemnité de transport » du
+ * bulletin. Cette ligne aligne plusieurs colonnes — nombre de jours, base
+ * journalière, puis le gain :
+ *
+ *   2512  Indemnité de transport   30,00   866,667   26 000
+ *
+ * On retient donc le PLUS GRAND montant de la ligne (le gain), et non le
+ * premier venu : lire le premier donnait 30 (les jours). La capture s'arrête en
+ * fin de ligne pour ne pas déborder sur la suivante.
+ */
+const MIN_TRANSPORT = 1000;
+
+function transportAmount(text: string): number | null {
+  const re = /transport[^\d\n]{0,40}([\d.,   \t]{1,60})/gi;
+  const candidates: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    for (const v of allAmounts(m[1])) {
+      if (v >= MIN_TRANSPORT) candidates.push(v);
+    }
+  }
+  return candidates.length > 0 ? Math.max(...candidates) : null;
+}
+
 function parsePeriod(text: string): string | null {
   const m = text.match(
     /\b(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})/i,
@@ -104,13 +159,9 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
   // charges patronales). Donne la vraie retenue, qui peut différer de
   // (brut − net) à cause des indemnités non imposables (transport…).
   const cotis = text.match(/Total\s*cotisations?\s*([\d   ]+)/i);
-  // Indemnité de transport : ligne « Transport », « Ind. transport »,
-  // « Prime de transport »… suivie de son montant. Elle est exonérée et n'entre
-  // pas dans le total brut imposable, alors qu'elle est bien payée par
-  // l'employeur — on la capture pour le coût employeur.
-  const transp = text.match(
-    /(?:indemnit[ée]s?|prime|frais)?\s*(?:de\s*|d')?transport[^\d]{0,20}([\d   ]+)/i,
-  );
+  // Indemnité de transport : exonérée, elle n'entre pas dans le total brut
+  // imposable alors qu'elle est bien payée par l'employeur — on la capture pour
+  // le coût employeur (voir transportAmount pour les pièges de lecture).
   const nm = text.match(
     /\b(?:Mme|Mlle|Mr|M)\b\s+([A-ZÀ-Ÿ][A-ZÀ-Ÿ '\-]{2,30})/,
   );
@@ -125,7 +176,7 @@ export function parsePayslipPage(text: string, page: number): ParsedPayslip {
     cotisation: firstAmount(cotis?.[1]),
     // 2e nombre = charges patronales (part employeur).
     patronale: secondAmount(cotis?.[1]),
-    transport: firstAmount(transp?.[1]),
+    transport: transportAmount(text),
   };
 }
 
