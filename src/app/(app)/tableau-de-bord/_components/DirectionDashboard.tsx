@@ -135,9 +135,10 @@ export async function DirectionDashboard() {
     // Repartition CDI / CDD : on compte des PERSONNES, un agent = un seul
     // contrat courant (l'actif le plus recent). Compter les lignes de contrat
     // gonflait le chiffre des qu'un renouvellement etait saisi sans cloturer
-    // le precedent.
+    // le precedent. Les permanents (categorie Prestataire) sont inclus : leurs
+    // contrats sont des CDI.
     prisma.agent.findMany({
-      where: EMPLOYEE_AGENT_WHERE,
+      where: ACTIVE_AGENT_WHERE,
       select: {
         contracts: {
           where: { status: ContractStatus.ACTIF },
@@ -405,7 +406,7 @@ export async function DirectionDashboard() {
           icon="payroll"
           label="CDI / CDD"
           value={`${cdiCount} / ${cddCount}`}
-          hint={`+ ${prestataireCount} permanent${prestataireCount > 1 ? "s" : ""}${noContractCount > 0 ? ` · ${noContractCount} sans contrat` : ""}`}
+          hint={`Dont ${prestataireCount} permanent${prestataireCount > 1 ? "s" : ""}${noContractCount > 0 ? ` · ${noContractCount} sans contrat` : ""}`}
         />
         <KpiCard
           color="green"
