@@ -222,27 +222,17 @@ async function processPayslipsBuffer({
       continue;
     }
     const brut = p.brut ?? p.net;
-    // Cotisations salariales réelles lues sur le bulletin (« Total cotisation »).
-    // Repli sur (brut − net) si l'extraction échoue. Le calcul brut − net est
-    // faux quand des indemnités non imposables (transport…) gonflent le net.
-    // La cotisation salariale est toujours < brut. Ce garde rejette une
-    // extraction douteuse (montants collés) et évite tout dépassement Int.
-    const deductions =
-      p.cotisation != null && p.cotisation > 0 && p.cotisation < brut
-        ? p.cotisation
-        : Math.max(0, brut - p.net);
-    // Charges patronales (2e montant du « Total cotisation »). Garde-fou :
-    // strictement positif et < brut (rejette une extraction douteuse).
+    // Cotisations salariales et charges patronales lues cellule par cellule sur
+    // la ligne « Total cotisation » (lecture positionnelle : voir
+    // payslip-parse). La valeur peut être négative quand un impôt est régularisé
+    // à la baisse — on la conserve telle quelle. Repli sur (brut − net)
+    // uniquement si la ligne est absente ; ce calcul est approximatif, les
+    // indemnités non imposables (transport…) gonflant le net.
+    const deductions = p.cotisation ?? Math.max(0, brut - p.net);
     const chargesPatronales =
-      p.patronale != null && p.patronale > 0 && p.patronale < brut
-        ? p.patronale
-        : 0;
-    // Indemnité de transport : exonérée, versée en plus du brut. Garde-fou :
-    // strictement positive et inférieure au brut (rejette une lecture douteuse).
-    const transport =
-      p.transport != null && p.transport > 0 && p.transport < brut
-        ? p.transport
-        : 0;
+      p.patronale != null && p.patronale > 0 ? p.patronale : 0;
+    // Indemnité de transport : exonérée, versée en plus du brut.
+    const transport = p.transport != null && p.transport > 0 ? p.transport : 0;
     const pdfUrl = await saveIndividualBulletin(p.page, p.period, agent.id);
 
     const existing = await prisma.payrollRecord.findUnique({
