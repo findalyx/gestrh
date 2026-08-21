@@ -160,8 +160,28 @@ function RetirementBadge({ months }: { months: number }) {
 }
 
 export function RetirementCard({ alerts }: { alerts: RetirementAlertItem[] }) {
-  const next24 = alerts.filter((a) => (a.alertWindow ?? 99) <= 24).length;
+  const within24 = alerts.filter((a) => (a.alertWindow ?? 99) <= 24);
+  const next24 = within24.length;
   const visible = alerts.slice(0, 6);
+
+  // La tuile prend la couleur de l'échéance la PLUS URGENTE qu'elle contient,
+  // sur la même échelle que les badges : rouge ≤ 3 mois ou dépassé, orange
+  // ≤ 6, ambre ≤ 12, bleu ≤ 24. Sans quoi une pastille orange sur « ≤ 24 mois »
+  // contredisait la couleur bleue des lignes correspondantes.
+  const soonest = within24.reduce(
+    (min, a) => Math.min(min, a.totalMonthsRemaining),
+    Number.POSITIVE_INFINITY,
+  );
+  const next24Style =
+    next24 === 0
+      ? WINDOW_STYLE.long
+      : soonest <= 3
+        ? WINDOW_STYLE[3]
+        : soonest <= 6
+          ? WINDOW_STYLE[6]
+          : soonest <= 12
+            ? WINDOW_STYLE[12]
+            : WINDOW_STYLE[24];
 
   return (
     <CardShell
@@ -171,19 +191,15 @@ export function RetirementCard({ alerts }: { alerts: RetirementAlertItem[] }) {
       emptyMessage="Aucun départ en retraite dans les 5 ans."
     >
       <div className="mb-3 grid grid-cols-2 gap-2 text-[11px]">
-        <div className="rounded-md bg-sc-blue-light px-2 py-1.5 text-center">
-          <div className="text-[16px] font-bold leading-none text-sc-blue">
-            {alerts.length}
-          </div>
-          <div className="mt-0.5 font-semibold uppercase tracking-wide text-sc-blue">
+        <div className={`rounded-md px-2 py-1.5 text-center ${WINDOW_STYLE.long}`}>
+          <div className="text-[16px] font-bold leading-none">{alerts.length}</div>
+          <div className="mt-0.5 font-semibold uppercase tracking-wide">
             5 ans
           </div>
         </div>
-        <div className="rounded-md bg-orange-100 px-2 py-1.5 text-center">
-          <div className="text-[16px] font-bold leading-none text-orange-700">
-            {next24}
-          </div>
-          <div className="mt-0.5 font-semibold uppercase tracking-wide text-orange-700">
+        <div className={`rounded-md px-2 py-1.5 text-center ${next24Style}`}>
+          <div className="text-[16px] font-bold leading-none">{next24}</div>
+          <div className="mt-0.5 font-semibold uppercase tracking-wide">
             ≤ 24 mois
           </div>
         </div>
