@@ -142,12 +142,16 @@ function RetirementBadge({ months }: { months: number }) {
   else if (months <= 12) style = WINDOW_STYLE[12];
   else if (months <= 24) style = WINDOW_STYLE[24];
 
+  // Au-delà d'un an on précise les mois restants : « 1 an 6 mois » et non
+  // « 1 an », qui laissait croire à tort que l'échéance dépassait les 24 mois.
+  const years = Math.floor(months / 12);
+  const restMonths = months - years * 12;
   const label =
     months <= 0
       ? `Échue (${Math.abs(months)} m)`
       : months < 12
         ? `${months} mois`
-        : `${Math.floor(months / 12)} an${Math.floor(months / 12) > 1 ? "s" : ""}`;
+        : `${years} an${years > 1 ? "s" : ""}${restMonths > 0 ? ` ${restMonths} mois` : ""}`;
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${style}`}>
       {label}
