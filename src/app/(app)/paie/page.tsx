@@ -383,6 +383,7 @@ export default async function PaiePage({
             icon="users"
             label={isAdmin ? "Total brut" : "Mon brut cumulé"}
             value={tileAmount(totals.gross)}
+            valueTitle={`${FCFA.format(totals.gross)} FCFA`}
             hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
           <KpiCard
@@ -390,6 +391,7 @@ export default async function PaiePage({
             icon="compliance"
             label="Cotisations salariales"
             value={tileAmount(totals.contributions)}
+            valueTitle={`${FCFA.format(totals.contributions)} FCFA`}
             hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
           <KpiCard
@@ -397,6 +399,7 @@ export default async function PaiePage({
             icon="payroll"
             label={isAdmin ? "Total net à payer" : "Mon net cumulé"}
             value={tileAmount(totals.net)}
+            valueTitle={`${FCFA.format(totals.net)} FCFA`}
             hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
           <KpiCard
@@ -404,6 +407,7 @@ export default async function PaiePage({
             icon="compliance"
             label={isAdmin ? "Charge employeur" : "Coût pour l'employeur"}
             value={tileAmount(totalEmployerCost)}
+            valueTitle={`${FCFA.format(totalEmployerCost)} FCFA`}
             hint={isAdmin ? "Millions de FCFA" : "FCFA"}
           />
         </div>

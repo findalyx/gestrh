@@ -110,7 +110,7 @@ export async function DirectionDashboard() {
     evalsTotal,
     evalsDone,
     payrollThisPeriod,
-    massLatestPeriod,
+    payrollYtd,
     hireRows,
     departuresThisYear,
     services,
@@ -160,28 +160,19 @@ export async function DirectionDashboard() {
     prisma.evaluation.count(),
     prisma.evaluation.count({ where: { status: EvaluationStatus.TERMINEE } }),
     prisma.payrollRecord.count({ where: { period: latestPeriod?.period ?? "" } }),
-    // Coût employeur de la dernière période
-    // (brut + charges patronales + indemnité de transport)
-    latestPeriod
-      ? prisma.payrollRecord.aggregate({
-          where: { period: latestPeriod.period },
-          _sum: {
-            baseSalary: true,
-            bonuses: true,
-            allowances: true,
-            chargesPatronales: true,
-            transport: true,
-          },
-        })
-      : Promise.resolve({
-          _sum: {
-            baseSalary: 0,
-            bonuses: 0,
-            allowances: 0,
-            chargesPatronales: 0,
-            transport: 0,
-          },
-        }),
+    // Coût employeur cumulé depuis janvier (brut + charges patronales +
+    // transport), groupé par mois pour connaître le nombre de mois payés.
+    prisma.payrollRecord.groupBy({
+      by: ["period"],
+      where: { period: { startsWith: `${today.getFullYear()}-` } },
+      _sum: {
+        baseSalary: true,
+        bonuses: true,
+        allowances: true,
+        chargesPatronales: true,
+        transport: true,
+      },
+    }),
     // Entrees de l'annee : salaries PER + PATS (prestataires exclus), dates par
     // la date d'entree de la fiche — la meme que le filtre « Entree a partir
     // du » de la liste du personnel, pour que les deux ecrans concordent. Un
@@ -356,29 +347,24 @@ export async function DirectionDashboard() {
 
   // Mise en forme compacte FCFA
   const FCFA = new Intl.NumberFormat("fr-FR");
-  const massCout =
-    (massLatestPeriod._sum.baseSalary ?? 0) +
-    (massLatestPeriod._sum.bonuses ?? 0) +
-    (massLatestPeriod._sum.allowances ?? 0) +
-    (massLatestPeriod._sum.chargesPatronales ?? 0) +
-    (massLatestPeriod._sum.transport ?? 0);
+  // Coût employeur cumulé de l'année (tous les mois payés à ce jour).
+  const massCout = payrollYtd.reduce(
+    (acc, p) =>
+      acc +
+      (p._sum.baseSalary ?? 0) +
+      (p._sum.bonuses ?? 0) +
+      (p._sum.allowances ?? 0) +
+      (p._sum.chargesPatronales ?? 0) +
+      (p._sum.transport ?? 0),
+    0,
+  );
+  const paidMonths = payrollYtd.length;
   const compactFcfa = (n: number): string => {
     if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} Md`;
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(0)} K`;
     return FCFA.format(n);
   };
-  const periodLabel = (() => {
-    if (!latestPeriod) return "—";
-    const [y, m] = latestPeriod.period.split("-").map(Number);
-    if (!y || !m) return latestPeriod.period;
-    const label = new Intl.DateTimeFormat("fr-FR", {
-      month: "long",
-      year: "numeric",
-    }).format(new Date(y, m - 1, 1));
-    return label.charAt(0).toUpperCase() + label.slice(1);
-  })();
-
   const moduleStats: Record<string, string> = {
     "/personnel": `${totalAgents} dossiers`,
     "/paie": `${payrollThisPeriod} bulletins`,
@@ -415,9 +401,14 @@ export async function DirectionDashboard() {
         <KpiCard
           color="green"
           icon="payroll"
-          label="Coût employeur"
+          label={`Coût employeur ${today.getFullYear()}`}
           value={compactFcfa(massCout)}
-          hint={`Chargé · ${periodLabel}`}
+          valueTitle={`${FCFA.format(massCout)} FCFA`}
+          hint={
+            paidMonths > 0
+              ? `Chargé · cumul ${paidMonths} mois`
+              : `Aucun bulletin en ${today.getFullYear()}`
+          }
         />
         <KpiCard
           color="teal"

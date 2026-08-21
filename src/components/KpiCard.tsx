@@ -22,12 +22,15 @@ export function KpiCard({
   label,
   value,
   hint,
+  valueTitle,
 }: {
   color: KpiColor;
   icon: IconName;
   label: string;
   value: string;
   hint: string;
+  /** Valeur complète affichée au survol (utile quand `value` est abrégée). */
+  valueTitle?: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-sc-border bg-white p-4 shadow-[0_1px_2px_rgba(51,89,164,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(51,89,164,0.08)]">
@@ -40,7 +43,12 @@ export function KpiCard({
         <div className="text-[11px] font-medium leading-snug text-gray-500">
           {label}
         </div>
-        <div className="text-[18px] font-bold leading-tight text-sc-blue-darker break-words">
+        <div
+          className={`text-[18px] font-bold leading-tight text-sc-blue-darker break-words ${
+            valueTitle ? "cursor-help" : ""
+          }`}
+          title={valueTitle}
+        >
           {value}
         </div>
         <div className="text-[11px] leading-snug text-gray-500">{hint}</div>
